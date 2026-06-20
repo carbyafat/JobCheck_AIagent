@@ -49,6 +49,9 @@ jobs/
 
 job_index/
   jobs_index.json
+
+job_tracking/
+  {job_id}.tracking.json
 ```
 
 建議一個職缺一個 JSON，原因是：
@@ -57,6 +60,72 @@ job_index/
 - 單一職缺比較容易更新追蹤狀態
 - 不會因為職缺變多，讓單一 JSON 檔案過大
 - 之後可以另外用 `jobs_index.json` 給 Unity 快速讀取列表摘要
+
+`job_tracking/` 用來保存使用者操作資料，避免程式操作污染 AI 產生的原始職缺 JSON。
+
+分工原則：
+
+- `jobs/*.json`：職缺原始資料，AI 產生，不常修改
+- `job_index/jobs_index.json`：列表摘要，可重建
+- `job_tracking/*.tracking.json`：使用者操作資料，Unity 程式可修改
+
+## Job Tracking：使用者操作資料
+
+每份職缺可以有一份 tracking JSON。
+
+```json
+{
+  "job_id": "demo_job_001",
+  "status": "not_viewed",
+  "last_action_at": "",
+  "manual_expire_at": "",
+  "favorite": false,
+  "fit_score": -1
+}
+```
+
+欄位規則：
+
+- `job_id`：對應 `jobs/*.json` 與 `jobs_index.json` 的 `id`
+- `status`：目前狀態
+- `last_action_at`：最後一次使用者操作日期，格式使用 ISO 8601
+- `manual_expire_at`：人工指定過期日期。若為空，使用狀態預設等待天數推算
+- `favorite`：我的最愛，可用於排序或置頂
+- `fit_score`：適配度分數，尚未評分時使用 `-1`
+
+建議狀態：
+
+- `not_viewed`：未檢視
+- `interested`：有興趣
+- `not_applying`：確認不投
+- `applied`：已投遞
+- `interview_scheduled`：已預約面試
+- `waiting_reply`：等回覆
+- `offer`：錄取
+- `rejected`：未錄取
+- `archived`：封存
+- `archived_wait_other_job_result`：已封存，等待其他面試結果
+
+逾期規則：
+
+- 逾期是顯示與排序用的計算結果，不應直接修改 `status`
+- 若 `manual_expire_at` 有值，優先使用該日期判斷是否逾期
+- 若 `manual_expire_at` 為空，使用 `last_action_at + 狀態預設等待天數`
+- 逾期項目在列表頁應優先顯示
+- 逾期項目的狀態文字可用紅色提示，例如 `等回覆（已逾期）`
+
+第一版預設等待天數：
+
+| 狀態 | 天數 |
+|---|---:|
+| `interested` 有興趣 | 14 |
+| `applied` 已投遞 | 7 |
+| `interview_scheduled` 已預約面試 | 3 |
+| `interviewing` 已面試 | 7 |
+| `waiting_reply` 等回覆 | 7 |
+| `archived_wait_other_job_result` 已封存，等待其他面試結果 | 14 |
+
+其他狀態不自動逾期。
 
 ## Jobs Index：總攬索引檔
 
