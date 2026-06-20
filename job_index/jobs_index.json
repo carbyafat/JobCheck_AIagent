@@ -4,19 +4,21 @@
   "jobs": [
     {
       "id": "104_yahsin_software_engineer_2026-06-20",
-      "file": "jobs/104_yahsin_software_engineer_2026-06-20.example.json",
+      "file": "../jobs/104_yahsin_software_engineer_2026-06-20.example.json",
       "company": "亞新工程顧問股份有限公司",
       "title": "軟體工程師",
       "salary": "待遇面議（經常性薪資達 4 萬元或以上）",
-      "parse_status": "usable"
+      "parse_status": "usable",
+      "status": "not_viewed"
     },
     {
       "id": "104_tianhuo_unity_frontend_game_programmer_2026-06-20",
-      "file": "jobs/104_tianhuo_unity_frontend_game_programmer_2026-06-20.json",
+      "file": "../jobs/104_tianhuo_unity_frontend_game_programmer_2026-06-20.json",
       "company": "天火數位股份有限公司",
       "title": "Unity遊戲程式設計師(前端)",
       "salary": "待遇面議（經常性薪資達 4 萬元或以上）",
-      "parse_status": "usable"
+      "parse_status": "usable",
+      "status": "not_viewed"
     }
   ]
 }

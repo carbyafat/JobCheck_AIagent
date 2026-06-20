@@ -47,7 +47,8 @@
 jobs/
   {source}_{company}_{title}_{captured_date}.json
 
-jobs_index.json
+job_index/
+  jobs_index.json
 ```
 
 建議一個職缺一個 JSON，原因是：
@@ -84,11 +85,12 @@ jobs_index.json
   "jobs": [
     {
       "id": "104_yahsin_software_engineer_2026-06-20",
-      "file": "jobs/104_yahsin_software_engineer_2026-06-20.example.json",
+      "file": "../jobs/104_yahsin_software_engineer_2026-06-20.example.json",
       "company": "亞新工程顧問股份有限公司",
       "title": "軟體工程師",
       "salary": "待遇面議（經常性薪資達 4 萬元或以上）",
-      "parse_status": "usable"
+      "parse_status": "usable",
+      "status": "not_viewed"
     }
   ]
 }
@@ -102,6 +104,7 @@ jobs_index.json
 - `title` 來自 `job.title`
 - `salary` 優先使用 `compensation.raw_text`
 - `parse_status` 讓 Unity 可以預設只顯示 `usable`，或將 `needs_review`、`unusable` 分區顯示
+- `status` 是使用者追蹤狀態，例如 `not_viewed`、`applied`、`interviewing`
 
 第一版 Unity 顯示列表時，只需要使用：
 
@@ -489,6 +492,7 @@ salary
 允許的 `status`：
 
 - `not_applied`：尚未投遞
+- `not_viewed`：未檢視
 - `interested`：有興趣
 - `applied`：已投遞
 - `interviewing`：面試中
