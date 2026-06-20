@@ -84,11 +84,11 @@ job_index/
   "generated_at": "2026-06-20T10:50:00+08:00",
   "jobs": [
     {
-      "id": "104_yahsin_software_engineer_2026-06-20",
-      "file": "../jobs/104_yahsin_software_engineer_2026-06-20.example.json",
-      "company": "亞新工程顧問股份有限公司",
-      "title": "軟體工程師",
-      "salary": "待遇面議（經常性薪資達 4 萬元或以上）",
+      "id": "demo_job_001",
+      "file": "../jobs/demo_job_001.json",
+      "company": "星河互動科技_測試",
+      "title": "前端工程師",
+      "salary": "月薪 45,000~65,000 元",
       "parse_status": "usable",
       "status": "not_viewed"
     }

@@ -1,24 +1,186 @@
-{
-  "schema_version": "0.1",
-  "generated_at": "2026-06-20T11:00:00+08:00",
-  "jobs": [
-    {
-      "id": "104_yahsin_software_engineer_2026-06-20",
-      "file": "../jobs/104_yahsin_software_engineer_2026-06-20.example.json",
-      "company": "亞新工程顧問股份有限公司",
-      "title": "軟體工程師",
-      "salary": "待遇面議（經常性薪資達 4 萬元或以上）",
-      "parse_status": "usable",
-      "status": "not_viewed"
-    },
-    {
-      "id": "104_tianhuo_unity_frontend_game_programmer_2026-06-20",
-      "file": "../jobs/104_tianhuo_unity_frontend_game_programmer_2026-06-20.json",
-      "company": "天火數位股份有限公司",
-      "title": "Unity遊戲程式設計師(前端)",
-      "salary": "待遇面議（經常性薪資達 4 萬元或以上）",
-      "parse_status": "usable",
-      "status": "not_viewed"
-    }
-  ]
+﻿{
+    "schema_version":  "0.1",
+    "generated_at":  "2026-06-20T12:50:00+08:00",
+    "jobs":  [
+                 {
+                     "id":  "demo_job_001",
+                     "file":  "../jobs/demo_job_001.json",
+                     "company":  "星河互動科技_測試",
+                     "title":  "前端工程師",
+                     "salary":  "月薪 45,000~65,000 元",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_002",
+                     "file":  "../jobs/demo_job_002.json",
+                     "company":  "晨光軟體實驗室_測試",
+                     "title":  "後端工程師",
+                     "salary":  "月薪 50,000~80,000 元",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_003",
+                     "file":  "../jobs/demo_job_003.json",
+                     "company":  "藍曜數位服務_測試",
+                     "title":  "Unity 遊戲程式設計師",
+                     "salary":  "待遇面議（經常性薪資達 4 萬元或以上）",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_004",
+                     "file":  "../jobs/demo_job_004.json",
+                     "company":  "風格資料科技_測試",
+                     "title":  "全端工程師",
+                     "salary":  "年薪 800,000~1,200,000 元",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_005",
+                     "file":  "../jobs/demo_job_005.json",
+                     "company":  "雲港創意系統_測試",
+                     "title":  "AI 應用工程師",
+                     "salary":  "月薪 40,000 元以上",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_006",
+                     "file":  "../jobs/demo_job_006.json",
+                     "company":  "綠洲網路方案_測試",
+                     "title":  "資料工程師",
+                     "salary":  "月薪 45,000~65,000 元",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_007",
+                     "file":  "../jobs/demo_job_007.json",
+                     "company":  "北辰遊戲工作室_測試",
+                     "title":  "雲端平台工程師",
+                     "salary":  "月薪 50,000~80,000 元",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_008",
+                     "file":  "../jobs/demo_job_008.json",
+                     "company":  "銀杏智能平台_測試",
+                     "title":  "DevOps 工程師",
+                     "salary":  "待遇面議（經常性薪資達 4 萬元或以上）",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_009",
+                     "file":  "../jobs/demo_job_009.json",
+                     "company":  "海風資訊設計_測試",
+                     "title":  "遊戲伺服器工程師",
+                     "salary":  "年薪 800,000~1,200,000 元",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_010",
+                     "file":  "../jobs/demo_job_010.json",
+                     "company":  "橘點應用科技_測試",
+                     "title":  "行動應用工程師",
+                     "salary":  "月薪 40,000 元以上",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_011",
+                     "file":  "../jobs/demo_job_011.json",
+                     "company":  "晴空資料工程_測試",
+                     "title":  "軟體測試工程師",
+                     "salary":  "月薪 45,000~65,000 元",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_012",
+                     "file":  "../jobs/demo_job_012.json",
+                     "company":  "墨石互動媒體_測試",
+                     "title":  "系統分析師",
+                     "salary":  "月薪 50,000~80,000 元",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_013",
+                     "file":  "../jobs/demo_job_013.json",
+                     "company":  "白塔軟體顧問_測試",
+                     "title":  "產品工程師",
+                     "salary":  "待遇面議（經常性薪資達 4 萬元或以上）",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_014",
+                     "file":  "../jobs/demo_job_014.json",
+                     "company":  "光庭產品開發_測試",
+                     "title":  "工具開發工程師",
+                     "salary":  "年薪 800,000~1,200,000 元",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_015",
+                     "file":  "../jobs/demo_job_015.json",
+                     "company":  "松果雲端服務_測試",
+                     "title":  "資料視覺化工程師",
+                     "salary":  "月薪 40,000 元以上",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_016",
+                     "file":  "../jobs/demo_job_016.json",
+                     "company":  "遠景系統整合_測試",
+                     "title":  "網站工程師",
+                     "salary":  "月薪 45,000~65,000 元",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_017",
+                     "file":  "../jobs/demo_job_017.json",
+                     "company":  "星火前端工坊_測試",
+                     "title":  "C# 軟體工程師",
+                     "salary":  "月薪 50,000~80,000 元",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_018",
+                     "file":  "../jobs/demo_job_018.json",
+                     "company":  "木棉 AI 應用_測試",
+                     "title":  "Python 自動化工程師",
+                     "salary":  "待遇面議（經常性薪資達 4 萬元或以上）",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_019",
+                     "file":  "../jobs/demo_job_019.json",
+                     "company":  "青鳥遊戲科技_測試",
+                     "title":  "UI 工程師",
+                     "salary":  "年薪 800,000~1,200,000 元",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 },
+                 {
+                     "id":  "demo_job_020",
+                     "file":  "../jobs/demo_job_020.json",
+                     "company":  "夜航數據平台_測試",
+                     "title":  "技術支援工程師",
+                     "salary":  "月薪 40,000 元以上",
+                     "parse_status":  "usable",
+                     "status":  "not_viewed"
+                 }
+             ]
 }
