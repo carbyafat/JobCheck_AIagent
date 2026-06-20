@@ -1,0 +1,164 @@
+{
+  "schema_version": "0.1",
+  "id": "104_tianhuo_unity_frontend_game_programmer_2026-06-20",
+  "parse_status": "usable",
+  "source": {
+    "platform": "104",
+    "url": "https://www.104.com.tw/job/8p4ru?jobsource=joblist_search",
+    "captured_at": "2026-06-20T11:00:00+08:00",
+    "raw_images": [
+      "C:/Users/User/AppData/Local/Temp/codex-clipboard-cb1df4cd-03a3-4b6f-bdcb-c81dd8869d87.png",
+      "C:/Users/User/AppData/Local/Temp/codex-clipboard-15976252-4882-4446-afb4-d3fed8b8352a.png",
+      "C:/Users/User/AppData/Local/Temp/codex-clipboard-07de65d3-cd82-4d32-a23e-f4b3cf0afc58.png"
+    ]
+  },
+  "company": {
+    "name": "天火數位股份有限公司",
+    "industry": null,
+    "raw_text": "天火數位股份有限公司"
+  },
+  "job": {
+    "title": "Unity遊戲程式設計師(前端)",
+    "department": null,
+    "category": "遊戲工程師、軟體工程師",
+    "updated_date": "06/16",
+    "openings": "1~2人",
+    "raw_text": "Unity遊戲程式設計師(前端)"
+  },
+  "compensation": {
+    "type": "negotiable",
+    "period": null,
+    "min": 40000,
+    "max": null,
+    "currency": "TWD",
+    "raw_text": "待遇面議（經常性薪資達 4 萬元或以上）",
+    "notes": "經常性薪資達 4 萬元或以上"
+  },
+  "location": {
+    "work_mode": "onsite",
+    "city": "新北市",
+    "district": "中和區",
+    "address": "新北市中和區建一路166號8樓之3",
+    "remote_allowed": false,
+    "raw_text": "新北市中和區建一路166號8樓之3"
+  },
+  "work_conditions": {
+    "employment_type": "全職",
+    "working_hours": "日班",
+    "business_trip": "無需出差外派",
+    "management_responsibility": "不需負擔管理責任",
+    "leave_policy": "依公司規定",
+    "start_date": "不限"
+  },
+  "responsibilities": [
+    "Unity遊戲專案開發與製作",
+    "熟悉Unity遊戲專案的開發與製程",
+    "完整的遊戲專案參與經驗",
+    "技術研究與開發",
+    "製程優化"
+  ],
+  "requirements": {
+    "experience": "2年以上",
+    "education": "專科、大學、碩士",
+    "major": "不拘",
+    "languages": [],
+    "tools": [
+      "Unity",
+      "C#",
+      "Photon Engine",
+      "ECS",
+      "Entity component system",
+      "3D繪圖技術",
+      "Android Native API",
+      "iOS Native API"
+    ],
+    "skills": [
+      "軟體程式設計",
+      "軟體工程系統開發",
+      "Unity遊戲開發",
+      "Server及Client開發流程",
+      "遊戲Server或網路相關程式開發",
+      "相關演算法",
+      "製程優化"
+    ],
+    "other_conditions": [
+      "Unity開發遊戲相關經驗、熟悉 C#",
+      "具備2年以上Unity遊戲開發經驗",
+      "熟悉Server及Client開發流程",
+      "熟悉Photon Engine開發經驗",
+      "熟悉ECS(Entity component system)的開發方式",
+      "遊戲Server或網路相關程式開發經驗",
+      "熟悉3D繪圖技術、相關演算法",
+      "熟悉Android及iOS Native API開發經驗"
+    ]
+  },
+  "benefits": {
+    "salary_bonus": [
+      "績效獎金",
+      "提案獎金",
+      "生日禮金",
+      "端午節、中秋節禮金"
+    ],
+    "insurance_health": [
+      "勞保、全民健保",
+      "勞工退休金提撥"
+    ],
+    "flexibility": [
+      "彈性上班時間"
+    ],
+    "training": [
+      "完整的教育訓練（在職訓練）"
+    ],
+    "life": [
+      "三節獎金/禮品",
+      "生日假",
+      "尾牙",
+      "慶生會",
+      "不定期下午茶及零食櫃"
+    ],
+    "other": [
+      "週休二日",
+      "特別休假",
+      "勞退提撥金",
+      "產檢假",
+      "防疫照顧假"
+    ]
+  },
+  "recruitment_process": [],
+  "parse_metadata": {
+    "parser": "manual_from_screenshot",
+    "confidence": "medium",
+    "missing_fields": [
+      "company.industry",
+      "recruitment_process"
+    ],
+    "missing_must_to_have": [],
+    "inferred_fields": [
+      {
+        "field": "location.work_mode",
+        "value": "onsite",
+        "reason": "截圖提供明確上班地址，且未提到遠端或混合工作。",
+        "confidence": "medium"
+      },
+      {
+        "field": "location.remote_allowed",
+        "value": false,
+        "reason": "截圖未提到遠端工作；第一版依現場工作處理。",
+        "confidence": "medium"
+      }
+    ],
+    "notes": [
+      "此職缺由使用者提供的三張截圖人工整理。",
+      "薪資為待遇面議，但截圖標示經常性薪資達 4 萬元或以上，因此保留 min: 40000。",
+      "語文條件為不拘，因此 languages 使用空陣列。"
+    ]
+  },
+  "tracking": {
+    "status": "not_applied",
+    "priority": null,
+    "favorite": false,
+    "applied_at": null,
+    "last_updated_at": null,
+    "notes": null
+  }
+}
