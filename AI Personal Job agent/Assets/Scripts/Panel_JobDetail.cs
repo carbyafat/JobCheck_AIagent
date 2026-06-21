@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using TMPro;
 using UnityEngine;
@@ -58,6 +60,16 @@ public class Panel_JobDetail : MonoBehaviour
     [SerializeField] private Color normalStatusTextColor = Color.white;
     [Tooltip("逾期狀態文字顏色。")]
     [SerializeField] private Color expiredStatusTextColor = Color.red;
+
+    [Header("Expire Day")]
+    [Tooltip("到期日顯示文字。")]
+    [SerializeField] private TMP_Text textExpireDay;
+    [Tooltip("開啟到期日輸入 UI 的按鈕。")]
+    [SerializeField] private Button buttonManualSetExpireDay;
+    [Tooltip("確認到期日輸入的按鈕。")]
+    [SerializeField] private Button buttonConfirmExpiredDay;
+    [Tooltip("到期日輸入框，格式限定 yyyy.mm.dd。")]
+    [SerializeField] private TMP_InputField inputFieldExpireDay;
 
     [Header("Status Buttons")]
     [Tooltip("切換為未檢視。")]
@@ -162,6 +174,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetText(textWelfare, benefits);
         SetText(textRecruitmentProcess, BuildListSection("招募流程", data.recruitment_process));
         SetText(textOther, BuildOtherText(data));
+        RefreshExpireDayText();
 
         RefreshStatusButtonColors();
         ForceBuildLayout();
@@ -188,6 +201,8 @@ public class Panel_JobDetail : MonoBehaviour
         SetText(textWelfare, string.Empty);
         SetText(textRecruitmentProcess, string.Empty);
         SetText(textOther, string.Empty);
+        SetText(textExpireDay, string.Empty);
+        SetExpireDayInputVisible(false);
         ForceBuildLayout();
     }
 
@@ -318,6 +333,52 @@ public class Panel_JobDetail : MonoBehaviour
 
         panelStatusBtn.SetActive(!panelStatusBtn.activeSelf);
         RefreshStatusButtonColors();
+    }
+
+    /// <summary>
+    /// 顯示到期日輸入框與確認按鈕。
+    /// </summary>
+    public void ShowExpireDayInput()
+    {
+        SetExpireDayInputVisible(true);
+
+        if (inputFieldExpireDay != null)
+        {
+            inputFieldExpireDay.text = GetCurrentManualExpireDayForInput();
+            inputFieldExpireDay.ActivateInputField();
+        }
+    }
+
+    /// <summary>
+    /// 確認到期日輸入，格式必須為 yyyy.mm.dd。
+    /// </summary>
+    public void ConfirmExpireDayInput()
+    {
+        if (currentData == null || allJobPage == null || inputFieldExpireDay == null)
+        {
+            return;
+        }
+
+        string input = inputFieldExpireDay.text.Trim();
+        DateTime parsedDate;
+        if (!DateTime.TryParseExact(input, "yyyy.MM.dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out parsedDate))
+        {
+            SetText(textExpireDay, "到期日: 格式錯誤，請輸入 yyyy.mm.dd");
+            return;
+        }
+
+        DateTimeOffset expireAt = new DateTimeOffset(
+            parsedDate.Year,
+            parsedDate.Month,
+            parsedDate.Day,
+            23,
+            59,
+            59,
+            DateTimeOffset.Now.Offset);
+
+        currentTracking = allJobPage.UpdateJobTrackingManualExpireAt(currentData.id, expireAt.ToString("yyyy-MM-ddTHH:mm:sszzz"));
+        SetExpireDayInputVisible(false);
+        Refresh(currentData);
     }
 
     /// <summary>
@@ -512,8 +573,12 @@ public class Panel_JobDetail : MonoBehaviour
         if (textWelfare == null) textWelfare = FindChildText("TMP_Welfare");
         if (textRecruitmentProcess == null) textRecruitmentProcess = FindChildText("TMP_RecruitmentProcess");
         if (textOther == null) textOther = FindChildText("TMP_Other");
+        if (textExpireDay == null) textExpireDay = FindChildText("TMP_ExpireDay");
 
         if (buttonBack == null) buttonBack = FindChildButton("Button_Back");
+        if (buttonManualSetExpireDay == null) buttonManualSetExpireDay = FindChildButton("Button_ManualSetExpireDay");
+        if (buttonConfirmExpiredDay == null) buttonConfirmExpiredDay = FindChildButton("Button_ConfirmExpiredDay");
+        if (inputFieldExpireDay == null) inputFieldExpireDay = FindChildInputField("InputField_ExpireDay");
         if (buttonShowStatusPanel == null) buttonShowStatusPanel = FindChildButton("Button_ShowStatusPanel");
         if (panelStatusBtn == null)
         {
@@ -538,6 +603,7 @@ public class Panel_JobDetail : MonoBehaviour
         if (buttonArchived == null) buttonArchived = FindChildButton("Button_Archived");
         if (buttonArchivedWaitOtherJobResult == null) buttonArchivedWaitOtherJobResult = FindChildButton("Button_Archived_WaitOtherJobResult");
         if (layoutRoot == null) layoutRoot = transform as RectTransform;
+        SetExpireDayInputVisible(false);
     }
 
     /// <summary>
@@ -546,6 +612,8 @@ public class Panel_JobDetail : MonoBehaviour
     private void BindButtons()
     {
         BindButton(buttonBack, Hide);
+        BindButton(buttonManualSetExpireDay, ShowExpireDayInput);
+        BindButton(buttonConfirmExpiredDay, ConfirmExpireDayInput);
         BindButton(buttonShowStatusPanel, ToggleStatusPanel);
         BindButton(buttonNotViewed, SetStatusNotViewed);
         BindButton(buttonInterested, SetStatusInterested);
@@ -615,6 +683,25 @@ public class Panel_JobDetail : MonoBehaviour
     }
 
     /// <summary>
+    /// 依名稱尋找子物件 TMP_InputField。
+    /// </summary>
+    /// <param name="childName">子物件名稱。</param>
+    /// <returns>找到的 TMP_InputField；找不到回傳 null。</returns>
+    private TMP_InputField FindChildInputField(string childName)
+    {
+        TMP_InputField[] inputFields = GetComponentsInChildren<TMP_InputField>(true);
+        foreach (TMP_InputField inputField in inputFields)
+        {
+            if (inputField.name == childName)
+            {
+                return inputField;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// 依名稱尋找子物件 Transform。
     /// </summary>
     /// <param name="childName">子物件名稱。</param>
@@ -644,6 +731,69 @@ public class Panel_JobDetail : MonoBehaviour
         {
             target.text = value;
         }
+    }
+
+    /// <summary>
+    /// 切換到期日輸入 UI 顯示狀態。
+    /// </summary>
+    /// <param name="visible">是否顯示輸入框與確認按鈕。</param>
+    private void SetExpireDayInputVisible(bool visible)
+    {
+        if (inputFieldExpireDay != null)
+        {
+            inputFieldExpireDay.gameObject.SetActive(visible);
+        }
+
+        if (buttonConfirmExpiredDay != null)
+        {
+            buttonConfirmExpiredDay.gameObject.SetActive(visible);
+        }
+    }
+
+    /// <summary>
+    /// 依目前 tracking 刷新到期日顯示文字。
+    /// </summary>
+    private void RefreshExpireDayText()
+    {
+        if (textExpireDay == null)
+        {
+            return;
+        }
+
+        if (allJobPage == null || currentTracking == null)
+        {
+            textExpireDay.text = "到期日: -";
+            return;
+        }
+
+        DateTimeOffset expireAt;
+        if (allJobPage.TryGetTrackingExpireAt(currentTracking, out expireAt))
+        {
+            textExpireDay.text = "到期日: " + expireAt.ToString("yyyy/MM/dd");
+            return;
+        }
+
+        textExpireDay.text = "到期日: -";
+    }
+
+    /// <summary>
+    /// 取得目前人工到期日，供輸入框預填。
+    /// </summary>
+    /// <returns>yyyy.MM.dd 格式文字，沒有人工到期日時回傳空字串。</returns>
+    private string GetCurrentManualExpireDayForInput()
+    {
+        if (currentTracking == null || string.IsNullOrEmpty(currentTracking.manual_expire_at))
+        {
+            return string.Empty;
+        }
+
+        DateTimeOffset expireAt;
+        if (!DateTimeOffset.TryParse(currentTracking.manual_expire_at, out expireAt))
+        {
+            return string.Empty;
+        }
+
+        return expireAt.ToString("yyyy.MM.dd");
     }
 
     /// <summary>

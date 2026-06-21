@@ -26,6 +26,8 @@ public class AllJobPage : MonoBehaviour
     [SerializeField] private Button buttonLast;
     [Tooltip("篩選按鈕，目前只保留入口。")]
     [SerializeField] private Button buttonShowFilter;
+    [Tooltip("篩選面板。")]
+    [SerializeField] private FilterPanel filterPanel;
     [Tooltip("職缺列表列物件的父節點。")]
     [SerializeField] private Transform jobPanelRoot;
     [Tooltip("可重複使用的職缺列 UI。")]
@@ -34,6 +36,8 @@ public class AllJobPage : MonoBehaviour
     [SerializeField] private Panel_JobDetail jobDetailPanel;
 
     private readonly List<JobSummaryData> loadedJobs = new List<JobSummaryData>();
+    private readonly List<JobSummaryData> displayJobs = new List<JobSummaryData>();
+    private JobFilterCondition currentFilter = new JobFilterCondition();
     private int currentPage;
 
     private int PageSize
@@ -45,12 +49,12 @@ public class AllJobPage : MonoBehaviour
     {
         get
         {
-            if (loadedJobs.Count == 0)
+            if (displayJobs.Count == 0)
             {
                 return 1;
             }
 
-            return Mathf.CeilToInt((float)loadedJobs.Count / PageSize);
+            return Mathf.CeilToInt((float)displayJobs.Count / PageSize);
         }
     }
 
@@ -79,8 +83,7 @@ public class AllJobPage : MonoBehaviour
             LoadFromJobFolder(ResolveProjectRelativePath(jobsFolderPath));
         }
 
-        SortJobsForDisplay();
-        RefreshPage();
+        ApplyFilter(currentFilter);
     }
 
     /// <summary>
@@ -116,7 +119,50 @@ public class AllJobPage : MonoBehaviour
     /// </summary>
     public void ShowFilter()
     {
-        // TODO: Filter UI is not implemented yet.
+        if (filterPanel == null)
+        {
+            filterPanel = FindObjectOfType<FilterPanel>(true);
+        }
+
+        if (filterPanel == null)
+        {
+            Debug.LogWarning("FilterPanel not found in scene.");
+            return;
+        }
+
+        filterPanel.SetOwner(this);
+        filterPanel.RefreshUI(currentFilter);
+        filterPanel.gameObject.SetActive(true);
+    }
+
+    /// <summary>
+    /// 套用篩選條件並刷新列表。
+    /// </summary>
+    /// <param name="condition">篩選條件。</param>
+    public void ApplyFilter(JobFilterCondition condition)
+    {
+        currentFilter = condition != null ? condition.Clone() : new JobFilterCondition();
+        displayJobs.Clear();
+
+        foreach (JobSummaryData job in loadedJobs)
+        {
+            if (PassesFilter(job, currentFilter))
+            {
+                displayJobs.Add(job);
+            }
+        }
+
+        SortJobsForDisplay();
+        currentPage = 0;
+        RefreshPage();
+    }
+
+    /// <summary>
+    /// 清除篩選條件並顯示全部職缺。
+    /// </summary>
+    public void ClearFilter()
+    {
+        ApplyFilter(new JobFilterCondition());
     }
 
     /// <summary>
@@ -199,7 +245,36 @@ public class AllJobPage : MonoBehaviour
             }
         }
 
-        SortJobsForDisplay();
+        ApplyFilter(currentFilter);
+        RefreshPage();
+        return tracking;
+    }
+
+    /// <summary>
+    /// 更新人工指定到期日並寫回 tracking JSON。
+    /// </summary>
+    /// <param name="jobId">職缺 ID。</param>
+    /// <param name="manualExpireAt">人工指定到期日，空字串代表清除。</param>
+    /// <returns>更新後的 tracking 資料。</returns>
+    public JobTrackingData UpdateJobTrackingManualExpireAt(string jobId, string manualExpireAt)
+    {
+        JobTrackingData tracking = LoadOrCreateTracking(jobId);
+        tracking.manual_expire_at = manualExpireAt;
+        tracking.last_action_at = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:sszzz");
+        SaveTracking(tracking);
+
+        foreach (JobSummaryData job in loadedJobs)
+        {
+            if (job.id == jobId)
+            {
+                job.last_action_at = tracking.last_action_at;
+                job.manual_expire_at = tracking.manual_expire_at;
+                job.is_expired = IsTrackingExpired(tracking);
+                break;
+            }
+        }
+
+        ApplyFilter(currentFilter);
         RefreshPage();
         return tracking;
     }
@@ -238,6 +313,42 @@ public class AllJobPage : MonoBehaviour
     }
 
     /// <summary>
+    /// 嘗試取得 tracking 的實際到期日。人工到期日優先，否則使用預設天數推算。
+    /// </summary>
+    /// <param name="tracking">使用者操作追蹤資料。</param>
+    /// <param name="expireAt">計算出的到期日。</param>
+    /// <returns>能取得到期日時回傳 true。</returns>
+    public bool TryGetTrackingExpireAt(JobTrackingData tracking, out DateTimeOffset expireAt)
+    {
+        expireAt = default;
+
+        if (tracking == null)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(tracking.manual_expire_at))
+        {
+            return DateTimeOffset.TryParse(tracking.manual_expire_at, out expireAt);
+        }
+
+        int days = GetDefaultExpireDays(tracking.status);
+        if (days <= 0 || string.IsNullOrEmpty(tracking.last_action_at))
+        {
+            return false;
+        }
+
+        DateTimeOffset lastActionAt;
+        if (!DateTimeOffset.TryParse(tracking.last_action_at, out lastActionAt))
+        {
+            return false;
+        }
+
+        expireAt = lastActionAt.AddDays(days);
+        return true;
+    }
+
+    /// <summary>
     /// 依目前頁碼把資料填入可見的 Panel_SingleJob。
     /// </summary>
     private void RefreshPage()
@@ -254,11 +365,11 @@ public class AllJobPage : MonoBehaviour
                 continue;
             }
 
-            if (jobIndex < loadedJobs.Count)
+            if (jobIndex < displayJobs.Count)
             {
                 panel.gameObject.SetActive(true);
                 panel.SetOwner(this);
-                panel.SetData(loadedJobs[jobIndex]);
+                panel.SetData(displayJobs[jobIndex]);
             }
             else
             {
@@ -291,7 +402,7 @@ public class AllJobPage : MonoBehaviour
     /// </summary>
     private bool HasNextPage()
     {
-        return loadedJobs.Count > PageSize && currentPage < TotalPageCount - 1;
+        return displayJobs.Count > PageSize && currentPage < TotalPageCount - 1;
     }
 
     /// <summary>
@@ -299,7 +410,7 @@ public class AllJobPage : MonoBehaviour
     /// </summary>
     private bool HasLastPage()
     {
-        return loadedJobs.Count > PageSize && currentPage > 0;
+        return displayJobs.Count > PageSize && currentPage > 0;
     }
 
     /// <summary>
@@ -326,6 +437,7 @@ public class AllJobPage : MonoBehaviour
             }
 
             job.detailFullPath = ResolvePathFromBase(indexDirectory, job.file);
+            ApplyDetailDataToSummary(job);
             ApplyTrackingToSummary(job);
             loadedJobs.Add(job);
         }
@@ -363,10 +475,71 @@ public class AllJobPage : MonoBehaviour
             summary.company = detail.company != null ? detail.company.name : string.Empty;
             summary.title = detail.job != null ? detail.job.title : string.Empty;
             summary.salary = detail.compensation != null ? detail.compensation.raw_text : string.Empty;
+            summary.salary_min = detail.compensation != null ? detail.compensation.min : 0;
             summary.parse_status = detail.parse_status;
             ApplyTrackingToSummary(summary);
             loadedJobs.Add(summary);
         }
+    }
+
+    /// <summary>
+    /// 從詳細 JSON 補足列表篩選需要的資料。
+    /// </summary>
+    /// <param name="job">要補資料的職缺摘要。</param>
+    private void ApplyDetailDataToSummary(JobSummaryData job)
+    {
+        if (job == null || string.IsNullOrEmpty(job.detailFullPath) || !File.Exists(job.detailFullPath))
+        {
+            return;
+        }
+
+        string json = File.ReadAllText(job.detailFullPath);
+        JobDetailData detail = JsonUtility.FromJson<JobDetailData>(json);
+        if (detail == null)
+        {
+            return;
+        }
+
+        if (detail.compensation != null)
+        {
+            job.salary_min = detail.compensation.min;
+        }
+    }
+
+    /// <summary>
+    /// 判斷職缺是否符合目前篩選條件。
+    /// </summary>
+    /// <param name="job">職缺摘要。</param>
+    /// <param name="condition">篩選條件。</param>
+    /// <returns>符合條件時回傳 true。</returns>
+    private bool PassesFilter(JobSummaryData job, JobFilterCondition condition)
+    {
+        if (job == null || condition == null)
+        {
+            return false;
+        }
+
+        if (condition.salaryMin >= 0 && job.salary_min < condition.salaryMin)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(condition.status) && condition.status != "all" && job.status != condition.status)
+        {
+            return false;
+        }
+
+        if (condition.expiredOnly && !job.is_expired)
+        {
+            return false;
+        }
+
+        if (condition.fitScoreMin >= 0 && job.fit_score < condition.fitScoreMin)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -450,7 +623,7 @@ public class AllJobPage : MonoBehaviour
     /// </summary>
     private void SortJobsForDisplay()
     {
-        loadedJobs.Sort(CompareJobSummaryForDisplay);
+        displayJobs.Sort(CompareJobSummaryForDisplay);
     }
 
     /// <summary>
@@ -541,6 +714,11 @@ public class AllJobPage : MonoBehaviour
         if (buttonShowFilter == null)
         {
             buttonShowFilter = FindChildButton("Button_ShowFilter");
+        }
+
+        if (filterPanel == null)
+        {
+            filterPanel = FindObjectOfType<FilterPanel>(true);
         }
 
         if (jobDetailPanel == null)
@@ -694,6 +872,7 @@ public class JobSummaryData
     public string company;
     public string title;
     public string salary;
+    public int salary_min;
     public string parse_status;
     public string status;
     public string last_action_at;
