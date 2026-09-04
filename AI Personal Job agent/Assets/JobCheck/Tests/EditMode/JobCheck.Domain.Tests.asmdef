@@ -1,0 +1,22 @@
+{
+  "name": "JobCheck.Domain.Tests",
+  "rootNamespace": "JobCheck.Domain.Tests",
+  "references": [
+    "GUID:4a45bea89eb644239c42c18bbfb95ef0"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
+
