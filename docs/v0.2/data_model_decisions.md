@@ -48,7 +48,7 @@ ID 建立後不可因公司名稱、職稱、平台或狀態改變而修改。
 
 ### 3.3 公司合併
 
-- migration 只允許以正規化後完全相同的公司名稱建立同一 Company。
+- 正規化後公司名稱完全相同時視為同一 Company，即使資料來自不同平台也一樣。
 - 正規化僅包含前後空白移除、連續空白合併與 Unicode 正規化。
 - 不進行模糊比對或別名自動合併；疑似重複公司列入 migration report，交由人工確認。
 
@@ -143,6 +143,7 @@ JobPosting 是職缺本身，不保存個人的投遞狀態、收藏、結案原
 - is_archived
 - archive_reason
 - manual_follow_up_at
+- previous_application_id
 - legacy_status
 - needs_review
 - fit_score
@@ -151,6 +152,8 @@ JobPosting 是職缺本身，不保存個人的投遞狀態、收藏、結案原
 
 - 同一 JobPosting 預設只允許一筆 active 的 `my_application`。
 - 若確實再次投遞同一職缺，建立新的 Application，不覆蓋舊 Application。
+- 再次投遞時，新 Application.previous_application_id 連結同一 JobPosting 最近一筆既有 Application。
+- previous_application_id 只連結前一筆，不直接保存完整歷史清單；沿連結即可回溯多次投遞，且不得形成循環。
 - `candidate_close_reason` 只允許用在 `closed_by_candidate`。
 - 被公司拒絕必須使用 `rejected_by_company`，不得填入 CandidateCloseReason。
 - archived 是顯示與整理狀態，不等於拒絕、Offer 或自行放棄。
@@ -294,16 +297,16 @@ ApplicationEvent 建立後不可直接改寫歷史內容。需要修正時新增
 | 舊 status | 新資料處理 |
 |---|---|
 | not_viewed | 若沒有 favorite、日期、備註或其他使用者行為，不建立 Application |
-| not_applied | 建立 migration_snapshot，current_stage 設 unknown，needs_review 設 true |
+| not_applied | 表示尚未投遞；若沒有 favorite、日期、備註或其他使用者行為，不建立 Application，否則建立 migration_snapshot 並設為 saved |
 | interested | 建立 migration_snapshot，current_stage 設 saved |
-| not_applying | 建立 migration_snapshot，current_stage 設 closed_by_candidate；原因不足時 needs_review 設 true |
+| not_applying | 表示本人主動放棄；建立 migration_snapshot，current_stage 設 closed_by_candidate，無其他原因時使用 other 並註記由舊狀態轉換 |
 | applied | 建立 migration_snapshot，current_stage 設 applied |
 | interview_scheduled | 建立 migration_snapshot，current_stage 設 interview_scheduled |
 | interviewing | 依現有 UI 語意「已面試」映射為 interview_completed |
 | waiting_reply | 建立 migration_snapshot，current_stage 設 waiting_response |
 | offer | 建立 migration_snapshot，current_stage 設 offer_received |
 | rejected | 建立 migration_snapshot，current_stage 設 rejected_by_company |
-| closed | 結案主體不明，current_stage 設 unknown，needs_review 設 true |
+| closed | 目前只有 demo 假資料，確定視為本人主動停止應徵；設 closed_by_candidate，原因使用 other 並註記由舊狀態轉換 |
 | archived | is_archived 設 true；current_stage 依可用資訊決定，否則 unknown |
 | archived_wait_other_job_result | is_archived 設 true，archive_reason 設 waiting_other_job_result |
 
@@ -386,6 +389,7 @@ data/
 規則：
 
 - migration 預設不得修改或刪除 V0.1 檔案。
+- 第一輪 migration 只處理 demo golden data，不處理真實求職資料。
 - migration 必須可安全重跑，或在偵測到已成功執行時明確拒絕；不得產生重複資料。
 - 任一 required 資料失敗時整批不切換，保留 report 供人工處理。
 - optional 資料缺漏可以完成轉換，但必須列入 warning。
@@ -410,6 +414,8 @@ data/
 13. no_response_marked 不改變 current_stage。
 14. rejected_by_company 與 closed_by_candidate 衝突時標示 needs_review。
 15. 讀取不存在的 tracking／application 不會建立檔案。
+16. 正規化後同名公司即使來自不同平台也只建立一個 Company。
+17. 再次投遞建立新 Application，previous_application_id 只連到最近一筆且不可形成循環。
 
 ## 16. 第一批完成定義
 
@@ -421,12 +427,10 @@ data/
 - V0.1 golden input 已鎖定並可被測試讀取。
 - 尚未執行正式 migration，也尚未讓 UI 改讀 V0.2。
 
-## 17. 尚待確認
+## 17. 已確認事項
 
-以下項目不阻塞 Domain 與測試骨架，但應在正式 migration 前確認：
-
-1. Company 名稱完全相同但平台來源不同時，是否一律視為同一公司。
-2. `closed` 舊狀態的實際語意是職缺關閉、公司結束流程，還是本人停止應徵。
-3. `not_applied` 與 `not_applying` 是否為同一語意，或前者只是尚未投遞、後者才是主動放棄。
-4. 同一 JobPosting 是否需要支援撤回後再次投遞；目前規則會建立新 Application。
-5. migration 是否需要包含真實資料；建議第一輪只跑 demo golden data，確認後再處理真實資料。
+1. 正規化後同名公司一律視為同一 Company，不因平台不同而拆分。
+2. 舊 `closed` 目前只存在於 demo 假資料，migration 視為本人主動停止應徵。
+3. `not_applied` 代表尚未投遞；`not_applying` 代表本人主動放棄，兩者不可混用。
+4. 同一職缺再次投遞時建立新的 Application，並以 previous_application_id 連結最近一次投遞。
+5. 第一輪 migration 只處理 demo 資料；目前沒有需要轉換的真實資料。
