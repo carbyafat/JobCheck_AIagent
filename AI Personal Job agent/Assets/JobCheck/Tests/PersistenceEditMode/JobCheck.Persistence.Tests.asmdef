@@ -1,0 +1,22 @@
+{
+  "name": "JobCheck.Persistence.Tests",
+  "rootNamespace": "JobCheck.Persistence.Tests",
+  "references": [
+    "GUID:4a45bea89eb644239c42c18bbfb95ef0",
+    "GUID:4bf5489b2aed44d19a93c917437ce8c6"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

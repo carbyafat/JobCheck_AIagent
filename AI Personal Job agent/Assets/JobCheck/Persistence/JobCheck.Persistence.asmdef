@@ -1,0 +1,16 @@
+{
+  "name": "JobCheck.Persistence",
+  "rootNamespace": "JobCheck.Persistence",
+  "references": [
+    "GUID:4a45bea89eb644239c42c18bbfb95ef0"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": true
+}
