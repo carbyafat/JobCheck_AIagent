@@ -59,6 +59,51 @@ namespace JobCheck.Domain
         /// <summary>
         /// 沒有提供職缺擷取或匯入時間。
         /// </summary>
-        MissingCapturedAt
+        MissingCapturedAt,
+
+        /// <summary>
+        /// 薪資下限或上限小於 0，不能作為有效薪資數值。
+        /// </summary>
+        NegativeCompensationAmount,
+
+        /// <summary>
+        /// 薪資上限低於薪資下限，範圍互相矛盾。
+        /// </summary>
+        CompensationMaximumBelowMinimum,
+
+        /// <summary>
+        /// Responsibilities 包含 null、空字串或純空白項目。
+        /// </summary>
+        InvalidResponsibilityEntry,
+
+        /// <summary>
+        /// RecruitmentProcess 包含 null、空字串或純空白步驟。
+        /// </summary>
+        InvalidRecruitmentProcessEntry,
+
+        /// <summary>
+        /// Tags 包含 null、空字串或純空白標籤。
+        /// </summary>
+        InvalidTagEntry,
+
+        /// <summary>
+        /// RiskFlags 包含 null、空字串或純空白風險標記。
+        /// </summary>
+        InvalidRiskFlagEntry,
+
+        /// <summary>
+        /// Requirements 的工具、技能或其他條件集合包含空白項目。
+        /// </summary>
+        InvalidRequirementEntry,
+
+        /// <summary>
+        /// Languages 包含 null，或一筆完全沒有語言名稱、能力與原始文字的空物件。
+        /// </summary>
+        InvalidLanguageRequirement,
+
+        /// <summary>
+        /// Benefits 的任一分類包含 null、空字串或純空白項目。
+        /// </summary>
+        InvalidBenefitEntry
     }
 }

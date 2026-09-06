@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace JobCheck.Domain
 {
@@ -142,7 +143,151 @@ namespace JobCheck.Domain
                 errors.Add(JobPostingValidationError.MissingCapturedAt);
             }
 
+            ValidateOptionalFields(jobPosting, errors);
+
             return errors;
+        }
+
+        /// <summary>
+        /// 驗證 optional 詳細資料內的明顯矛盾與空白清單項目。
+        /// 整個 optional 物件或集合為 null 代表來源缺漏，本層不把缺漏誤判成錯誤。
+        /// </summary>
+        private static void ValidateOptionalFields(
+            JobPosting jobPosting,
+            ICollection<JobPostingValidationError> errors)
+        {
+            ValidateCompensation(jobPosting.Compensation, errors);
+
+            if (HasInvalidTextEntry(jobPosting.Responsibilities))
+            {
+                errors.Add(JobPostingValidationError.InvalidResponsibilityEntry);
+            }
+
+            if (HasInvalidTextEntry(jobPosting.RecruitmentProcess))
+            {
+                errors.Add(JobPostingValidationError.InvalidRecruitmentProcessEntry);
+            }
+
+            if (HasInvalidTextEntry(jobPosting.Tags))
+            {
+                errors.Add(JobPostingValidationError.InvalidTagEntry);
+            }
+
+            if (HasInvalidTextEntry(jobPosting.RiskFlags))
+            {
+                errors.Add(JobPostingValidationError.InvalidRiskFlagEntry);
+            }
+
+            ValidateRequirements(jobPosting.Requirements, errors);
+            ValidateBenefits(jobPosting.Benefits, errors);
+        }
+
+        /// <summary>
+        /// 薪資資料可以不完整，但已提供的數值不得為負數或形成反向範圍。
+        /// </summary>
+        private static void ValidateCompensation(
+            JobCompensation compensation,
+            ICollection<JobPostingValidationError> errors)
+        {
+            if (compensation == null)
+            {
+                return;
+            }
+
+            bool containsNegativeAmount =
+                (compensation.Minimum.HasValue && compensation.Minimum.Value < 0)
+                || (compensation.Maximum.HasValue && compensation.Maximum.Value < 0);
+            if (containsNegativeAmount)
+            {
+                errors.Add(JobPostingValidationError.NegativeCompensationAmount);
+            }
+
+            if (compensation.Minimum.HasValue
+                && compensation.Maximum.HasValue
+                && compensation.Maximum.Value < compensation.Minimum.Value)
+            {
+                errors.Add(JobPostingValidationError.CompensationMaximumBelowMinimum);
+            }
+        }
+
+        /// <summary>
+        /// 驗證技能相關集合與語文條件；缺少整個 Requirements 物件仍屬合法 optional 缺漏。
+        /// </summary>
+        private static void ValidateRequirements(
+            JobRequirements requirements,
+            ICollection<JobPostingValidationError> errors)
+        {
+            if (requirements == null)
+            {
+                return;
+            }
+
+            if (HasInvalidTextEntry(requirements.Tools)
+                || HasInvalidTextEntry(requirements.Skills)
+                || HasInvalidTextEntry(requirements.OtherConditions))
+            {
+                errors.Add(JobPostingValidationError.InvalidRequirementEntry);
+            }
+
+            if (requirements.Languages == null)
+            {
+                return;
+            }
+
+            foreach (JobLanguageRequirement language in requirements.Languages)
+            {
+                if (language == null || IsEmptyLanguageRequirement(language))
+                {
+                    errors.Add(JobPostingValidationError.InvalidLanguageRequirement);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 判斷語文條件是否完全沒有可保存的資訊。
+        /// </summary>
+        private static bool IsEmptyLanguageRequirement(JobLanguageRequirement language)
+        {
+            return string.IsNullOrWhiteSpace(language.Name)
+                && string.IsNullOrWhiteSpace(language.Listening)
+                && string.IsNullOrWhiteSpace(language.Speaking)
+                && string.IsNullOrWhiteSpace(language.Reading)
+                && string.IsNullOrWhiteSpace(language.Writing)
+                && string.IsNullOrWhiteSpace(language.RawText);
+        }
+
+        /// <summary>
+        /// 驗證所有福利分類的集合項目；整個 Benefits 或個別分類缺漏仍可由 migration 列 warning。
+        /// </summary>
+        private static void ValidateBenefits(
+            JobBenefits benefits,
+            ICollection<JobPostingValidationError> errors)
+        {
+            if (benefits == null)
+            {
+                return;
+            }
+
+            bool containsInvalidEntry =
+                HasInvalidTextEntry(benefits.SalaryBonus)
+                || HasInvalidTextEntry(benefits.InsuranceHealth)
+                || HasInvalidTextEntry(benefits.Flexibility)
+                || HasInvalidTextEntry(benefits.Training)
+                || HasInvalidTextEntry(benefits.Life)
+                || HasInvalidTextEntry(benefits.Other);
+            if (containsInvalidEntry)
+            {
+                errors.Add(JobPostingValidationError.InvalidBenefitEntry);
+            }
+        }
+
+        /// <summary>
+        /// 判斷有提供的文字集合是否含有無意義的空白項目；null 代表 optional 欄位缺漏。
+        /// </summary>
+        private static bool HasInvalidTextEntry(IEnumerable<string> values)
+        {
+            return values != null && values.Any(string.IsNullOrWhiteSpace);
         }
 
         /// <summary>
