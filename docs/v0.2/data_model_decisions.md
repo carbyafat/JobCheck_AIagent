@@ -156,7 +156,9 @@ JobPosting 是職缺本身，不保存個人的投遞狀態、收藏、結案原
 - previous_application_id 只連結前一筆，不直接保存完整歷史清單；沿連結即可回溯多次投遞，且不得形成循環。
 - `candidate_close_reason` 只允許用在 `closed_by_candidate`。
 - 被公司拒絕必須使用 `rejected_by_company`，不得填入 CandidateCloseReason。
-- archived 是顯示與整理狀態，不等於拒絕、Offer 或自行放棄。
+- archived 是歷史與資料整理狀態，不等於拒絕、Offer、自行放棄、暫停追蹤或備取。
+- `is_archived` 為 true 時必須填寫 `archive_reason`。
+- 尚未結案的 `my_application` 不得封存，明確標記為 `duplicate` 的重複資料除外。
 
 ### 5.4 ApplicationEvent
 
@@ -255,7 +257,6 @@ ApplicationEvent 建立後不可直接改寫歷史內容。需要修正時新增
 ### 6.6 ArchiveReason
 
 - user_archived
-- waiting_other_job_result
 - duplicate
 - imported_reference
 - other
@@ -307,8 +308,8 @@ ApplicationEvent 建立後不可直接改寫歷史內容。需要修正時新增
 | offer | 建立 migration_snapshot，current_stage 設 offer_received |
 | rejected | 建立 migration_snapshot，current_stage 設 rejected_by_company |
 | closed | 目前只有 demo 假資料，確定視為本人主動停止應徵；設 closed_by_candidate，原因使用 other 並註記由舊狀態轉換 |
-| archived | is_archived 設 true；current_stage 依可用資訊決定，否則 unknown |
-| archived_wait_other_job_result | is_archived 設 true，archive_reason 設 waiting_other_job_result |
+| archived | 若可確認已結案，is_archived 設 true、archive_reason 設 user_archived；否則不封存並標記 needs_review |
+| archived_wait_other_job_result | 視為舊版暫緩追蹤標記，不轉成封存；依可用資訊保留 current_stage，並標記 needs_review |
 
 所有 migration_snapshot 都保存 legacy_status，且不計入漏斗事件。
 
