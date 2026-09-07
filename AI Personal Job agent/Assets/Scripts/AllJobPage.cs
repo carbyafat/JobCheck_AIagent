@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using JobCheck.Persistence;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,6 +11,10 @@ using UnityEngine.UI;
 public class AllJobPage : MonoBehaviour
 {
     [Header("Data")]
+    [Tooltip("V0.2 Read Only 讀取新版 data 且禁止寫入；Legacy V0.1 保留舊版回退路徑。")]
+    [SerializeField] private JobDataSource dataSource = JobDataSource.V02ReadOnly;
+    [Tooltip("V0.2 data 根目錄，相對於 Unity 專案根目錄。預設 ../data 指向儲存庫根目錄的 data。")]
+    [SerializeField] private string v02DataRootPath = "../data";
     [Tooltip("職缺總攬索引檔路徑，相對於 Unity 專案根目錄。")]
     [SerializeField] private string jobsIndexPath = "../job_index/jobs_index.json";
     [Tooltip("索引檔不存在時，用來掃描詳細職缺 JSON 的資料夾。")]
@@ -58,6 +63,14 @@ public class AllJobPage : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// V0.2 接軌第一階段只讀取與顯示，任何既有 tracking 寫入都必須被阻擋。
+    /// </summary>
+    private bool IsV02ReadOnlyMode
+    {
+        get { return dataSource == JobDataSource.V02ReadOnly; }
+    }
+
     private void Awake()
     {
         AutoBindReferences();
@@ -73,14 +86,21 @@ public class AllJobPage : MonoBehaviour
         loadedJobs.Clear();
         currentPage = 0;
 
-        string indexFullPath = ResolveProjectRelativePath(jobsIndexPath);
-        if (File.Exists(indexFullPath))
+        if (IsV02ReadOnlyMode)
         {
-            LoadFromIndex(indexFullPath);
+            LoadFromV02Data(ResolveProjectRelativePath(v02DataRootPath));
         }
         else
         {
-            LoadFromJobFolder(ResolveProjectRelativePath(jobsFolderPath));
+            string indexFullPath = ResolveProjectRelativePath(jobsIndexPath);
+            if (File.Exists(indexFullPath))
+            {
+                LoadFromIndex(indexFullPath);
+            }
+            else
+            {
+                LoadFromJobFolder(ResolveProjectRelativePath(jobsFolderPath));
+            }
         }
 
         ApplyFilter(currentFilter);
@@ -187,6 +207,21 @@ public class AllJobPage : MonoBehaviour
             return;
         }
 
+        if (IsV02ReadOnlyMode)
+        {
+            if (job.v02Detail == null)
+            {
+                Debug.LogWarning("V0.2 job detail is unavailable: " + job.id);
+                return;
+            }
+
+            jobDetailPanel.SetAllJobPage(this);
+            jobDetailPanel.SetReadOnly(true);
+            jobDetailPanel.Show(job.v02Detail, job.v02Tracking);
+            gameObject.SetActive(false);
+            return;
+        }
+
         if (string.IsNullOrEmpty(job.detailFullPath))
         {
             Debug.LogWarning("Job detail path is empty: " + job.id);
@@ -204,6 +239,7 @@ public class AllJobPage : MonoBehaviour
         JobTrackingData tracking = LoadOrCreateTracking(job.id);
 
         jobDetailPanel.SetAllJobPage(this);
+        jobDetailPanel.SetReadOnly(false);
         jobDetailPanel.Show(detail, tracking);
         gameObject.SetActive(false);
     }
@@ -225,6 +261,12 @@ public class AllJobPage : MonoBehaviour
     /// <returns>更新後的 tracking 資料。</returns>
     public JobTrackingData UpdateJobTrackingStatus(string jobId, string status)
     {
+        if (IsV02ReadOnlyMode)
+        {
+            Debug.LogWarning("V0.2 目前是唯讀模式；狀態沒有寫入。待 Application Service 完成後才會開放修改。");
+            return FindLoadedV02Tracking(jobId);
+        }
+
         JobTrackingData tracking = LoadOrCreateTracking(jobId);
         tracking.status = status;
         tracking.last_action_at = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:sszzz");
@@ -258,6 +300,12 @@ public class AllJobPage : MonoBehaviour
     /// <returns>更新後的 tracking 資料。</returns>
     public JobTrackingData UpdateJobTrackingManualExpireAt(string jobId, string manualExpireAt)
     {
+        if (IsV02ReadOnlyMode)
+        {
+            Debug.LogWarning("V0.2 目前是唯讀模式；追蹤日期沒有寫入。待 Application Service 完成後才會開放修改。");
+            return FindLoadedV02Tracking(jobId);
+        }
+
         JobTrackingData tracking = LoadOrCreateTracking(jobId);
         tracking.manual_expire_at = manualExpireAt;
         tracking.last_action_at = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:sszzz");
@@ -411,6 +459,50 @@ public class AllJobPage : MonoBehaviour
     private bool HasLastPage()
     {
         return displayJobs.Count > PageSize && currentPage > 0;
+    }
+
+    /// <summary>
+    /// 透過 V0.2 Repository 與 Query 載入職缺，並轉成既有 UI 暫時可顯示的資料形狀。
+    /// 此流程不會讀取或建立 V0.1 tracking 檔。
+    /// </summary>
+    /// <param name="dataRoot">V0.2 data 根目錄完整路徑。</param>
+    private void LoadFromV02Data(string dataRoot)
+    {
+        PersistenceStorageResult<JobPostingReadOnlyList> result =
+            JobPostingReadOnlyQuery.Load(dataRoot);
+        if (!result.IsSuccess)
+        {
+            foreach (PersistenceStorageIssue issue in result.Issues)
+            {
+                Debug.LogError(
+                    "V0.2 data load failed [" + issue.Error + "] "
+                    + issue.FilePath + " " + issue.FieldPath + " " + issue.Message);
+            }
+
+            return;
+        }
+
+        foreach (JobPostingReadOnlyItem item in result.Value.Items)
+        {
+            JobSummaryData summary = JobCheckV02DisplayAdapter.CreateSummary(item, dataRoot);
+            summary.is_expired = IsTrackingExpired(summary.v02Tracking);
+            loadedJobs.Add(summary);
+        }
+
+        Debug.Log("Loaded V0.2 read-only jobs: " + loadedJobs.Count + " from " + dataRoot);
+    }
+
+    private JobTrackingData FindLoadedV02Tracking(string jobId)
+    {
+        foreach (JobSummaryData job in loadedJobs)
+        {
+            if (job != null && string.Equals(job.id, jobId, StringComparison.Ordinal))
+            {
+                return job.v02Tracking;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -882,6 +974,17 @@ public class JobSummaryData
     public bool is_expired;
 
     [NonSerialized] public string detailFullPath;
+    [NonSerialized] public JobDetailData v02Detail;
+    [NonSerialized] public JobTrackingData v02Tracking;
+}
+
+/// <summary>
+/// 總攬頁的資料來源。V0.2 Read Only 是目前正式接軌路徑；Legacy V0.1 僅供回退驗證。
+/// </summary>
+public enum JobDataSource
+{
+    V02ReadOnly,
+    LegacyV01
 }
 
 [Serializable]

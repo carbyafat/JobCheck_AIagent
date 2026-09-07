@@ -990,6 +990,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05c45cafbb4078341bc3568946e377b0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  dataSource: 0
+  v02DataRootPath: ../data
   jobsIndexPath: ../jobs_index.json
   jobsFolderPath: ../jobs
   jobTrackingFolderPath: ../job_tracking

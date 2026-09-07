@@ -269,6 +269,12 @@ public class Panel_SingleJob : MonoBehaviour
             case "applied":
                 text = "已投遞";
                 break;
+            case "viewed":
+                text = "公司已讀";
+                break;
+            case "contacted":
+                text = "公司已聯絡";
+                break;
             case "interview_scheduled":
                 text = "已預約面試";
                 break;
@@ -283,6 +289,9 @@ public class Panel_SingleJob : MonoBehaviour
                 break;
             case "rejected":
                 text = "未錄取";
+                break;
+            case "unknown":
+                text = "狀態待確認";
                 break;
             case "closed":
                 text = "職缺關閉";

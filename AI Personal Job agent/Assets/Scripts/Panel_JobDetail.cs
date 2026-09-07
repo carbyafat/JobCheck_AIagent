@@ -98,6 +98,7 @@ public class Panel_JobDetail : MonoBehaviour
     private JobDetailData currentData;
     private JobTrackingData currentTracking;
     private AllJobPage allJobPage;
+    private bool isReadOnly;
 
     private void Awake()
     {
@@ -124,6 +125,8 @@ public class Panel_JobDetail : MonoBehaviour
         currentData = data;
         currentTracking = tracking;
         gameObject.SetActive(true);
+        // 詳情物件若原本 inactive，Awake 會在上一行才完成自動綁定；此時再套一次唯讀狀態。
+        SetReadOnly(isReadOnly);
         Refresh(data);
     }
 
@@ -234,6 +237,40 @@ public class Panel_JobDetail : MonoBehaviour
     }
 
     /// <summary>
+    /// 設定詳細頁是否只允許查看。V0.2 第一階段尚無安全單筆寫入 API，
+    /// 因此狀態與追蹤日期控制會停用，避免誤寫回 V0.1 tracking。
+    /// </summary>
+    /// <param name="value">true 表示唯讀。</param>
+    public void SetReadOnly(bool value)
+    {
+        isReadOnly = value;
+        SetButtonInteractable(buttonShowStatusPanel, !value);
+        SetButtonInteractable(buttonManualSetExpireDay, !value);
+        SetButtonInteractable(buttonConfirmExpiredDay, !value);
+        SetButtonInteractable(buttonNotViewed, !value);
+        SetButtonInteractable(buttonInterested, !value);
+        SetButtonInteractable(buttonNotApplying, !value);
+        SetButtonInteractable(buttonApplied, !value);
+        SetButtonInteractable(buttonWaitInterview, !value);
+        SetButtonInteractable(buttonWithInterview, !value);
+        SetButtonInteractable(buttonWaitingReply, !value);
+        SetButtonInteractable(buttonOffer, !value);
+        SetButtonInteractable(buttonRejected, !value);
+        SetButtonInteractable(buttonArchived, !value);
+        SetButtonInteractable(buttonArchivedWaitOtherJobResult, !value);
+
+        if (value)
+        {
+            if (panelStatusBtn != null)
+            {
+                panelStatusBtn.SetActive(false);
+            }
+
+            SetExpireDayInputVisible(false);
+        }
+    }
+
+    /// <summary>
     /// 切換為未檢視。
     /// </summary>
     public void SetStatusNotViewed()
@@ -326,6 +363,12 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void ToggleStatusPanel()
     {
+        if (isReadOnly)
+        {
+            Debug.LogWarning("V0.2 詳細頁目前是唯讀模式，狀態面板不提供修改。");
+            return;
+        }
+
         if (panelStatusBtn == null)
         {
             return;
@@ -340,6 +383,12 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void ShowExpireDayInput()
     {
+        if (isReadOnly)
+        {
+            Debug.LogWarning("V0.2 詳細頁目前是唯讀模式，無法設定追蹤日期。");
+            return;
+        }
+
         SetExpireDayInputVisible(true);
 
         if (inputFieldExpireDay != null)
@@ -354,6 +403,12 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void ConfirmExpireDayInput()
     {
+        if (isReadOnly)
+        {
+            Debug.LogWarning("V0.2 詳細頁目前是唯讀模式，追蹤日期沒有寫入。");
+            return;
+        }
+
         if (currentData == null || allJobPage == null || inputFieldExpireDay == null)
         {
             return;
@@ -387,6 +442,12 @@ public class Panel_JobDetail : MonoBehaviour
     /// <param name="status">新的狀態代碼。</param>
     private void ChangeStatus(string status)
     {
+        if (isReadOnly)
+        {
+            Debug.LogWarning("V0.2 詳細頁目前是唯讀模式，狀態沒有寫入。");
+            return;
+        }
+
         if (currentData == null || allJobPage == null)
         {
             return;
@@ -432,6 +493,14 @@ public class Panel_JobDetail : MonoBehaviour
         if (image != null)
         {
             image.color = isActive ? activeStatusButtonColor : inactiveStatusButtonColor;
+        }
+    }
+
+    private void SetButtonInteractable(Button button, bool interactable)
+    {
+        if (button != null)
+        {
+            button.interactable = interactable;
         }
     }
 
@@ -969,6 +1038,12 @@ public class Panel_JobDetail : MonoBehaviour
             case "applied":
                 text = "已投遞";
                 break;
+            case "viewed":
+                text = "公司已讀";
+                break;
+            case "contacted":
+                text = "公司已聯絡";
+                break;
             case "interview_scheduled":
                 text = "已預約面試";
                 break;
@@ -992,6 +1067,9 @@ public class Panel_JobDetail : MonoBehaviour
                 break;
             case "archived_wait_other_job_result":
                 text = "已封存，等待其他面試結果";
+                break;
+            case "unknown":
+                text = "狀態待確認";
                 break;
             default:
                 text = string.IsNullOrEmpty(status) ? "未檢視" : status;
