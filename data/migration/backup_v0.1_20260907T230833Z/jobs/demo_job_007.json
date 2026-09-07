@@ -1,0 +1,135 @@
+﻿{
+    "schema_version":  "0.1",
+    "id":  "demo_job_007",
+    "parse_status":  "usable",
+    "source":  {
+                   "platform":  "demo",
+                   "url":  "https://example.com/jobs/demo_job_007",
+                   "captured_at":  "2026-06-20T12:50:00+08:00",
+                   "raw_images":  [
+
+                                  ]
+               },
+    "company":  {
+                    "name":  "北辰遊戲工作室_測試",
+                    "industry":  "測試資料",
+                    "raw_text":  "北辰遊戲工作室_測試"
+                },
+    "job":  {
+                "title":  "雲端平台工程師",
+                "department":  "測試部門",
+                "category":  "雲端平台工程師",
+                "updated_date":  "06/20",
+                "openings":  "1~2人",
+                "raw_text":  "雲端平台工程師"
+            },
+    "compensation":  {
+                         "type":  "range",
+                         "period":  "monthly",
+                         "min":  50000,
+                         "max":  80000,
+                         "currency":  "TWD",
+                         "raw_text":  "月薪 50,000~80,000 元",
+                         "notes":  "測試薪資資料"
+                     },
+    "location":  {
+                     "work_mode":  "onsite",
+                     "city":  "新北市",
+                     "district":  "板橋區",
+                     "address":  "新北市板橋區範例路88號",
+                     "remote_allowed":  false,
+                     "raw_text":  "新北市板橋區範例路88號"
+                 },
+    "work_conditions":  {
+                            "employment_type":  "全職",
+                            "working_hours":  "日班",
+                            "business_trip":  "無需出差外派",
+                            "management_responsibility":  "不需負擔管理責任",
+                            "leave_policy":  "依公司規定",
+                            "start_date":  "一個月內"
+                        },
+    "responsibilities":  [
+                             "參與雲端平台工程師 相關系統開發與維護",
+                             "與產品、設計及測試人員協作完成專案需求",
+                             "撰寫可維護的程式碼並參與 code review",
+                             "協助優化既有流程與使用者體驗"
+                         ],
+    "requirements":  {
+                         "experience":  "不拘",
+                         "education":  "專科以上",
+                         "major":  "不拘",
+                         "languages":  [
+
+                                       ],
+                         "tools":  [
+                                       "Azure",
+                                       "Docker",
+                                       "Kubernetes",
+                                       "CI/CD"
+                                   ],
+                         "skills":  [
+                                        "軟體程式設計",
+                                        "系統開發",
+                                        "跨部門溝通"
+                                    ],
+                         "other_conditions":  [
+                                                  "具備良好問題分析與溝通能力",
+                                                  "能獨立完成被分配的開發任務",
+                                                  "願意學習新技術並參與團隊知識分享"
+                                              ]
+                     },
+    "benefits":  {
+                     "salary_bonus":  [
+                                          "績效獎金",
+                                          "年節獎金"
+                                      ],
+                     "insurance_health":  [
+                                              "勞保",
+                                              "健保"
+                                          ],
+                     "flexibility":  [
+                                         "彈性上下班"
+                                     ],
+                     "training":  [
+                                      "內部教育訓練",
+                                      "技術分享"
+                                  ],
+                     "life":  [
+                                  "部門聚餐",
+                                  "下午茶"
+                              ],
+                     "other":  [
+                                   "此為公開展示用假資料"
+                               ]
+                 },
+    "recruitment_process":  [
+                                "投遞履歷",
+                                "初步面談",
+                                "技術面談",
+                                "錄取通知"
+                            ],
+    "parse_metadata":  {
+                           "parser":  "generated_demo_data",
+                           "confidence":  "high",
+                           "missing_fields":  [
+
+                                              ],
+                           "missing_must_to_have":  [
+
+                                                    ],
+                           "inferred_fields":  [
+
+                                               ],
+                           "notes":  [
+                                         "此職缺為公開展示用假資料，非真實公司或真實職缺。"
+                                     ]
+                       },
+    "tracking":  {
+                     "status":  "not_viewed",
+                     "priority":  null,
+                     "favorite":  false,
+                     "applied_at":  null,
+                     "last_updated_at":  null,
+                     "notes":  null
+                 }
+}
