@@ -1,0 +1,8 @@
+﻿{
+    "job_id":  "demo_job_001",
+    "status":  "waiting_reply",
+    "last_action_at":  "2026-06-20T16:39:20+08:00",
+    "manual_expire_at":  "",
+    "favorite":  false,
+    "fit_score":  -1
+}
