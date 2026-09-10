@@ -127,6 +127,13 @@ namespace JobCheck.Domain
             Application application,
             ICollection<ApplicationValidationError> errors)
         {
+            if (application.CurrentStage == ApplicationStage.ClosedByCandidate
+                && !application.CandidateCloseReason.HasValue)
+            {
+                errors.Add(ApplicationValidationError.MissingCandidateCloseReason);
+                return;
+            }
+
             if (!application.CandidateCloseReason.HasValue)
             {
                 return;

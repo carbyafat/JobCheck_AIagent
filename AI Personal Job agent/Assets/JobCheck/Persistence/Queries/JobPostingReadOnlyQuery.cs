@@ -18,17 +18,35 @@ namespace JobCheck.Persistence
             JobPosting jobPosting,
             Application currentApplication,
             DateTimeOffset? lastActivityAt)
+            : this(company, jobPosting, currentApplication, lastActivityAt, null)
+        {
+        }
+
+        public JobPostingReadOnlyItem(
+            Company company,
+            JobPosting jobPosting,
+            Application currentApplication,
+            DateTimeOffset? lastActivityAt,
+            IEnumerable<ApplicationEvent> applicationEvents)
         {
             Company = company;
             JobPosting = jobPosting;
             CurrentApplication = currentApplication;
             LastActivityAt = lastActivityAt;
+            ApplicationEvents = new ReadOnlyCollection<ApplicationEvent>(
+                applicationEvents == null
+                    ? Array.Empty<ApplicationEvent>()
+                    : applicationEvents
+                        .OrderBy(item => item.OccurredAt ?? item.RecordedAt)
+                        .ThenBy(item => item.Id, StringComparer.Ordinal)
+                        .ToArray());
         }
 
         public Company Company { get; }
         public JobPosting JobPosting { get; }
         public Application CurrentApplication { get; }
         public DateTimeOffset? LastActivityAt { get; }
+        public IReadOnlyList<ApplicationEvent> ApplicationEvents { get; }
 
         /// <summary>
         /// 暫時提供既有 UI 使用的狀態代碼。V0.2 Domain 仍以 ApplicationStage 為準。
@@ -121,11 +139,18 @@ namespace JobCheck.Persistence
             {
                 companies.TryGetValue(jobPosting.CompanyId, out Company company);
                 currentApplications.TryGetValue(jobPosting.Id, out Application application);
+                ApplicationEvent[] events = application == null
+                    ? Array.Empty<ApplicationEvent>()
+                    : load.Value.ApplicationEvents.Where(item => string.Equals(
+                        item.ApplicationId,
+                        application.Id,
+                        StringComparison.Ordinal)).ToArray();
                 items.Add(new JobPostingReadOnlyItem(
                     company,
                     jobPosting,
                     application,
-                    FindLastActivityAt(load.Value, application)));
+                    FindLastActivityAt(load.Value, application),
+                    events));
             }
 
             return new PersistenceStorageResult<JobPostingReadOnlyList>(

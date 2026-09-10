@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using JobCheck.Persistence;
+using ApplicationEventType = JobCheck.Domain.ApplicationEventType;
+using CandidateCloseReason = JobCheck.Domain.CandidateCloseReason;
+using EventActor = JobCheck.Domain.EventActor;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,8 +14,8 @@ using UnityEngine.UI;
 public class AllJobPage : MonoBehaviour
 {
     [Header("Data")]
-    [Tooltip("V0.2 Read Only 讀取新版 data 且禁止寫入；Legacy V0.1 保留舊版回退路徑。")]
-    [SerializeField] private JobDataSource dataSource = JobDataSource.V02ReadOnly;
+    [Tooltip("V0.2 讀寫新版 data；Legacy V0.1 只保留舊版回退路徑。")]
+    [SerializeField] private JobDataSource dataSource = JobDataSource.V02;
     [Tooltip("V0.2 data 根目錄，相對於 Unity 專案根目錄。預設 ../data 指向儲存庫根目錄的 data。")]
     [SerializeField] private string v02DataRootPath = "../data";
     [Tooltip("職缺總攬索引檔路徑，相對於 Unity 專案根目錄。")]
@@ -66,9 +69,9 @@ public class AllJobPage : MonoBehaviour
     /// <summary>
     /// V0.2 接軌第一階段只讀取與顯示，任何既有 tracking 寫入都必須被阻擋。
     /// </summary>
-    private bool IsV02ReadOnlyMode
+    private bool IsV02Mode
     {
-        get { return dataSource == JobDataSource.V02ReadOnly; }
+        get { return dataSource == JobDataSource.V02; }
     }
 
     private void Awake()
@@ -86,7 +89,7 @@ public class AllJobPage : MonoBehaviour
         loadedJobs.Clear();
         currentPage = 0;
 
-        if (IsV02ReadOnlyMode)
+        if (IsV02Mode)
         {
             LoadFromV02Data(ResolveProjectRelativePath(v02DataRootPath));
         }
@@ -207,7 +210,7 @@ public class AllJobPage : MonoBehaviour
             return;
         }
 
-        if (IsV02ReadOnlyMode)
+        if (IsV02Mode)
         {
             if (job.v02Detail == null)
             {
@@ -216,7 +219,8 @@ public class AllJobPage : MonoBehaviour
             }
 
             jobDetailPanel.SetAllJobPage(this);
-            jobDetailPanel.SetReadOnly(true);
+            jobDetailPanel.SetV02WriteMode(true);
+            jobDetailPanel.SetReadOnly(false);
             jobDetailPanel.Show(job.v02Detail, job.v02Tracking);
             gameObject.SetActive(false);
             return;
@@ -239,6 +243,7 @@ public class AllJobPage : MonoBehaviour
         JobTrackingData tracking = LoadOrCreateTracking(job.id);
 
         jobDetailPanel.SetAllJobPage(this);
+        jobDetailPanel.SetV02WriteMode(false);
         jobDetailPanel.SetReadOnly(false);
         jobDetailPanel.Show(detail, tracking);
         gameObject.SetActive(false);
@@ -261,10 +266,9 @@ public class AllJobPage : MonoBehaviour
     /// <returns>更新後的 tracking 資料。</returns>
     public JobTrackingData UpdateJobTrackingStatus(string jobId, string status)
     {
-        if (IsV02ReadOnlyMode)
+        if (IsV02Mode)
         {
-            Debug.LogWarning("V0.2 目前是唯讀模式；狀態沒有寫入。待 Application Service 完成後才會開放修改。");
-            return FindLoadedV02Tracking(jobId);
+            return UpdateV02ApplicationStatus(jobId, status, null, null, null);
         }
 
         JobTrackingData tracking = LoadOrCreateTracking(jobId);
@@ -300,10 +304,28 @@ public class AllJobPage : MonoBehaviour
     /// <returns>更新後的 tracking 資料。</returns>
     public JobTrackingData UpdateJobTrackingManualExpireAt(string jobId, string manualExpireAt)
     {
-        if (IsV02ReadOnlyMode)
+        if (IsV02Mode)
         {
-            Debug.LogWarning("V0.2 目前是唯讀模式；追蹤日期沒有寫入。待 Application Service 完成後才會開放修改。");
-            return FindLoadedV02Tracking(jobId);
+            DateTimeOffset? followUpAt = null;
+            DateTimeOffset parsed = default;
+            if (!string.IsNullOrWhiteSpace(manualExpireAt)
+                && !DateTimeOffset.TryParse(manualExpireAt, out parsed))
+            {
+                Debug.LogError("V0.2 下次追蹤時間格式錯誤：" + manualExpireAt);
+                return FindLoadedV02Tracking(jobId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(manualExpireAt))
+            {
+                followUpAt = parsed;
+            }
+
+            PersistenceStorageResult<ApplicationWriteSummary> result =
+                ApplicationCommandService.SetManualFollowUp(
+                    ResolveProjectRelativePath(v02DataRootPath),
+                    jobId,
+                    followUpAt);
+            return FinishV02Write(jobId, result);
         }
 
         JobTrackingData tracking = LoadOrCreateTracking(jobId);
@@ -489,7 +511,7 @@ public class AllJobPage : MonoBehaviour
             loadedJobs.Add(summary);
         }
 
-        Debug.Log("Loaded V0.2 read-only jobs: " + loadedJobs.Count + " from " + dataRoot);
+        Debug.Log("Loaded V0.2 jobs: " + loadedJobs.Count + " from " + dataRoot);
     }
 
     private JobTrackingData FindLoadedV02Tracking(string jobId)
@@ -503,6 +525,108 @@ public class AllJobPage : MonoBehaviour
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// 將既有 UI 狀態代碼翻譯成 V0.2 明確事件並安全寫入。
+    /// 本人結案必須由呼叫端提供原因；面試預定時間可選填。
+    /// </summary>
+    public JobTrackingData UpdateV02ApplicationStatus(
+        string jobId,
+        string status,
+        CandidateCloseReason? closeReason,
+        string closeReasonNote,
+        DateTimeOffset? scheduledFor)
+    {
+        if (!IsV02Mode)
+        {
+            return UpdateJobTrackingStatus(jobId, status);
+        }
+
+        if (!TryMapV02Event(status, out ApplicationEventType eventType, out EventActor actor))
+        {
+            Debug.LogError("V0.2 不支援的狀態操作：" + status);
+            return FindLoadedV02Tracking(jobId);
+        }
+
+        PersistenceStorageResult<ApplicationWriteSummary> result =
+            ApplicationCommandService.RecordEvent(
+                ResolveProjectRelativePath(v02DataRootPath),
+                jobId,
+                eventType,
+                actor,
+                scheduledFor: scheduledFor,
+                closeReason: closeReason,
+                closeReasonNote: closeReasonNote);
+        return FinishV02Write(jobId, result);
+    }
+
+    /// <summary>
+    /// 切換 V0.2 Application 收藏狀態，不建立流程事件。
+    /// </summary>
+    public JobTrackingData UpdateV02Favorite(string jobId, bool favorite)
+    {
+        PersistenceStorageResult<ApplicationWriteSummary> result =
+            ApplicationCommandService.SetFavorite(
+                ResolveProjectRelativePath(v02DataRootPath),
+                jobId,
+                favorite);
+        return FinishV02Write(jobId, result);
+    }
+
+    /// <summary>
+    /// 保存 V0.2 Application 自由備註，不建立流程事件。
+    /// </summary>
+    public JobTrackingData UpdateV02Notes(string jobId, string notes)
+    {
+        PersistenceStorageResult<ApplicationWriteSummary> result =
+            ApplicationCommandService.SetNotes(
+                ResolveProjectRelativePath(v02DataRootPath),
+                jobId,
+                notes);
+        return FinishV02Write(jobId, result);
+    }
+
+    private JobTrackingData FinishV02Write(
+        string jobId,
+        PersistenceStorageResult<ApplicationWriteSummary> result)
+    {
+        if (!result.IsSuccess)
+        {
+            foreach (PersistenceStorageIssue issue in result.Issues)
+            {
+                Debug.LogError(
+                    "V0.2 write failed [" + issue.Error + "] "
+                    + issue.FieldPath + " " + issue.Message);
+            }
+
+            return FindLoadedV02Tracking(jobId);
+        }
+
+        Load();
+        return FindLoadedV02Tracking(jobId);
+    }
+
+    private static bool TryMapV02Event(
+        string status,
+        out ApplicationEventType eventType,
+        out EventActor actor)
+    {
+        actor = EventActor.Candidate;
+        switch (status)
+        {
+            case "interested": eventType = ApplicationEventType.Saved; return true;
+            case "applied": eventType = ApplicationEventType.Applied; return true;
+            case "viewed": eventType = ApplicationEventType.Viewed; actor = EventActor.Platform; return true;
+            case "contacted": eventType = ApplicationEventType.Contacted; actor = EventActor.Company; return true;
+            case "interview_scheduled": eventType = ApplicationEventType.InterviewScheduled; actor = EventActor.Company; return true;
+            case "interviewing": eventType = ApplicationEventType.InterviewCompleted; return true;
+            case "waiting_reply": eventType = ApplicationEventType.WaitingResponseStarted; return true;
+            case "offer": eventType = ApplicationEventType.OfferReceived; actor = EventActor.Company; return true;
+            case "rejected": eventType = ApplicationEventType.RejectedByCompany; actor = EventActor.Company; return true;
+            case "not_applying": eventType = ApplicationEventType.ClosedByCandidate; return true;
+            default: eventType = default; return false;
+        }
     }
 
     /// <summary>
@@ -979,11 +1103,11 @@ public class JobSummaryData
 }
 
 /// <summary>
-/// 總攬頁的資料來源。V0.2 Read Only 是目前正式接軌路徑；Legacy V0.1 僅供回退驗證。
+/// 總攬頁的資料來源。V0.2 是目前正式讀寫路徑；Legacy V0.1 僅供回退驗證。
 /// </summary>
 public enum JobDataSource
 {
-    V02ReadOnly,
+    V02,
     LegacyV01
 }
 
@@ -1153,9 +1277,13 @@ public class TrackingJsonData
 public class JobTrackingData
 {
     public string job_id;
+    public string application_id;
     public string status;
     public string last_action_at;
     public string manual_expire_at;
     public bool favorite;
     public int fit_score;
+    public string notes;
+    public bool is_archived;
+    public List<string> event_history = new List<string>();
 }

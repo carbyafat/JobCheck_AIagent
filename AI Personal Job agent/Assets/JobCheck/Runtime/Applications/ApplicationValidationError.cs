@@ -67,6 +67,11 @@ namespace JobCheck.Domain
         InvalidCandidateCloseReason,
 
         /// <summary>
+        /// CurrentStage 已是 ClosedByCandidate，卻沒有記錄本人結案原因。
+        /// </summary>
+        MissingCandidateCloseReason,
+
+        /// <summary>
         /// CurrentStage 不是 ClosedByCandidate，卻填入了本人結案原因。
         /// </summary>
         CloseReasonWithoutCandidateClosure,

@@ -60,6 +60,9 @@ namespace JobCheck.Persistence
                 RecordedAt = context.ParseRequiredDateTime(
                     dto.recorded_at,
                     fieldPath + ".recorded_at"),
+                ScheduledFor = context.ParseOptionalDateTime(
+                    dto.scheduled_for,
+                    fieldPath + ".scheduled_for"),
                 Actor = context.ParseRequiredEnum<EventActor>(
                     dto.actor,
                     fieldPath + ".actor"),
@@ -98,6 +101,7 @@ namespace JobCheck.Persistence
                     fieldPath + ".event_type"),
                 occurred_at = PersistenceDateTimeConverter.Format(applicationEvent.OccurredAt),
                 recorded_at = PersistenceDateTimeConverter.Format(applicationEvent.RecordedAt),
+                scheduled_for = PersistenceDateTimeConverter.Format(applicationEvent.ScheduledFor),
                 actor = context.FormatEnum(
                     applicationEvent.Actor,
                     fieldPath + ".actor"),
