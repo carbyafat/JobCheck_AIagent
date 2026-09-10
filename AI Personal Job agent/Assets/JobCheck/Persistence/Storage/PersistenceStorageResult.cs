@@ -82,4 +82,21 @@ namespace JobCheck.Persistence
         public int JobPostingCount { get; }
         public int ApplicationCount { get; }
     }
+
+    /// <summary>
+    /// 單筆 Application（包含內嵌事件歷史）成功寫入後的摘要。
+    /// </summary>
+    public sealed class ApplicationWriteSummary
+    {
+        public ApplicationWriteSummary(string applicationId, int eventCount, bool created)
+        {
+            ApplicationId = applicationId;
+            EventCount = eventCount;
+            Created = created;
+        }
+
+        public string ApplicationId { get; }
+        public int EventCount { get; }
+        public bool Created { get; }
+    }
 }

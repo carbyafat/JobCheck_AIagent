@@ -213,12 +213,58 @@ public static class JobCheckV02DisplayAdapter
         return new JobTrackingData
         {
             job_id = item.JobPosting.Id,
+            application_id = application?.Id,
             status = item.StatusCode,
             last_action_at = item.LastActivityAt?.ToString("o") ?? string.Empty,
             manual_expire_at = application?.ManualFollowUpAt?.ToString("o") ?? string.Empty,
             favorite = application != null && application.IsFavorite,
-            fit_score = -1
+            fit_score = -1,
+            notes = application?.Notes,
+            is_archived = application != null && application.IsArchived,
+            event_history = BuildEventHistory(item.ApplicationEvents)
         };
+    }
+
+    private static List<string> BuildEventHistory(
+        IEnumerable<Domain.ApplicationEvent> applicationEvents)
+    {
+        var result = new List<string>();
+        if (applicationEvents == null)
+        {
+            return result;
+        }
+
+        foreach (Domain.ApplicationEvent item in applicationEvents)
+        {
+            string time = item.OccurredAt?.ToString("yyyy/MM/dd HH:mm") ?? "時間未知";
+            string scheduled = item.ScheduledFor.HasValue
+                ? "（面試：" + item.ScheduledFor.Value.ToString("yyyy/MM/dd HH:mm") + "）"
+                : string.Empty;
+            result.Add(time + "  " + FormatEventType(item.EventType) + scheduled);
+        }
+
+        return result;
+    }
+
+    private static string FormatEventType(Domain.ApplicationEventType eventType)
+    {
+        switch (eventType)
+        {
+            case Domain.ApplicationEventType.Saved: return "有興趣";
+            case Domain.ApplicationEventType.Applied: return "已投遞";
+            case Domain.ApplicationEventType.Viewed: return "公司已讀";
+            case Domain.ApplicationEventType.Contacted: return "公司已聯絡";
+            case Domain.ApplicationEventType.InterviewScheduled: return "已安排面試";
+            case Domain.ApplicationEventType.InterviewCompleted: return "已完成面試";
+            case Domain.ApplicationEventType.WaitingResponseStarted: return "開始等待回覆";
+            case Domain.ApplicationEventType.RejectedByCompany: return "公司拒絕";
+            case Domain.ApplicationEventType.ClosedByCandidate: return "本人放棄";
+            case Domain.ApplicationEventType.OfferReceived: return "收到 Offer";
+            case Domain.ApplicationEventType.NoResponseMarked: return "標記無回覆";
+            case Domain.ApplicationEventType.MigrationSnapshot: return "V0.1 搬移快照";
+            case Domain.ApplicationEventType.DataCorrected: return "資料修正";
+            default: return eventType.ToString();
+        }
     }
 
     private static List<string> CopyStrings(IEnumerable<string> values)

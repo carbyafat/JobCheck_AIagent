@@ -59,11 +59,27 @@ namespace JobCheck.Domain
             ValidateIdentity(applicationEvent, errors);
             ValidateEnums(applicationEvent, errors);
             ValidateTimes(applicationEvent, applicationCreatedAt, errors);
+            ValidateScheduledFor(applicationEvent, errors);
             ValidateSnapshot(applicationEvent, allowMigrationSnapshot, errors);
             ValidateCorrection(applicationEvent, errors);
             ValidateSystemActor(applicationEvent, errors);
 
             return errors;
+        }
+
+        /// <summary>
+        /// 面試預定時間只屬於 InterviewScheduled；其他事件不得夾帶此欄位。
+        /// 第一版允許不知道確切面試時間，因此 InterviewScheduled 不強制必填。
+        /// </summary>
+        private static void ValidateScheduledFor(
+            ApplicationEvent applicationEvent,
+            ICollection<ApplicationEventValidationError> errors)
+        {
+            if (applicationEvent.ScheduledFor.HasValue
+                && applicationEvent.EventType != ApplicationEventType.InterviewScheduled)
+            {
+                errors.Add(ApplicationEventValidationError.ScheduledForOnNonInterviewEvent);
+            }
         }
 
         /// <summary>

@@ -55,6 +55,12 @@ namespace JobCheck.Domain
         public DateTimeOffset? RecordedAt { get; set; }
 
         /// <summary>
+        /// 已安排的面試實際進行時間。只有 InterviewScheduled 事件可以填寫；
+        /// OccurredAt 表示「何時得知／登記面試」，兩者不可混為同一時間。
+        /// </summary>
+        public DateTimeOffset? ScheduledFor { get; set; }
+
+        /// <summary>
         /// 造成事件發生的角色，而不是負責將資料輸入系統的人。
         /// </summary>
         public EventActor Actor { get; set; }

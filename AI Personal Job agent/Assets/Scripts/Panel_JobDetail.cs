@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using JobCheck.Domain;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -68,6 +69,8 @@ public class Panel_JobDetail : MonoBehaviour
     [SerializeField] private Button buttonManualSetExpireDay;
     [Tooltip("確認到期日輸入的按鈕。")]
     [SerializeField] private Button buttonConfirmExpiredDay;
+    [Tooltip("取消本次日期／文字輸入，不寫入任何資料。")]
+    [SerializeField] private Button buttonCancelInput;
     [Tooltip("到期日輸入框，格式限定 yyyy.mm.dd。")]
     [SerializeField] private TMP_InputField inputFieldExpireDay;
 
@@ -94,11 +97,23 @@ public class Panel_JobDetail : MonoBehaviour
     [SerializeField] private Button buttonArchived;
     [Tooltip("切換為已封存，等待其他面試結果。")]
     [SerializeField] private Button buttonArchivedWaitOtherJobResult;
+    [Tooltip("V0.2 編輯 Application 備註。")]
+    [SerializeField] private Button buttonEditNotes;
 
     private JobDetailData currentData;
     private JobTrackingData currentTracking;
     private AllJobPage allJobPage;
     private bool isReadOnly;
+    private bool isV02WriteMode;
+    private DetailInputMode inputMode;
+
+    private enum DetailInputMode
+    {
+        FollowUp,
+        InterviewSchedule,
+        CandidateClose,
+        Notes
+    }
 
     private void Awake()
     {
@@ -127,6 +142,7 @@ public class Panel_JobDetail : MonoBehaviour
         gameObject.SetActive(true);
         // 詳情物件若原本 inactive，Awake 會在上一行才完成自動綁定；此時再套一次唯讀狀態。
         SetReadOnly(isReadOnly);
+        ApplyV02Labels();
         Refresh(data);
     }
 
@@ -237,6 +253,45 @@ public class Panel_JobDetail : MonoBehaviour
     }
 
     /// <summary>
+    /// 指定是否使用 V0.2 事件寫入模式，並把舊版容易誤解的按鈕改成新版語意。
+    /// </summary>
+    public void SetV02WriteMode(bool value)
+    {
+        isV02WriteMode = value;
+        ApplyV02Labels();
+    }
+
+    private void ApplyV02Labels()
+    {
+        if (!isV02WriteMode)
+        {
+            SetButtonLabel(buttonNotViewed, "未檢視");
+            SetButtonLabel(buttonArchived, "已封存");
+            SetButtonLabel(buttonArchivedWaitOtherJobResult, "已錄取等其他面試結果");
+            SetButtonLabel(buttonManualSetExpireDay, "設定到期日");
+            if (buttonEditNotes != null)
+            {
+                buttonEditNotes.gameObject.SetActive(false);
+            }
+            return;
+        }
+
+        SetButtonLabel(buttonNotViewed, "公司已讀");
+        SetButtonLabel(buttonNotApplying, "主動放棄");
+        SetButtonLabel(buttonWaitInterview, "安排面試");
+        SetButtonLabel(buttonWithInterview, "已完成面試");
+        SetButtonLabel(buttonWaitingReply, "等待回覆");
+        SetButtonLabel(buttonArchived, "收藏 / 取消收藏");
+        SetButtonLabel(buttonArchivedWaitOtherJobResult, "公司已聯絡");
+        SetButtonLabel(buttonManualSetExpireDay, "設定下次追蹤日");
+        SetText(textExpireDay, "下次追蹤日: -");
+        if (buttonEditNotes != null)
+        {
+            buttonEditNotes.gameObject.SetActive(true);
+        }
+    }
+
+    /// <summary>
     /// 設定詳細頁是否只允許查看。V0.2 第一階段尚無安全單筆寫入 API，
     /// 因此狀態與追蹤日期控制會停用，避免誤寫回 V0.1 tracking。
     /// </summary>
@@ -247,6 +302,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetButtonInteractable(buttonShowStatusPanel, !value);
         SetButtonInteractable(buttonManualSetExpireDay, !value);
         SetButtonInteractable(buttonConfirmExpiredDay, !value);
+        SetButtonInteractable(buttonCancelInput, !value);
         SetButtonInteractable(buttonNotViewed, !value);
         SetButtonInteractable(buttonInterested, !value);
         SetButtonInteractable(buttonNotApplying, !value);
@@ -258,6 +314,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetButtonInteractable(buttonRejected, !value);
         SetButtonInteractable(buttonArchived, !value);
         SetButtonInteractable(buttonArchivedWaitOtherJobResult, !value);
+        SetButtonInteractable(buttonEditNotes, !value);
 
         if (value)
         {
@@ -275,7 +332,7 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void SetStatusNotViewed()
     {
-        ChangeStatus("not_viewed");
+        ChangeStatus(isV02WriteMode ? "viewed" : "not_viewed");
     }
 
     /// <summary>
@@ -291,6 +348,14 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void SetStatusNotApplying()
     {
+        if (isV02WriteMode)
+        {
+            CloseStatusPanel();
+            inputMode = DetailInputMode.CandidateClose;
+            ShowTextInput("原因：薪資/博弈/通勤/工時/週末/職務/技術/公司/更好機會/無回覆/其他說明");
+            return;
+        }
+
         ChangeStatus("not_applying");
     }
 
@@ -307,6 +372,14 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void SetStatusWaitInterview()
     {
+        if (isV02WriteMode)
+        {
+            CloseStatusPanel();
+            inputMode = DetailInputMode.InterviewSchedule;
+            ShowTextInput("面試日期 yyyy.mm.dd");
+            return;
+        }
+
         ChangeStatus("interview_scheduled");
     }
 
@@ -347,6 +420,15 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void SetStatusArchived()
     {
+        if (isV02WriteMode && currentData != null && allJobPage != null)
+        {
+            bool nextValue = currentTracking == null || !currentTracking.favorite;
+            currentTracking = allJobPage.UpdateV02Favorite(currentData.id, nextValue);
+            Refresh(currentData);
+            CloseStatusPanel();
+            return;
+        }
+
         ChangeStatus("archived");
     }
 
@@ -355,7 +437,7 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void SetStatusArchivedWaitOtherJobResult()
     {
-        ChangeStatus("archived_wait_other_job_result");
+        ChangeStatus(isV02WriteMode ? "contacted" : "archived_wait_other_job_result");
     }
 
     /// <summary>
@@ -389,6 +471,7 @@ public class Panel_JobDetail : MonoBehaviour
             return;
         }
 
+        inputMode = DetailInputMode.FollowUp;
         SetExpireDayInputVisible(true);
 
         if (inputFieldExpireDay != null)
@@ -415,10 +498,38 @@ public class Panel_JobDetail : MonoBehaviour
         }
 
         string input = inputFieldExpireDay.text.Trim();
+        if (isV02WriteMode && inputMode == DetailInputMode.CandidateClose)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                SetText(textExpireDay, "放棄原因不可空白");
+                return;
+            }
+
+            ParseCandidateCloseReason(input, out CandidateCloseReason reason, out string reasonNote);
+            currentTracking = allJobPage.UpdateV02ApplicationStatus(
+                currentData.id,
+                "not_applying",
+                reason,
+                reasonNote,
+                null);
+            SetExpireDayInputVisible(false);
+            Refresh(currentData);
+            return;
+        }
+
+        if (isV02WriteMode && inputMode == DetailInputMode.Notes)
+        {
+            currentTracking = allJobPage.UpdateV02Notes(currentData.id, input);
+            SetExpireDayInputVisible(false);
+            Refresh(currentData);
+            return;
+        }
+
         DateTime parsedDate;
         if (!DateTime.TryParseExact(input, "yyyy.MM.dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out parsedDate))
         {
-            SetText(textExpireDay, "到期日: 格式錯誤，請輸入 yyyy.mm.dd");
+            SetText(textExpireDay, "日期格式錯誤，請輸入 yyyy.mm.dd");
             return;
         }
 
@@ -431,9 +542,38 @@ public class Panel_JobDetail : MonoBehaviour
             59,
             DateTimeOffset.Now.Offset);
 
-        currentTracking = allJobPage.UpdateJobTrackingManualExpireAt(currentData.id, expireAt.ToString("yyyy-MM-ddTHH:mm:sszzz"));
+        if (isV02WriteMode && inputMode == DetailInputMode.InterviewSchedule)
+        {
+            currentTracking = allJobPage.UpdateV02ApplicationStatus(
+                currentData.id,
+                "interview_scheduled",
+                null,
+                null,
+                expireAt);
+        }
+        else
+        {
+            currentTracking = allJobPage.UpdateJobTrackingManualExpireAt(
+                currentData.id,
+                expireAt.ToString("yyyy-MM-ddTHH:mm:sszzz"));
+        }
         SetExpireDayInputVisible(false);
         Refresh(currentData);
+    }
+
+    /// <summary>
+    /// 取消目前的日期、放棄原因或備註輸入，不進行任何資料寫入。
+    /// </summary>
+    public void CancelInput()
+    {
+        if (inputFieldExpireDay != null)
+        {
+            inputFieldExpireDay.text = string.Empty;
+        }
+
+        inputMode = DetailInputMode.FollowUp;
+        SetExpireDayInputVisible(false);
+        RefreshExpireDayText();
     }
 
     /// <summary>
@@ -453,8 +593,23 @@ public class Panel_JobDetail : MonoBehaviour
             return;
         }
 
-        currentTracking = allJobPage.UpdateJobTrackingStatus(currentData.id, status);
+        currentTracking = isV02WriteMode
+            ? allJobPage.UpdateV02ApplicationStatus(currentData.id, status, null, null, null)
+            : allJobPage.UpdateJobTrackingStatus(currentData.id, status);
         Refresh(currentData);
+        CloseStatusPanel();
+    }
+
+    /// <summary>
+    /// 完成一次狀態操作後收起狀態選單，避免遮住詳細資料。
+    /// 即使寫入因流程規則被拒絕，也會結束這次選擇操作；錯誤仍保留在 Console。
+    /// </summary>
+    private void CloseStatusPanel()
+    {
+        if (panelStatusBtn != null)
+        {
+            panelStatusBtn.SetActive(false);
+        }
     }
 
     /// <summary>
@@ -464,7 +619,9 @@ public class Panel_JobDetail : MonoBehaviour
     {
         string currentStatus = GetCurrentStatus(currentData);
 
-        SetStatusButtonColor(buttonNotViewed, currentStatus == "not_viewed");
+        SetStatusButtonColor(buttonNotViewed, isV02WriteMode
+            ? currentStatus == "viewed"
+            : currentStatus == "not_viewed");
         SetStatusButtonColor(buttonInterested, currentStatus == "interested");
         SetStatusButtonColor(buttonNotApplying, currentStatus == "not_applying");
         SetStatusButtonColor(buttonApplied, currentStatus == "applied");
@@ -473,8 +630,12 @@ public class Panel_JobDetail : MonoBehaviour
         SetStatusButtonColor(buttonWaitingReply, currentStatus == "waiting_reply");
         SetStatusButtonColor(buttonOffer, currentStatus == "offer");
         SetStatusButtonColor(buttonRejected, currentStatus == "rejected");
-        SetStatusButtonColor(buttonArchived, currentStatus == "archived");
-        SetStatusButtonColor(buttonArchivedWaitOtherJobResult, currentStatus == "archived_wait_other_job_result");
+        SetStatusButtonColor(buttonArchived, isV02WriteMode
+            ? currentTracking != null && currentTracking.favorite
+            : currentStatus == "archived");
+        SetStatusButtonColor(buttonArchivedWaitOtherJobResult, isV02WriteMode
+            ? currentStatus == "contacted"
+            : currentStatus == "archived_wait_other_job_result");
     }
 
     /// <summary>
@@ -588,10 +749,25 @@ public class Panel_JobDetail : MonoBehaviour
         AppendLine(builder, "需求人數", data.job != null ? data.job.openings : string.Empty);
         AppendLine(builder, "目前狀態", FormatStatus(GetCurrentStatus(data)));
         AppendLine(builder, "最後操作日期", currentTracking != null ? currentTracking.last_action_at : string.Empty);
-        AppendLine(builder, "人工過期日期", currentTracking != null ? currentTracking.manual_expire_at : string.Empty);
+        AppendLine(builder, isV02WriteMode ? "下次追蹤日期" : "人工過期日期", currentTracking != null ? currentTracking.manual_expire_at : string.Empty);
         AppendLine(builder, "是否逾期", IsCurrentTrackingExpired() ? "是" : "否");
         AppendLine(builder, "我的最愛", currentTracking != null && currentTracking.favorite ? "是" : "否");
+        AppendLine(builder, "我的備註", currentTracking != null ? currentTracking.notes : string.Empty);
         AppendLine(builder, "適配度", currentTracking != null && currentTracking.fit_score >= 0 ? currentTracking.fit_score.ToString() : "尚未評分");
+
+        if (isV02WriteMode
+            && currentTracking != null
+            && currentTracking.event_history != null
+            && currentTracking.event_history.Count > 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine("應徵歷程:");
+            foreach (string history in currentTracking.event_history)
+            {
+                builder.Append("- ");
+                builder.AppendLine(history);
+            }
+        }
 
         return builder.ToString().TrimEnd();
     }
@@ -671,7 +847,10 @@ public class Panel_JobDetail : MonoBehaviour
         if (buttonRejected == null) buttonRejected = FindChildButton("Button_Rejected");
         if (buttonArchived == null) buttonArchived = FindChildButton("Button_Archived");
         if (buttonArchivedWaitOtherJobResult == null) buttonArchivedWaitOtherJobResult = FindChildButton("Button_Archived_WaitOtherJobResult");
+        if (buttonEditNotes == null) buttonEditNotes = FindChildButton("Button_EditNotes_V02");
         if (layoutRoot == null) layoutRoot = transform as RectTransform;
+        if (buttonCancelInput == null) buttonCancelInput = FindChildButton("Button_CancelInput_V02");
+        EnsureInputControls();
         SetExpireDayInputVisible(false);
     }
 
@@ -683,6 +862,7 @@ public class Panel_JobDetail : MonoBehaviour
         BindButton(buttonBack, Hide);
         BindButton(buttonManualSetExpireDay, ShowExpireDayInput);
         BindButton(buttonConfirmExpiredDay, ConfirmExpireDayInput);
+        BindButton(buttonCancelInput, CancelInput);
         BindButton(buttonShowStatusPanel, ToggleStatusPanel);
         BindButton(buttonNotViewed, SetStatusNotViewed);
         BindButton(buttonInterested, SetStatusInterested);
@@ -802,6 +982,114 @@ public class Panel_JobDetail : MonoBehaviour
         }
     }
 
+    private void SetButtonLabel(Button button, string value)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
+        if (label != null)
+        {
+            label.text = value;
+        }
+    }
+
+    private void ShowTextInput(string prompt)
+    {
+        SetExpireDayInputVisible(true);
+        SetText(textExpireDay, prompt);
+        if (inputFieldExpireDay == null)
+        {
+            return;
+        }
+
+        inputFieldExpireDay.text = string.Empty;
+        TMP_Text placeholder = inputFieldExpireDay.placeholder as TMP_Text;
+        if (placeholder != null)
+        {
+            placeholder.text = prompt;
+        }
+
+        inputFieldExpireDay.ActivateInputField();
+    }
+
+    /// <summary>
+    /// 保證輸入框具有足夠的可讀尺寸；正式按鈕與引用由 prefab 提供。
+    /// </summary>
+    private void EnsureInputControls()
+    {
+        if (inputFieldExpireDay != null)
+        {
+            RectTransform inputRect = inputFieldExpireDay.transform as RectTransform;
+            if (inputRect != null)
+            {
+                inputRect.sizeDelta = new Vector2(
+                    Mathf.Max(inputRect.sizeDelta.x, 360f),
+                    Mathf.Max(inputRect.sizeDelta.y, 36f));
+            }
+
+            if (inputFieldExpireDay.textComponent != null)
+            {
+                inputFieldExpireDay.textComponent.fontSize = Mathf.Max(
+                    inputFieldExpireDay.textComponent.fontSize,
+                    24f);
+            }
+
+            TMP_Text placeholder = inputFieldExpireDay.placeholder as TMP_Text;
+            if (placeholder != null)
+            {
+                placeholder.fontSize = Mathf.Max(placeholder.fontSize, 20f);
+            }
+        }
+
+    }
+
+    public void ShowNotesInput()
+    {
+        if (!isV02WriteMode || currentData == null)
+        {
+            return;
+        }
+
+        CloseStatusPanel();
+        inputMode = DetailInputMode.Notes;
+        ShowTextInput("輸入這次應徵的備註；留空可清除");
+        if (inputFieldExpireDay != null && currentTracking != null)
+        {
+            inputFieldExpireDay.text = currentTracking.notes ?? string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// 將 UI 的短中文原因轉成穩定 enum；未命中固定選項時視為 Other 並保留原文。
+    /// </summary>
+    private void ParseCandidateCloseReason(
+        string input,
+        out CandidateCloseReason reason,
+        out string note)
+    {
+        note = null;
+        switch (input.Trim())
+        {
+            case "薪資": reason = CandidateCloseReason.SalaryTooLow; return;
+            case "博弈": reason = CandidateCloseReason.GamblingIndustry; return;
+            case "通勤": reason = CandidateCloseReason.Commute; return;
+            case "工時": reason = CandidateCloseReason.WorkSchedule; return;
+            case "週末": reason = CandidateCloseReason.WeekendDuty; return;
+            case "職務": reason = CandidateCloseReason.RoleMismatch; return;
+            case "技術": reason = CandidateCloseReason.TechMismatch; return;
+            case "公司": reason = CandidateCloseReason.CompanyConcern; return;
+            case "更好機會": reason = CandidateCloseReason.BetterOpportunity; return;
+            case "無回覆": reason = CandidateCloseReason.NoResponse; return;
+            default:
+                reason = CandidateCloseReason.Other;
+                note = input.Trim();
+                return;
+        }
+    }
+
     /// <summary>
     /// 切換到期日輸入 UI 顯示狀態。
     /// </summary>
@@ -817,6 +1105,11 @@ public class Panel_JobDetail : MonoBehaviour
         {
             buttonConfirmExpiredDay.gameObject.SetActive(visible);
         }
+
+        if (buttonCancelInput != null)
+        {
+            buttonCancelInput.gameObject.SetActive(visible);
+        }
     }
 
     /// <summary>
@@ -831,18 +1124,18 @@ public class Panel_JobDetail : MonoBehaviour
 
         if (allJobPage == null || currentTracking == null)
         {
-            textExpireDay.text = "到期日: -";
+            textExpireDay.text = isV02WriteMode ? "下次追蹤日: -" : "到期日: -";
             return;
         }
 
         DateTimeOffset expireAt;
         if (allJobPage.TryGetTrackingExpireAt(currentTracking, out expireAt))
         {
-            textExpireDay.text = "到期日: " + expireAt.ToString("yyyy/MM/dd");
+            textExpireDay.text = (isV02WriteMode ? "下次追蹤日: " : "到期日: ") + expireAt.ToString("yyyy/MM/dd");
             return;
         }
 
-        textExpireDay.text = "到期日: -";
+        textExpireDay.text = isV02WriteMode ? "下次追蹤日: -" : "到期日: -";
     }
 
     /// <summary>

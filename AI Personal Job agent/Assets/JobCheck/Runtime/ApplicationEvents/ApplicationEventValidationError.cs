@@ -57,6 +57,11 @@ namespace JobCheck.Domain
         RecordedBeforeApplicationCreated,
 
         /// <summary>
+        /// 非 InterviewScheduled 事件誤填了面試預定時間。
+        /// </summary>
+        ScheduledForOnNonInterviewEvent,
+
+        /// <summary>
         /// TimePrecision 有值，但不是目前允許的 date。
         /// </summary>
         InvalidTimePrecision,

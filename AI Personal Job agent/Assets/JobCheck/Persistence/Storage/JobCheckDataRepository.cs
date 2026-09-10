@@ -57,6 +57,86 @@ namespace JobCheck.Persistence
         }
 
         /// <summary>
+        /// 原子寫入一筆 Application 及其完整事件歷史。
+        /// 寫入前會把候選內容放回完整資料集驗證；通過後才以同目錄暫存檔替換正式 JSON。
+        /// </summary>
+        public static PersistenceStorageResult<ApplicationWriteSummary> SaveApplication(
+            string dataRoot,
+            Application application,
+            IEnumerable<ApplicationEvent> events)
+        {
+            var issues = new List<PersistenceStorageIssue>();
+            PersistenceStorageResult<JobCheckDataSet> load = Load(dataRoot);
+            if (!load.IsSuccess)
+            {
+                return new PersistenceStorageResult<ApplicationWriteSummary>(null, load.Issues);
+            }
+
+            var eventSnapshot = events == null
+                ? new List<ApplicationEvent>()
+                : events.ToList();
+            var applications = load.Value.Applications
+                .Where(item => !string.Equals(item.Id, application?.Id, StringComparison.Ordinal))
+                .ToList();
+            applications.Add(application);
+
+            var applicationEvents = load.Value.ApplicationEvents
+                .Where(item => !string.Equals(
+                    item.ApplicationId,
+                    application?.Id,
+                    StringComparison.Ordinal))
+                .Concat(eventSnapshot)
+                .ToList();
+            var candidateDataSet = new JobCheckDataSet(
+                load.Value.Companies,
+                load.Value.JobPostings,
+                applications,
+                applicationEvents);
+            AddContentValidationIssues(candidateDataSet, issues);
+
+            PersistenceConversionResult<ApplicationDto> conversion =
+                ApplicationDtoMapper.ToDto(application, eventSnapshot);
+            string applicationPath = BuildEntityPath(
+                dataRoot,
+                ApplicationsDirectoryName,
+                application?.Id,
+                issues);
+            AddConversionIssues(applicationPath, conversion.Issues, issues);
+            if (issues.Count > 0 || conversion.Value == null || applicationPath == null)
+            {
+                return new PersistenceStorageResult<ApplicationWriteSummary>(null, issues);
+            }
+
+            bool created = !File.Exists(applicationPath);
+            try
+            {
+                string directory = Path.GetDirectoryName(applicationPath);
+                Directory.CreateDirectory(directory);
+                string json = PersistenceJsonSerializer.Serialize(conversion.Value);
+                WriteOrReplaceFileAtomically(applicationPath, json);
+            }
+            catch (Exception exception) when (
+                exception is IOException
+                || exception is UnauthorizedAccessException
+                || exception is ArgumentException
+                || exception is NotSupportedException
+                || exception is InvalidOperationException
+                || exception is System.Runtime.Serialization.SerializationException)
+            {
+                issues.Add(new PersistenceStorageIssue(
+                    PersistenceStorageError.IoFailure,
+                    applicationPath,
+                    null,
+                    exception.Message));
+                return new PersistenceStorageResult<ApplicationWriteSummary>(null, issues);
+            }
+
+            return new PersistenceStorageResult<ApplicationWriteSummary>(
+                new ApplicationWriteSummary(application.Id, eventSnapshot.Count, created),
+                issues);
+        }
+
+        /// <summary>
         /// 將完整資料集寫入不存在或完全空白的目錄。
         /// 此方法不覆蓋既有正式資料，適合作為 migration 的 staging 輸出。
         /// </summary>
@@ -517,6 +597,33 @@ namespace JobCheck.Persistence
             {
                 File.WriteAllText(temporaryPath, json, new UTF8Encoding(false));
                 File.Move(temporaryPath, path);
+            }
+            finally
+            {
+                if (File.Exists(temporaryPath))
+                {
+                    File.Delete(temporaryPath);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 在目標檔案旁寫完暫存檔，再以單一步驟新增或替換正式檔。
+        /// </summary>
+        private static void WriteOrReplaceFileAtomically(string path, string json)
+        {
+            string temporaryPath = path + ".tmp-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                File.WriteAllText(temporaryPath, json, new UTF8Encoding(false));
+                if (File.Exists(path))
+                {
+                    File.Replace(temporaryPath, path, null);
+                }
+                else
+                {
+                    File.Move(temporaryPath, path);
+                }
             }
             finally
             {

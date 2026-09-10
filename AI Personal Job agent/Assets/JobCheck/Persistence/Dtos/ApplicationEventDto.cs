@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.Serialization;
 
 namespace JobCheck.Persistence
 {
@@ -15,6 +16,8 @@ namespace JobCheck.Persistence
         public string event_type;
         public string occurred_at;
         public string recorded_at;
+        [OptionalField]
+        public string scheduled_for;
         public string actor;
         public string notes;
         public string source_reference;
