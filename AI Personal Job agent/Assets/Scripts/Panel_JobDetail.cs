@@ -186,7 +186,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetText(textWorkMode, BuildLabelLine("工作模式", data.location != null ? FormatWorkMode(data.location.work_mode) : string.Empty));
         SetText(textExperience, BuildLabelLine("經驗", data.requirements != null ? data.requirements.experience : string.Empty));
         SetText(textEducationNeed, BuildLabelLine("學歷需求", data.requirements != null ? data.requirements.education : string.Empty));
-        SetText(textWorkContent, BuildListSection("工作內容", data.responsibilities));
+        SetText(textWorkContent, BuildWorkContent(data));
         SetText(textSkillHead, "技能需求");
         SetText(textSkillTool, BuildLabelLine("技能需求 工具/技術", data.requirements != null ? JoinList(data.requirements.tools) : string.Empty));
         SetText(textSkillTech, BuildLabelLine("技能需求 技能", data.requirements != null ? JoinList(data.requirements.skills) : string.Empty));
@@ -797,6 +797,32 @@ public class Panel_JobDetail : MonoBehaviour
         }
 
         return builder.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// 優先顯示已結構化的工作內容；尚未解析時，改顯示建立職缺時保存的原始文字。
+    /// </summary>
+    /// <param name="data">職缺詳細資料。</param>
+    /// <returns>可直接顯示於工作內容區塊的文字。</returns>
+    private string BuildWorkContent(JobDetailData data)
+    {
+        string structuredContent = BuildListSection(
+            "工作內容",
+            data != null ? data.responsibilities : null);
+        if (!string.IsNullOrEmpty(structuredContent))
+        {
+            return structuredContent;
+        }
+
+        string rawDescription = data != null && data.job != null
+            ? data.job.raw_text
+            : string.Empty;
+        if (string.IsNullOrWhiteSpace(rawDescription))
+        {
+            return string.Empty;
+        }
+
+        return "原始職缺內容\n" + rawDescription.Trim();
     }
 
     /// <summary>
