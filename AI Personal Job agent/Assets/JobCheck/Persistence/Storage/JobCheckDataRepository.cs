@@ -137,6 +137,146 @@ namespace JobCheck.Persistence
         }
 
         /// <summary>
+        /// 寫入一筆全新的 JobPosting，並可同時建立它所屬的新 Company。
+        /// 所有驗證與序列化會在碰觸正式檔案前完成；第二個檔案失敗時會回復本次已建立的檔案。
+        /// </summary>
+        public static PersistenceStorageResult<JobPostingWriteSummary> SaveNewJobPosting(
+            string dataRoot,
+            Company newCompany,
+            JobPosting jobPosting)
+        {
+            var issues = new List<PersistenceStorageIssue>();
+            PersistenceStorageResult<JobCheckDataSet> load = Load(dataRoot);
+            if (!load.IsSuccess)
+            {
+                return new PersistenceStorageResult<JobPostingWriteSummary>(null, load.Issues);
+            }
+
+            if (jobPosting == null)
+            {
+                issues.Add(CreateEntityIssue(null, "JobPosting 不可為 null。"));
+                return new PersistenceStorageResult<JobPostingWriteSummary>(null, issues);
+            }
+
+            if (load.Value.JobPostings.Any(item => string.Equals(
+                item.Id,
+                jobPosting.Id,
+                StringComparison.Ordinal)))
+            {
+                issues.Add(CreateEntityIssue(jobPosting.Id, "JobPosting ID 已存在。"));
+            }
+
+            var companies = load.Value.Companies.ToList();
+            bool companyCreated = newCompany != null;
+            if (companyCreated)
+            {
+                if (companies.Any(item => string.Equals(
+                    item.Id,
+                    newCompany.Id,
+                    StringComparison.Ordinal)))
+                {
+                    issues.Add(CreateEntityIssue(newCompany.Id, "Company ID 已存在。"));
+                }
+                else
+                {
+                    companies.Add(newCompany);
+                }
+            }
+            else if (!companies.Any(item => string.Equals(
+                item.Id,
+                jobPosting.CompanyId,
+                StringComparison.Ordinal)))
+            {
+                issues.Add(new PersistenceStorageIssue(
+                    PersistenceStorageError.DataSetValidationFailed,
+                    jobPosting.Id,
+                    "company_id",
+                    "JobPosting 參照的 Company 不存在。"));
+            }
+
+            var jobs = load.Value.JobPostings.ToList();
+            jobs.Add(jobPosting);
+            var candidateDataSet = new JobCheckDataSet(
+                companies,
+                jobs,
+                load.Value.Applications,
+                load.Value.ApplicationEvents);
+            AddContentValidationIssues(candidateDataSet, issues);
+
+            PersistenceConversionResult<JobPostingDto> jobConversion =
+                JobPostingDtoMapper.ToDto(jobPosting);
+            string jobPath = BuildEntityPath(
+                dataRoot,
+                JobsDirectoryName,
+                jobPosting.Id,
+                issues);
+            AddConversionIssues(jobPath, jobConversion.Issues, issues);
+
+            PersistenceConversionResult<CompanyDto> companyConversion = null;
+            string companyPath = null;
+            if (companyCreated)
+            {
+                companyConversion = CompanyDtoMapper.ToDto(newCompany);
+                companyPath = BuildEntityPath(
+                    dataRoot,
+                    CompaniesDirectoryName,
+                    newCompany.Id,
+                    issues);
+                AddConversionIssues(companyPath, companyConversion.Issues, issues);
+            }
+
+            if (issues.Count > 0
+                || jobConversion.Value == null
+                || jobPath == null
+                || (companyCreated && (companyConversion.Value == null || companyPath == null)))
+            {
+                return new PersistenceStorageResult<JobPostingWriteSummary>(null, issues);
+            }
+
+            var createdPaths = new List<string>();
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(jobPath));
+                if (companyCreated)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(companyPath));
+                    WriteNewFileAtomically(
+                        companyPath,
+                        PersistenceJsonSerializer.Serialize(companyConversion.Value));
+                    createdPaths.Add(companyPath);
+                }
+
+                WriteNewFileAtomically(
+                    jobPath,
+                    PersistenceJsonSerializer.Serialize(jobConversion.Value));
+                createdPaths.Add(jobPath);
+            }
+            catch (Exception exception) when (
+                exception is IOException
+                || exception is UnauthorizedAccessException
+                || exception is ArgumentException
+                || exception is NotSupportedException
+                || exception is InvalidOperationException
+                || exception is System.Runtime.Serialization.SerializationException)
+            {
+                RollBackCreatedFiles(createdPaths, issues);
+                issues.Add(new PersistenceStorageIssue(
+                    PersistenceStorageError.IoFailure,
+                    jobPath,
+                    null,
+                    exception.Message));
+                return new PersistenceStorageResult<JobPostingWriteSummary>(null, issues);
+            }
+
+            return new PersistenceStorageResult<JobPostingWriteSummary>(
+                new JobPostingWriteSummary(
+                    jobPosting.CompanyId,
+                    jobPosting.Id,
+                    companyCreated),
+                issues);
+        }
+
+        /// <summary>
         /// 將完整資料集寫入不存在或完全空白的目錄。
         /// 此方法不覆蓋既有正式資料，適合作為 migration 的 staging 輸出。
         /// </summary>
@@ -603,6 +743,31 @@ namespace JobCheck.Persistence
                 if (File.Exists(temporaryPath))
                 {
                     File.Delete(temporaryPath);
+                }
+            }
+        }
+
+        private static void RollBackCreatedFiles(
+            IEnumerable<string> paths,
+            ICollection<PersistenceStorageIssue> issues)
+        {
+            foreach (string path in paths.Reverse())
+            {
+                try
+                {
+                    if (File.Exists(path))
+                    {
+                        File.Delete(path);
+                    }
+                }
+                catch (Exception exception) when (
+                    exception is IOException || exception is UnauthorizedAccessException)
+                {
+                    issues.Add(new PersistenceStorageIssue(
+                        PersistenceStorageError.IoFailure,
+                        path,
+                        null,
+                        "回復未完成寫入時無法移除檔案：" + exception.Message));
                 }
             }
         }
