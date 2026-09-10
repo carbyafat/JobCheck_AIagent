@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 新增職缺的最小輸入表單。只收集文字與顯示結果，資料規則全部交給 JobPostingCommandService。
+/// 新增／編輯職缺的最小輸入表單。只收集文字與顯示結果，資料規則全部交給 JobPostingCommandService。
 /// </summary>
 public sealed class Panel_JobPostingCreate : MonoBehaviour
 {
@@ -17,11 +17,13 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
     [SerializeField] private TMP_InputField inputRawDescription;
 
     [Header("Actions")]
+    [SerializeField] private TMP_Text textTitle;
     [SerializeField] private Button buttonSave;
     [SerializeField] private Button buttonCancel;
     [SerializeField] private TMP_Text textMessage;
 
     private AllJobPage owner;
+    private string editingJobPostingId;
 
     private void Awake()
     {
@@ -35,9 +37,36 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
     public void Show(AllJobPage page)
     {
         owner = page;
+        editingJobPostingId = null;
         AutoBindReferences();
         BindButtons();
         ClearFields();
+        SetPanelLabels("新增職缺", "儲存");
+        SetMessage(string.Empty, false);
+        gameObject.SetActive(true);
+
+        if (inputCompanyName != null)
+        {
+            inputCompanyName.Select();
+            inputCompanyName.ActivateInputField();
+        }
+    }
+
+    /// <summary>
+    /// 以既有資料開啟編輯模式。此表單只修改目前支援的五個欄位。
+    /// </summary>
+    public void ShowForEdit(AllJobPage page, JobDetailData data)
+    {
+        owner = page;
+        editingJobPostingId = data != null ? data.id : null;
+        AutoBindReferences();
+        BindButtons();
+        SetText(inputCompanyName, data != null && data.company != null ? data.company.name : null);
+        SetText(inputTitle, data != null && data.job != null ? data.job.title : null);
+        SetText(inputSourcePlatform, data != null && data.source != null ? data.source.platform : null);
+        SetText(inputSourceUrl, data != null && data.source != null ? data.source.url : null);
+        SetText(inputRawDescription, data != null && data.job != null ? data.job.raw_text : null);
+        SetPanelLabels("編輯職缺", "儲存變更");
         SetMessage(string.Empty, false);
         gameObject.SetActive(true);
 
@@ -56,8 +85,18 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
             return;
         }
 
-        PersistenceStorageResult<JobPostingWriteSummary> result =
-            owner.CreateV02JobPosting(new JobPostingCreateRequest
+        bool isEditing = !string.IsNullOrEmpty(editingJobPostingId);
+        PersistenceStorageResult<JobPostingWriteSummary> result = isEditing
+            ? owner.UpdateV02JobPosting(new JobPostingEditRequest
+            {
+                JobPostingId = editingJobPostingId,
+                CompanyName = GetText(inputCompanyName),
+                Title = GetText(inputTitle),
+                SourcePlatform = GetText(inputSourcePlatform),
+                SourceUrl = GetText(inputSourceUrl),
+                RawDescription = GetText(inputRawDescription)
+            })
+            : owner.CreateV02JobPosting(new JobPostingCreateRequest
             {
                 CompanyName = GetText(inputCompanyName),
                 Title = GetText(inputTitle),
@@ -71,7 +110,7 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
             return;
         }
 
-        var message = new StringBuilder("無法新增職缺：");
+        var message = new StringBuilder(isEditing ? "無法儲存職缺：" : "無法新增職缺：");
         foreach (PersistenceStorageIssue issue in result.Issues)
         {
             message.Append('\n').Append("• ").Append(issue.Message);
@@ -94,6 +133,11 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         inputSourcePlatform = inputSourcePlatform ?? FindInput("Input_SourcePlatform");
         inputSourceUrl = inputSourceUrl ?? FindInput("Input_SourceUrl");
         inputRawDescription = inputRawDescription ?? FindInput("Input_RawDescription");
+        if (textTitle == null)
+        {
+            Transform title = transform.Find("Text_Title");
+            textTitle = title == null ? null : title.GetComponent<TMP_Text>();
+        }
         buttonSave = buttonSave ?? FindButton("Button_SaveJobPosting");
         buttonCancel = buttonCancel ?? FindButton("Button_CancelJobPosting");
 
@@ -138,6 +182,23 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         SetText(inputSourcePlatform, string.Empty);
         SetText(inputSourceUrl, string.Empty);
         SetText(inputRawDescription, string.Empty);
+    }
+
+    private void SetPanelLabels(string title, string saveButtonLabel)
+    {
+        if (textTitle != null)
+        {
+            textTitle.text = title;
+        }
+
+        if (buttonSave != null)
+        {
+            TMP_Text label = buttonSave.GetComponentInChildren<TMP_Text>(true);
+            if (label != null)
+            {
+                label.text = saveButtonLabel;
+            }
+        }
     }
 
     private void SetMessage(string message, bool isError)

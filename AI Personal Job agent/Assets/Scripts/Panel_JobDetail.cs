@@ -99,6 +99,8 @@ public class Panel_JobDetail : MonoBehaviour
     [SerializeField] private Button buttonArchivedWaitOtherJobResult;
     [Tooltip("V0.2 編輯 Application 備註。")]
     [SerializeField] private Button buttonEditNotes;
+    [Tooltip("V0.2 編輯目前職缺的基本資料。")]
+    [SerializeField] private Button buttonEditJobPosting;
 
     private JobDetailData currentData;
     private JobTrackingData currentTracking;
@@ -244,6 +246,31 @@ public class Panel_JobDetail : MonoBehaviour
     }
 
     /// <summary>
+    /// 將目前 V0.2 職缺交給總覽頁，以共用表單開啟編輯模式。
+    /// </summary>
+    public void EditJobPosting()
+    {
+        if (!isV02WriteMode || currentData == null)
+        {
+            return;
+        }
+
+        if (allJobPage == null)
+        {
+            allJobPage = FindObjectOfType<AllJobPage>(true);
+        }
+
+        if (allJobPage == null)
+        {
+            Debug.LogWarning("AllJobPage not found; cannot edit job posting.");
+            return;
+        }
+
+        allJobPage.ShowEditJobPosting(currentData);
+        gameObject.SetActive(false);
+    }
+
+    /// <summary>
     /// 指定總攬頁控制器，用於返回與更新 tracking。
     /// </summary>
     /// <param name="page">總攬頁控制器。</param>
@@ -315,6 +342,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetButtonInteractable(buttonArchived, !value);
         SetButtonInteractable(buttonArchivedWaitOtherJobResult, !value);
         SetButtonInteractable(buttonEditNotes, !value);
+        SetButtonInteractable(buttonEditJobPosting, !value);
 
         if (value)
         {
@@ -874,6 +902,7 @@ public class Panel_JobDetail : MonoBehaviour
         if (buttonArchived == null) buttonArchived = FindChildButton("Button_Archived");
         if (buttonArchivedWaitOtherJobResult == null) buttonArchivedWaitOtherJobResult = FindChildButton("Button_Archived_WaitOtherJobResult");
         if (buttonEditNotes == null) buttonEditNotes = FindChildButton("Button_EditNotes_V02");
+        if (buttonEditJobPosting == null) buttonEditJobPosting = FindChildButton("Button_EditJobPosting_V02");
         if (layoutRoot == null) layoutRoot = transform as RectTransform;
         if (buttonCancelInput == null) buttonCancelInput = FindChildButton("Button_CancelInput_V02");
         EnsureInputControls();
@@ -901,6 +930,7 @@ public class Panel_JobDetail : MonoBehaviour
         BindButton(buttonRejected, SetStatusRejected);
         BindButton(buttonArchived, SetStatusArchived);
         BindButton(buttonArchivedWaitOtherJobResult, SetStatusArchivedWaitOtherJobResult);
+        BindButton(buttonEditJobPosting, EditJobPosting);
     }
 
     /// <summary>

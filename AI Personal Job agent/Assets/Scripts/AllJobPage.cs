@@ -229,6 +229,73 @@ public class AllJobPage : MonoBehaviour
     }
 
     /// <summary>
+    /// 從詳細頁開啟既有職缺編輯表單。編輯完成或取消後回到重新載入的總覽頁。
+    /// </summary>
+    public void ShowEditJobPosting(JobDetailData data)
+    {
+        if (!IsV02Mode || data == null)
+        {
+            Debug.LogWarning("編輯職缺目前只支援有效的 V0.2 data。");
+            return;
+        }
+
+        if (jobPostingCreatePanel == null)
+        {
+            jobPostingCreatePanel = GetComponentInChildren<Panel_JobPostingCreate>(true);
+        }
+
+        if (jobPostingCreatePanel == null)
+        {
+            Debug.LogError("Panel_JobPostingCreate not found in AllJobPage prefab.");
+            return;
+        }
+
+        gameObject.SetActive(true);
+        jobPostingCreatePanel.ShowForEdit(this, data);
+    }
+
+    /// <summary>
+    /// 接收編輯表單並更新既有 V0.2 職缺；成功後重新載入列表。
+    /// </summary>
+    public PersistenceStorageResult<JobPostingWriteSummary> UpdateV02JobPosting(
+        JobPostingEditRequest request)
+    {
+        if (!IsV02Mode)
+        {
+            return new PersistenceStorageResult<JobPostingWriteSummary>(
+                null,
+                new[]
+                {
+                    new PersistenceStorageIssue(
+                        PersistenceStorageError.EntityValidationFailed,
+                        null,
+                        "data_source",
+                        "編輯職缺只支援 V0.2 data。")
+                });
+        }
+
+        PersistenceStorageResult<JobPostingWriteSummary> result =
+            JobPostingCommandService.Update(
+                ResolveProjectRelativePath(v02DataRootPath),
+                request);
+        if (result.IsSuccess)
+        {
+            Load();
+        }
+        else
+        {
+            foreach (PersistenceStorageIssue issue in result.Issues)
+            {
+                Debug.LogWarning(
+                    "V0.2 job update rejected [" + issue.Error + "] "
+                    + issue.FieldPath + " " + issue.Message);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// 套用篩選條件並刷新列表。
     /// </summary>
     /// <param name="condition">篩選條件。</param>
