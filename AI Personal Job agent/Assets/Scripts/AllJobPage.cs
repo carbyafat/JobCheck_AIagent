@@ -34,6 +34,8 @@ public class AllJobPage : MonoBehaviour
     [SerializeField] private Button buttonLast;
     [Tooltip("篩選按鈕，目前只保留入口。")]
     [SerializeField] private Button buttonShowFilter;
+    [Tooltip("開啟 V0.2 新增職缺表單的按鈕。")]
+    [SerializeField] private Button buttonAddJobPosting;
     [Tooltip("篩選面板。")]
     [SerializeField] private FilterPanel filterPanel;
     [Tooltip("職缺列表列物件的父節點。")]
@@ -42,6 +44,8 @@ public class AllJobPage : MonoBehaviour
     [SerializeField] private List<Panel_SingleJob> jobPanels = new List<Panel_SingleJob>();
     [Tooltip("職缺詳細頁。")]
     [SerializeField] private Panel_JobDetail jobDetailPanel;
+    [Tooltip("V0.2 新增職缺表單；表單物件實際保存在 AllJobPage Prefab。")]
+    [SerializeField] private Panel_JobPostingCreate jobPostingCreatePanel;
 
     private readonly List<JobSummaryData> loadedJobs = new List<JobSummaryData>();
     private readonly List<JobSummaryData> displayJobs = new List<JobSummaryData>();
@@ -156,6 +160,72 @@ public class AllJobPage : MonoBehaviour
         filterPanel.SetOwner(this);
         filterPanel.RefreshUI(currentFilter);
         filterPanel.gameObject.SetActive(true);
+    }
+
+    /// <summary>
+    /// 開啟 V0.2 新增職缺表單。Legacy 模式不允許使用新版寫入入口。
+    /// </summary>
+    public void ShowAddJobPosting()
+    {
+        if (!IsV02Mode)
+        {
+            Debug.LogWarning("新增職缺表單目前只支援 V0.2 data。");
+            return;
+        }
+
+        if (jobPostingCreatePanel == null)
+        {
+            jobPostingCreatePanel = GetComponentInChildren<Panel_JobPostingCreate>(true);
+        }
+
+        if (jobPostingCreatePanel == null)
+        {
+            Debug.LogError("Panel_JobPostingCreate not found in AllJobPage prefab.");
+            return;
+        }
+
+        jobPostingCreatePanel.Show(this);
+    }
+
+    /// <summary>
+    /// 接收新增職缺表單並交給 V0.2 寫入服務；成功後重新載入列表。
+    /// </summary>
+    public PersistenceStorageResult<JobPostingWriteSummary> CreateV02JobPosting(
+        JobPostingCreateRequest request)
+    {
+        if (!IsV02Mode)
+        {
+            return new PersistenceStorageResult<JobPostingWriteSummary>(
+                null,
+                new[]
+                {
+                    new PersistenceStorageIssue(
+                        PersistenceStorageError.EntityValidationFailed,
+                        null,
+                        "data_source",
+                        "新增職缺只支援 V0.2 data。")
+                });
+        }
+
+        PersistenceStorageResult<JobPostingWriteSummary> result =
+            JobPostingCommandService.Create(
+                ResolveProjectRelativePath(v02DataRootPath),
+                request);
+        if (result.IsSuccess)
+        {
+            Load();
+        }
+        else
+        {
+            foreach (PersistenceStorageIssue issue in result.Issues)
+            {
+                Debug.LogError(
+                    "V0.2 job create failed [" + issue.Error + "] "
+                    + issue.FieldPath + " " + issue.Message);
+            }
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -932,6 +1002,11 @@ public class AllJobPage : MonoBehaviour
             buttonShowFilter = FindChildButton("Button_ShowFilter");
         }
 
+        if (buttonAddJobPosting == null)
+        {
+            buttonAddJobPosting = FindChildButton("Button_AddJobPosting");
+        }
+
         if (filterPanel == null)
         {
             filterPanel = FindObjectOfType<FilterPanel>(true);
@@ -940,6 +1015,11 @@ public class AllJobPage : MonoBehaviour
         if (jobDetailPanel == null)
         {
             jobDetailPanel = FindObjectOfType<Panel_JobDetail>(true);
+        }
+
+        if (jobPostingCreatePanel == null)
+        {
+            jobPostingCreatePanel = GetComponentInChildren<Panel_JobPostingCreate>(true);
         }
 
         if (jobPanelRoot == null)
@@ -1014,6 +1094,12 @@ public class AllJobPage : MonoBehaviour
         {
             buttonShowFilter.onClick.RemoveListener(ShowFilter);
             buttonShowFilter.onClick.AddListener(ShowFilter);
+        }
+
+        if (buttonAddJobPosting != null)
+        {
+            buttonAddJobPosting.onClick.RemoveListener(ShowAddJobPosting);
+            buttonAddJobPosting.onClick.AddListener(ShowAddJobPosting);
         }
     }
 
