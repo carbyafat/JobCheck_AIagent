@@ -48,6 +48,16 @@ public class Panel_JobDetail : MonoBehaviour
     [Tooltip("需要強制重排的根節點。")]
     [SerializeField] private RectTransform layoutRoot;
 
+    [Header("Event History")]
+    [Tooltip("開啟／關閉 V0.2 應徵事件歷程。")]
+    [SerializeField] private Button buttonShowEventHistory;
+    [Tooltip("獨立顯示應徵事件歷程的面板。")]
+    [SerializeField] private GameObject panelEventHistory;
+    [Tooltip("事件歷程清單文字。")]
+    [SerializeField] private TMP_Text textEventHistory;
+    [Tooltip("關閉事件歷程面板。")]
+    [SerializeField] private Button buttonCloseEventHistory;
+
     [Header("Status Panel")]
     [Tooltip("開關狀態按鈕面板的按鈕。")]
     [SerializeField] private Button buttonShowStatusPanel;
@@ -121,6 +131,7 @@ public class Panel_JobDetail : MonoBehaviour
     {
         AutoBindReferences();
         BindButtons();
+        SetEventHistoryVisible(false);
     }
 
     /// <summary>
@@ -142,6 +153,7 @@ public class Panel_JobDetail : MonoBehaviour
         currentData = data;
         currentTracking = tracking;
         gameObject.SetActive(true);
+        SetEventHistoryVisible(false);
         // 詳情物件若原本 inactive，Awake 會在上一行才完成自動綁定；此時再套一次唯讀狀態。
         SetReadOnly(isReadOnly);
         ApplyV02Labels();
@@ -195,6 +207,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetText(textWelfare, benefits);
         SetText(textRecruitmentProcess, BuildListSection("招募流程", data.recruitment_process));
         SetText(textOther, BuildOtherText(data));
+        RefreshEventHistoryText();
         RefreshExpireDayText();
 
         RefreshStatusButtonColors();
@@ -223,6 +236,8 @@ public class Panel_JobDetail : MonoBehaviour
         SetText(textRecruitmentProcess, string.Empty);
         SetText(textOther, string.Empty);
         SetText(textExpireDay, string.Empty);
+        SetText(textEventHistory, string.Empty);
+        SetEventHistoryVisible(false);
         SetExpireDayInputVisible(false);
         ForceBuildLayout();
     }
@@ -285,7 +300,38 @@ public class Panel_JobDetail : MonoBehaviour
     public void SetV02WriteMode(bool value)
     {
         isV02WriteMode = value;
+        if (buttonShowEventHistory != null)
+        {
+            buttonShowEventHistory.gameObject.SetActive(value);
+        }
         ApplyV02Labels();
+    }
+
+    /// <summary>
+    /// 切換獨立的應徵事件歷程面板。歷程為不可變唯讀資訊。
+    /// </summary>
+    public void ToggleEventHistory()
+    {
+        if (!isV02WriteMode || panelEventHistory == null)
+        {
+            return;
+        }
+
+        RefreshEventHistoryText();
+        bool shouldShow = !panelEventHistory.activeSelf;
+        SetEventHistoryVisible(shouldShow);
+        if (shouldShow && panelStatusBtn != null)
+        {
+            panelStatusBtn.SetActive(false);
+        }
+    }
+
+    /// <summary>
+    /// 關閉事件歷程面板，不修改任何事件資料。
+    /// </summary>
+    public void CloseEventHistory()
+    {
+        SetEventHistoryVisible(false);
     }
 
     private void ApplyV02Labels()
@@ -783,21 +829,53 @@ public class Panel_JobDetail : MonoBehaviour
         AppendLine(builder, "我的備註", currentTracking != null ? currentTracking.notes : string.Empty);
         AppendLine(builder, "適配度", currentTracking != null && currentTracking.fit_score >= 0 ? currentTracking.fit_score.ToString() : "尚未評分");
 
-        if (isV02WriteMode
-            && currentTracking != null
-            && currentTracking.event_history != null
-            && currentTracking.event_history.Count > 0)
+        return builder.ToString().TrimEnd();
+    }
+
+    private void RefreshEventHistoryText()
+    {
+        if (textEventHistory == null)
         {
-            builder.AppendLine();
-            builder.AppendLine("應徵歷程:");
-            foreach (string history in currentTracking.event_history)
-            {
-                builder.Append("- ");
-                builder.AppendLine(history);
-            }
+            return;
         }
 
-        return builder.ToString().TrimEnd();
+        if (currentTracking == null
+            || currentTracking.event_history == null
+            || currentTracking.event_history.Count == 0)
+        {
+            textEventHistory.text = "尚無應徵事件紀錄。";
+            return;
+        }
+
+        var builder = new StringBuilder();
+        foreach (string history in currentTracking.event_history)
+        {
+            if (string.IsNullOrWhiteSpace(history))
+            {
+                continue;
+            }
+
+            if (builder.Length > 0)
+            {
+                builder.AppendLine();
+                builder.AppendLine();
+            }
+
+            builder.Append("• ");
+            builder.Append(history.Trim());
+        }
+
+        textEventHistory.text = builder.Length == 0
+            ? "尚無應徵事件紀錄。"
+            : builder.ToString();
+    }
+
+    private void SetEventHistoryVisible(bool value)
+    {
+        if (panelEventHistory != null)
+        {
+            panelEventHistory.SetActive(value);
+        }
     }
 
     /// <summary>
@@ -903,6 +981,17 @@ public class Panel_JobDetail : MonoBehaviour
         if (buttonArchivedWaitOtherJobResult == null) buttonArchivedWaitOtherJobResult = FindChildButton("Button_Archived_WaitOtherJobResult");
         if (buttonEditNotes == null) buttonEditNotes = FindChildButton("Button_EditNotes_V02");
         if (buttonEditJobPosting == null) buttonEditJobPosting = FindChildButton("Button_EditJobPosting_V02");
+        if (buttonShowEventHistory == null) buttonShowEventHistory = FindChildButton("Button_ShowEventHistory_V02");
+        if (buttonCloseEventHistory == null) buttonCloseEventHistory = FindChildButton("Button_CloseEventHistory_V02");
+        if (textEventHistory == null) textEventHistory = FindChildText("TMP_EventHistory_V02");
+        if (panelEventHistory == null)
+        {
+            Transform foundEventPanel = FindChildTransform("Panel_EventHistory_V02");
+            if (foundEventPanel != null)
+            {
+                panelEventHistory = foundEventPanel.gameObject;
+            }
+        }
         if (layoutRoot == null) layoutRoot = transform as RectTransform;
         if (buttonCancelInput == null) buttonCancelInput = FindChildButton("Button_CancelInput_V02");
         EnsureInputControls();
@@ -931,6 +1020,8 @@ public class Panel_JobDetail : MonoBehaviour
         BindButton(buttonArchived, SetStatusArchived);
         BindButton(buttonArchivedWaitOtherJobResult, SetStatusArchivedWaitOtherJobResult);
         BindButton(buttonEditJobPosting, EditJobPosting);
+        BindButton(buttonShowEventHistory, ToggleEventHistory);
+        BindButton(buttonCloseEventHistory, CloseEventHistory);
     }
 
     /// <summary>

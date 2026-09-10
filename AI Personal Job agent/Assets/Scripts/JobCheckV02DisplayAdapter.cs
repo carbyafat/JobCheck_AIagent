@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Domain = JobCheck.Domain;
 using JobCheck.Persistence;
 
@@ -221,12 +222,13 @@ public static class JobCheckV02DisplayAdapter
             fit_score = -1,
             notes = application?.Notes,
             is_archived = application != null && application.IsArchived,
-            event_history = BuildEventHistory(item.ApplicationEvents)
+            event_history = BuildEventHistory(item.ApplicationEvents, application)
         };
     }
 
     private static List<string> BuildEventHistory(
-        IEnumerable<Domain.ApplicationEvent> applicationEvents)
+        IEnumerable<Domain.ApplicationEvent> applicationEvents,
+        Domain.Application application)
     {
         var result = new List<string>();
         if (applicationEvents == null)
@@ -234,16 +236,70 @@ public static class JobCheckV02DisplayAdapter
             return result;
         }
 
-        foreach (Domain.ApplicationEvent item in applicationEvents)
+        foreach (Domain.ApplicationEvent item in applicationEvents
+            .OrderByDescending(value => value.OccurredAt ?? value.RecordedAt)
+            .ThenByDescending(value => value.Id, System.StringComparer.Ordinal))
         {
             string time = item.OccurredAt?.ToString("yyyy/MM/dd HH:mm") ?? "時間未知";
             string scheduled = item.ScheduledFor.HasValue
-                ? "（面試：" + item.ScheduledFor.Value.ToString("yyyy/MM/dd HH:mm") + "）"
+                ? "\n    面試時間：" + item.ScheduledFor.Value.ToString("yyyy/MM/dd HH:mm")
                 : string.Empty;
-            result.Add(time + "  " + FormatEventType(item.EventType) + scheduled);
+            string notes = string.IsNullOrWhiteSpace(item.Notes)
+                ? string.Empty
+                : "\n    備註：" + item.Notes.Trim();
+            string closeReason = item.EventType == Domain.ApplicationEventType.ClosedByCandidate
+                ? FormatCloseReason(application)
+                : string.Empty;
+            result.Add(
+                time + "｜" + FormatEventType(item.EventType)
+                + "｜" + FormatActor(item.Actor)
+                + scheduled
+                + closeReason
+                + notes);
         }
 
         return result;
+    }
+
+    private static string FormatActor(Domain.EventActor actor)
+    {
+        switch (actor)
+        {
+            case Domain.EventActor.Candidate: return "本人";
+            case Domain.EventActor.Company: return "公司";
+            case Domain.EventActor.Platform: return "平台";
+            case Domain.EventActor.System: return "系統";
+            default: return actor.ToString();
+        }
+    }
+
+    private static string FormatCloseReason(Domain.Application application)
+    {
+        if (application == null || !application.CandidateCloseReason.HasValue)
+        {
+            return string.Empty;
+        }
+
+        string reason;
+        switch (application.CandidateCloseReason.Value)
+        {
+            case Domain.CandidateCloseReason.SalaryTooLow: reason = "薪資太低"; break;
+            case Domain.CandidateCloseReason.GamblingIndustry: reason = "博弈產業"; break;
+            case Domain.CandidateCloseReason.Commute: reason = "通勤"; break;
+            case Domain.CandidateCloseReason.WorkSchedule: reason = "工時"; break;
+            case Domain.CandidateCloseReason.WeekendDuty: reason = "週末值班"; break;
+            case Domain.CandidateCloseReason.RoleMismatch: reason = "職務不符"; break;
+            case Domain.CandidateCloseReason.TechMismatch: reason = "技術不符"; break;
+            case Domain.CandidateCloseReason.CompanyConcern: reason = "公司疑慮"; break;
+            case Domain.CandidateCloseReason.BetterOpportunity: reason = "選擇其他機會"; break;
+            case Domain.CandidateCloseReason.NoResponse: reason = "長期無回覆"; break;
+            default: reason = "其他"; break;
+        }
+
+        string note = string.IsNullOrWhiteSpace(application.CandidateCloseReasonNote)
+            ? string.Empty
+            : "（" + application.CandidateCloseReasonNote.Trim() + "）";
+        return "\n    結案原因：" + reason + note;
     }
 
     private static string FormatEventType(Domain.ApplicationEventType eventType)
