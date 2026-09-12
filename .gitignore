@@ -4,6 +4,9 @@
 /data/jobs/job_*.json
 /data/applications/app_*.json
 
+# V0.2.1 personal records are local-only and must never be mixed with tracked demo data.
+/personal_data/
+
 # V0.2 UI acceptance demo allowlist.
 !/data/companies/cmp_436719324216441fbe0b3c8e398358d1.json
 !/data/companies/cmp_4cfaf35d8ba14e2fa5eaa27db4b6f8ee.json

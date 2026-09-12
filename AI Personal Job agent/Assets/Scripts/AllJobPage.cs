@@ -5,6 +5,12 @@ using JobCheck.Persistence;
 using ApplicationEventType = JobCheck.Domain.ApplicationEventType;
 using CandidateCloseReason = JobCheck.Domain.CandidateCloseReason;
 using EventActor = JobCheck.Domain.EventActor;
+using JobCheckDataSet = JobCheck.Domain.JobCheckDataSet;
+using Company = JobCheck.Domain.Company;
+using JobPosting = JobCheck.Domain.JobPosting;
+using DomainApplication = JobCheck.Domain.Application;
+using DomainApplicationEvent = JobCheck.Domain.ApplicationEvent;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -13,9 +19,13 @@ using UnityEngine.UI;
 /// </summary>
 public class AllJobPage : MonoBehaviour
 {
+    private const string DataProfilePreferenceKey = "JobCheck.DataProfile";
+
     [Header("Data")]
-    [Tooltip("V0.2 data 根目錄，相對於 Unity 專案根目錄。預設 ../data 指向儲存庫根目錄的 data。")]
-    [SerializeField] private string v02DataRootPath = "../data";
+    [Tooltip("版本控制內的正式 Demo 資料根目錄；不可寫入個人真實資料。")]
+    [SerializeField] private string demoDataRootPath = "../data";
+    [Tooltip("只保存在本機、不納入 Git 的個人資料根目錄。")]
+    [SerializeField] private string personalDataRootPath = "../personal_data";
 
     [Header("UI")]
     [Tooltip("載入全部職缺資料的按鈕。")]
@@ -38,11 +48,26 @@ public class AllJobPage : MonoBehaviour
     [SerializeField] private Panel_JobDetail jobDetailPanel;
     [Tooltip("V0.2 新增職缺表單；表單物件實際保存在 AllJobPage Prefab。")]
     [SerializeField] private Panel_JobPostingCreate jobPostingCreatePanel;
+    [Tooltip("切換 Demo／個人資料區的按鈕。")]
+    [SerializeField] private Button buttonSwitchDataProfile;
+    [Tooltip("顯示目前正在讀寫哪一個資料區。")]
+    [SerializeField] private TMP_Text textDataProfile;
 
     private readonly List<JobSummaryData> loadedJobs = new List<JobSummaryData>();
     private readonly List<JobSummaryData> displayJobs = new List<JobSummaryData>();
     private JobFilterCondition currentFilter = new JobFilterCondition();
     private int currentPage;
+    private JobCheckDataProfile currentDataProfile;
+
+    private string ActiveDataRootPath
+    {
+        get
+        {
+            return currentDataProfile == JobCheckDataProfile.Personal
+                ? personalDataRootPath
+                : demoDataRootPath;
+        }
+    }
 
     private int PageSize
     {
@@ -64,8 +89,10 @@ public class AllJobPage : MonoBehaviour
 
     private void Awake()
     {
+        LoadSelectedDataProfile();
         AutoBindReferences();
         BindButtons();
+        RefreshDataProfileUi();
         RefreshPage();
     }
 
@@ -77,7 +104,7 @@ public class AllJobPage : MonoBehaviour
         loadedJobs.Clear();
         currentPage = 0;
 
-        LoadFromV02Data(ResolveProjectRelativePath(v02DataRootPath));
+        LoadFromV02Data(ResolveProjectRelativePath(ActiveDataRootPath));
 
         ApplyFilter(currentFilter);
     }
@@ -158,7 +185,7 @@ public class AllJobPage : MonoBehaviour
     {
         PersistenceStorageResult<JobPostingWriteSummary> result =
             JobPostingCommandService.Create(
-                ResolveProjectRelativePath(v02DataRootPath),
+                ResolveProjectRelativePath(ActiveDataRootPath),
                 request);
         if (result.IsSuccess)
         {
@@ -211,7 +238,7 @@ public class AllJobPage : MonoBehaviour
     {
         PersistenceStorageResult<JobPostingWriteSummary> result =
             JobPostingCommandService.Update(
-                ResolveProjectRelativePath(v02DataRootPath),
+                ResolveProjectRelativePath(ActiveDataRootPath),
                 request);
         if (result.IsSuccess)
         {
@@ -327,7 +354,7 @@ public class AllJobPage : MonoBehaviour
 
         PersistenceStorageResult<ApplicationWriteSummary> result =
             ApplicationCommandService.SetManualFollowUp(
-                ResolveProjectRelativePath(v02DataRootPath),
+                ResolveProjectRelativePath(ActiveDataRootPath),
                 jobId,
                 followUpAt);
         return FinishV02Write(jobId, result);
@@ -530,7 +557,7 @@ public class AllJobPage : MonoBehaviour
 
         PersistenceStorageResult<ApplicationWriteSummary> result =
             ApplicationCommandService.RecordEvent(
-                ResolveProjectRelativePath(v02DataRootPath),
+                ResolveProjectRelativePath(ActiveDataRootPath),
                 jobId,
                 eventType,
                 actor,
@@ -547,7 +574,7 @@ public class AllJobPage : MonoBehaviour
     {
         PersistenceStorageResult<ApplicationWriteSummary> result =
             ApplicationCommandService.SetFavorite(
-                ResolveProjectRelativePath(v02DataRootPath),
+                ResolveProjectRelativePath(ActiveDataRootPath),
                 jobId,
                 favorite);
         return FinishV02Write(jobId, result);
@@ -560,7 +587,7 @@ public class AllJobPage : MonoBehaviour
     {
         PersistenceStorageResult<ApplicationWriteSummary> result =
             ApplicationCommandService.SetNotes(
-                ResolveProjectRelativePath(v02DataRootPath),
+                ResolveProjectRelativePath(ActiveDataRootPath),
                 jobId,
                 notes);
         return FinishV02Write(jobId, result);
@@ -717,6 +744,79 @@ public class AllJobPage : MonoBehaviour
     }
 
     /// <summary>
+    /// 在 Demo 與本機個人資料之間切換。首次切到個人資料時才建立空白資料目錄，
+    /// 避免單純讀取畫面就產生檔案。
+    /// </summary>
+    public void SwitchDataProfile()
+    {
+        JobCheckDataProfile next = currentDataProfile == JobCheckDataProfile.Demo
+            ? JobCheckDataProfile.Personal
+            : JobCheckDataProfile.Demo;
+
+        if (next == JobCheckDataProfile.Personal && !EnsurePersonalDataRoot())
+        {
+            return;
+        }
+
+        currentDataProfile = next;
+        PlayerPrefs.SetInt(DataProfilePreferenceKey, (int)currentDataProfile);
+        PlayerPrefs.Save();
+        RefreshDataProfileUi();
+        Load();
+    }
+
+    private void LoadSelectedDataProfile()
+    {
+        int saved = PlayerPrefs.GetInt(DataProfilePreferenceKey, (int)JobCheckDataProfile.Demo);
+        currentDataProfile = saved == (int)JobCheckDataProfile.Personal
+            ? JobCheckDataProfile.Personal
+            : JobCheckDataProfile.Demo;
+    }
+
+    /// <summary>
+    /// 明確初始化個人資料根目錄。Repository 的一般 Load 仍維持唯讀、不自動建檔。
+    /// </summary>
+    private bool EnsurePersonalDataRoot()
+    {
+        string root = ResolveProjectRelativePath(personalDataRootPath);
+        if (Directory.Exists(root))
+        {
+            return true;
+        }
+
+        var emptyDataSet = new JobCheckDataSet(
+            new List<Company>(),
+            new List<JobPosting>(),
+            new List<DomainApplication>(),
+            new List<DomainApplicationEvent>());
+        PersistenceStorageResult<PersistenceWriteSummary> result =
+            JobCheckDataRepository.WriteSnapshot(root, emptyDataSet);
+        if (result.IsSuccess)
+        {
+            return true;
+        }
+
+        foreach (PersistenceStorageIssue issue in result.Issues)
+        {
+            Debug.LogError(
+                "個人資料區建立失敗 [" + issue.Error + "] "
+                + issue.FilePath + " " + issue.Message);
+        }
+
+        return false;
+    }
+
+    private void RefreshDataProfileUi()
+    {
+        if (textDataProfile != null)
+        {
+            textDataProfile.text = currentDataProfile == JobCheckDataProfile.Personal
+                ? "資料：個人（點擊切換）"
+                : "資料：Demo（點擊切換）";
+        }
+    }
+
+    /// <summary>
     /// 自動尋找並綁定 UI 參考。
     /// </summary>
     private void AutoBindReferences()
@@ -744,6 +844,17 @@ public class AllJobPage : MonoBehaviour
         if (buttonAddJobPosting == null)
         {
             buttonAddJobPosting = FindChildButton("Button_AddJobPosting");
+        }
+
+        if (buttonSwitchDataProfile == null)
+        {
+            buttonSwitchDataProfile = FindChildButton("TMP_Date");
+        }
+
+        if (textDataProfile == null)
+        {
+            Transform profile = transform.Find("TMP_Date");
+            textDataProfile = profile != null ? profile.GetComponent<TMP_Text>() : null;
         }
 
         if (filterPanel == null)
@@ -822,6 +933,12 @@ public class AllJobPage : MonoBehaviour
             buttonAddJobPosting.onClick.RemoveListener(ShowAddJobPosting);
             buttonAddJobPosting.onClick.AddListener(ShowAddJobPosting);
         }
+
+        if (buttonSwitchDataProfile != null)
+        {
+            buttonSwitchDataProfile.onClick.RemoveListener(SwitchDataProfile);
+            buttonSwitchDataProfile.onClick.AddListener(SwitchDataProfile);
+        }
     }
 
     /// <summary>
@@ -851,6 +968,15 @@ public class AllJobPage : MonoBehaviour
         return Path.GetFullPath(Path.Combine(projectRoot, path));
     }
 
+}
+
+/// <summary>
+/// JobCheck 的資料使用情境。Demo 可進 Git；Personal 永遠只留在使用者電腦。
+/// </summary>
+public enum JobCheckDataProfile
+{
+    Demo = 0,
+    Personal = 1
 }
 
 [Serializable]
