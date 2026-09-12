@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Domain = JobCheck.Domain;
 using JobCheck.Persistence;
@@ -11,22 +10,13 @@ using JobCheck.Persistence;
 /// </summary>
 public static class JobCheckV02DisplayAdapter
 {
-    public static JobSummaryData CreateSummary(
-        JobPostingReadOnlyItem item,
-        string dataRoot)
+    public static JobSummaryData CreateSummary(JobPostingReadOnlyItem item)
     {
         JobDetailData detail = CreateDetail(item);
         JobTrackingData tracking = CreateTracking(item);
         return new JobSummaryData
         {
             id = item.JobPosting.Id,
-            file = Path.Combine(
-                JobCheckDataRepository.JobsDirectoryName,
-                item.JobPosting.Id + ".json"),
-            detailFullPath = Path.Combine(
-                dataRoot,
-                JobCheckDataRepository.JobsDirectoryName,
-                item.JobPosting.Id + ".json"),
             company = item.Company != null ? item.Company.Name : string.Empty,
             title = item.JobPosting.Title,
             salary = item.JobPosting.Compensation != null

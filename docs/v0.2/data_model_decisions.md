@@ -363,7 +363,7 @@ data/
 - imports 保存外部來源原始資料與解析結果。
 - settings 保存 Fit 權重及不屬於個別實體的設定。
 - migration 保存 manifest、ID mapping、validation report 與執行紀錄。
-- 舊 `jobs/`、`job_tracking/`、`job_index/` 在 V0.2 migration 驗收完成前維持唯讀且不得刪除。
+- 舊 `jobs/`、`job_tracking/`、`job_index/` 在 V0.2 migration 驗收完成前維持唯讀且不得刪除；驗收完成後，頂層副本已退役，來源證據保留於 `data/migration/`。
 
 ## 13. 讀寫安全
 
