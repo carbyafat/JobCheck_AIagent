@@ -176,7 +176,6 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         inputRawDescription = inputRawDescription ?? FindInput("Input_RawDescription");
         inputTags = inputTags ?? FindInput("Input_Tags");
         inputRiskFlags = inputRiskFlags ?? FindInput("Input_RiskFlags");
-        EnsureLabelInputs();
         if (textTitle == null)
         {
             Transform title = transform.Find("Text_Title");
@@ -273,56 +272,6 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         {
             input.SetTextWithoutNotify(value);
         }
-    }
-
-    /// <summary>
-    /// 舊 Prefab 尚未含標籤欄位時，以既有單行輸入框為範本建立兩個欄位。
-    /// 重複選項來自 Domain catalog，因此不需要在 Prefab 內複製十二組按鈕。
-    /// </summary>
-    private void EnsureLabelInputs()
-    {
-        if (inputSourceUrl == null)
-        {
-            return;
-        }
-
-        inputTags = inputTags ?? CreateLabelInput(
-            "Input_Tags",
-            -60f,
-            "標籤（Unity、C#、.NET、Web、遠端工作、遊戲、教育；逗號分隔）");
-        inputRiskFlags = inputRiskFlags ?? CreateLabelInput(
-            "Input_RiskFlags",
-            -135f,
-            "風險（週末值班、薪資不透明、通勤距離較長、職務內容不明確、博弈產業）");
-
-        RectTransform rawRect = inputRawDescription != null
-            ? inputRawDescription.GetComponent<RectTransform>()
-            : null;
-        if (rawRect != null)
-        {
-            rawRect.anchoredPosition = new Vector2(0f, -240f);
-            rawRect.sizeDelta = new Vector2(rawRect.sizeDelta.x, 110f);
-        }
-    }
-
-    private TMP_InputField CreateLabelInput(string objectName, float y, string hint)
-    {
-        TMP_InputField input = Instantiate(inputSourceUrl, transform);
-        input.name = objectName;
-        input.SetTextWithoutNotify(string.Empty);
-        input.lineType = TMP_InputField.LineType.SingleLine;
-
-        RectTransform rect = input.GetComponent<RectTransform>();
-        rect.anchoredPosition = new Vector2(0f, y);
-        rect.sizeDelta = new Vector2(1050f, 60f);
-
-        TMP_Text placeholder = input.placeholder as TMP_Text;
-        if (placeholder != null)
-        {
-            placeholder.text = hint;
-        }
-
-        return input;
     }
 
     private static void SetLabelsForEdit(

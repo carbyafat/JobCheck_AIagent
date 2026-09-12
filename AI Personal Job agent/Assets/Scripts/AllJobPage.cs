@@ -1098,27 +1098,9 @@ public class AllJobPage : MonoBehaviour
 
             if (jobPanels.Count == 0)
             {
-                Transform[] children = jobPanelRoot.GetComponentsInChildren<Transform>(true);
-                foreach (Transform child in children)
-                {
-                    if (child == jobPanelRoot)
-                    {
-                        continue;
-                    }
-
-                    if (!child.name.StartsWith("Panel_SingleJob", StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
-
-                    Panel_SingleJob panel = child.GetComponent<Panel_SingleJob>();
-                    if (panel == null)
-                    {
-                        panel = child.gameObject.AddComponent<Panel_SingleJob>();
-                    }
-
-                    jobPanels.Add(panel);
-                }
+                Debug.LogError(
+                    "JobPanels must contain preconfigured Panel_SingleJob components.",
+                    this);
             }
 
             foreach (Panel_SingleJob panel in jobPanels)

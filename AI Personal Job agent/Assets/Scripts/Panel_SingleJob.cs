@@ -160,7 +160,7 @@ public class Panel_SingleJob : MonoBehaviour
 
         if (buttonOpenDetail == null)
         {
-            buttonOpenDetail = gameObject.AddComponent<Button>();
+            Debug.LogError("Panel_SingleJob requires a Button component on the prefab root.", this);
         }
 
         if (jobDetailPanel == null)
