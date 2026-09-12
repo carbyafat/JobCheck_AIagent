@@ -116,7 +116,6 @@ public class Panel_JobDetail : MonoBehaviour
     private JobTrackingData currentTracking;
     private AllJobPage allJobPage;
     private bool isReadOnly;
-    private bool isV02WriteMode;
     private DetailInputMode inputMode;
 
     private enum DetailInputMode
@@ -135,15 +134,6 @@ public class Panel_JobDetail : MonoBehaviour
     }
 
     /// <summary>
-    /// 顯示詳細頁，只使用職缺原始資料。
-    /// </summary>
-    /// <param name="data">職缺詳細資料。</param>
-    public void Show(JobDetailData data)
-    {
-        Show(data, null);
-    }
-
-    /// <summary>
     /// 顯示詳細頁，並套用 tracking 資料。
     /// </summary>
     /// <param name="data">職缺詳細資料。</param>
@@ -153,26 +143,15 @@ public class Panel_JobDetail : MonoBehaviour
         currentData = data;
         currentTracking = tracking;
         gameObject.SetActive(true);
+        if (buttonShowEventHistory != null)
+        {
+            buttonShowEventHistory.gameObject.SetActive(true);
+        }
         SetEventHistoryVisible(false);
         // 詳情物件若原本 inactive，Awake 會在上一行才完成自動綁定；此時再套一次唯讀狀態。
         SetReadOnly(isReadOnly);
         ApplyV02Labels();
         Refresh(data);
-    }
-
-    /// <summary>
-    /// 從 JSON 字串載入職缺詳細資料。
-    /// </summary>
-    /// <param name="json">職缺詳細 JSON 字串。</param>
-    public void LoadFromJson(string json)
-    {
-        if (string.IsNullOrEmpty(json))
-        {
-            Clear();
-            return;
-        }
-
-        Show(JsonUtility.FromJson<JobDetailData>(json));
     }
 
     /// <summary>
@@ -189,7 +168,7 @@ public class Panel_JobDetail : MonoBehaviour
 
         string title = FormatTitle(data);
         bool isExpired = IsCurrentTrackingExpired();
-        string status = FormatStatus(GetCurrentStatus(data), isExpired);
+        string status = FormatStatus(GetCurrentStatus(), isExpired);
         string benefits = BuildBenefitsText(data.benefits);
 
         SetText(textCompanyTitle, title);
@@ -265,7 +244,7 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void EditJobPosting()
     {
-        if (!isV02WriteMode || currentData == null)
+        if (currentData == null)
         {
             return;
         }
@@ -295,24 +274,11 @@ public class Panel_JobDetail : MonoBehaviour
     }
 
     /// <summary>
-    /// 指定是否使用 V0.2 事件寫入模式，並把舊版容易誤解的按鈕改成新版語意。
-    /// </summary>
-    public void SetV02WriteMode(bool value)
-    {
-        isV02WriteMode = value;
-        if (buttonShowEventHistory != null)
-        {
-            buttonShowEventHistory.gameObject.SetActive(value);
-        }
-        ApplyV02Labels();
-    }
-
-    /// <summary>
     /// 切換獨立的應徵事件歷程面板。歷程為不可變唯讀資訊。
     /// </summary>
     public void ToggleEventHistory()
     {
-        if (!isV02WriteMode || panelEventHistory == null)
+        if (panelEventHistory == null)
         {
             return;
         }
@@ -336,19 +302,6 @@ public class Panel_JobDetail : MonoBehaviour
 
     private void ApplyV02Labels()
     {
-        if (!isV02WriteMode)
-        {
-            SetButtonLabel(buttonNotViewed, "未檢視");
-            SetButtonLabel(buttonArchived, "已封存");
-            SetButtonLabel(buttonArchivedWaitOtherJobResult, "已錄取等其他面試結果");
-            SetButtonLabel(buttonManualSetExpireDay, "設定到期日");
-            if (buttonEditNotes != null)
-            {
-                buttonEditNotes.gameObject.SetActive(false);
-            }
-            return;
-        }
-
         SetButtonLabel(buttonNotViewed, "公司已讀");
         SetButtonLabel(buttonNotApplying, "主動放棄");
         SetButtonLabel(buttonWaitInterview, "安排面試");
@@ -365,8 +318,7 @@ public class Panel_JobDetail : MonoBehaviour
     }
 
     /// <summary>
-    /// 設定詳細頁是否只允許查看。V0.2 第一階段尚無安全單筆寫入 API，
-    /// 因此狀態與追蹤日期控制會停用，避免誤寫回 V0.1 tracking。
+    /// 設定詳細頁是否只允許查看。
     /// </summary>
     /// <param name="value">true 表示唯讀。</param>
     public void SetReadOnly(bool value)
@@ -406,7 +358,7 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void SetStatusNotViewed()
     {
-        ChangeStatus(isV02WriteMode ? "viewed" : "not_viewed");
+        ChangeStatus("viewed");
     }
 
     /// <summary>
@@ -422,15 +374,9 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void SetStatusNotApplying()
     {
-        if (isV02WriteMode)
-        {
-            CloseStatusPanel();
-            inputMode = DetailInputMode.CandidateClose;
-            ShowTextInput("原因：薪資/博弈/通勤/工時/週末/職務/技術/公司/更好機會/無回覆/其他說明");
-            return;
-        }
-
-        ChangeStatus("not_applying");
+        CloseStatusPanel();
+        inputMode = DetailInputMode.CandidateClose;
+        ShowTextInput("原因：薪資/博弈/通勤/工時/週末/職務/技術/公司/更好機會/無回覆/其他說明");
     }
 
     /// <summary>
@@ -446,15 +392,9 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void SetStatusWaitInterview()
     {
-        if (isV02WriteMode)
-        {
-            CloseStatusPanel();
-            inputMode = DetailInputMode.InterviewSchedule;
-            ShowTextInput("面試日期 yyyy.mm.dd");
-            return;
-        }
-
-        ChangeStatus("interview_scheduled");
+        CloseStatusPanel();
+        inputMode = DetailInputMode.InterviewSchedule;
+        ShowTextInput("面試日期 yyyy.mm.dd");
     }
 
     /// <summary>
@@ -494,7 +434,7 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void SetStatusArchived()
     {
-        if (isV02WriteMode && currentData != null && allJobPage != null)
+        if (currentData != null && allJobPage != null)
         {
             bool nextValue = currentTracking == null || !currentTracking.favorite;
             currentTracking = allJobPage.UpdateV02Favorite(currentData.id, nextValue);
@@ -503,7 +443,7 @@ public class Panel_JobDetail : MonoBehaviour
             return;
         }
 
-        ChangeStatus("archived");
+        Debug.LogWarning("缺少 V0.2 職缺或總覽頁，無法切換收藏。", this);
     }
 
     /// <summary>
@@ -511,7 +451,7 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void SetStatusArchivedWaitOtherJobResult()
     {
-        ChangeStatus(isV02WriteMode ? "contacted" : "archived_wait_other_job_result");
+        ChangeStatus("contacted");
     }
 
     /// <summary>
@@ -572,7 +512,7 @@ public class Panel_JobDetail : MonoBehaviour
         }
 
         string input = inputFieldExpireDay.text.Trim();
-        if (isV02WriteMode && inputMode == DetailInputMode.CandidateClose)
+        if (inputMode == DetailInputMode.CandidateClose)
         {
             if (string.IsNullOrWhiteSpace(input))
             {
@@ -592,7 +532,7 @@ public class Panel_JobDetail : MonoBehaviour
             return;
         }
 
-        if (isV02WriteMode && inputMode == DetailInputMode.Notes)
+        if (inputMode == DetailInputMode.Notes)
         {
             currentTracking = allJobPage.UpdateV02Notes(currentData.id, input);
             SetExpireDayInputVisible(false);
@@ -616,7 +556,7 @@ public class Panel_JobDetail : MonoBehaviour
             59,
             DateTimeOffset.Now.Offset);
 
-        if (isV02WriteMode && inputMode == DetailInputMode.InterviewSchedule)
+        if (inputMode == DetailInputMode.InterviewSchedule)
         {
             currentTracking = allJobPage.UpdateV02ApplicationStatus(
                 currentData.id,
@@ -667,9 +607,7 @@ public class Panel_JobDetail : MonoBehaviour
             return;
         }
 
-        currentTracking = isV02WriteMode
-            ? allJobPage.UpdateV02ApplicationStatus(currentData.id, status, null, null, null)
-            : allJobPage.UpdateJobTrackingStatus(currentData.id, status);
+        currentTracking = allJobPage.UpdateV02ApplicationStatus(currentData.id, status, null, null, null);
         Refresh(currentData);
         CloseStatusPanel();
     }
@@ -691,11 +629,9 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     private void RefreshStatusButtonColors()
     {
-        string currentStatus = GetCurrentStatus(currentData);
+        string currentStatus = GetCurrentStatus();
 
-        SetStatusButtonColor(buttonNotViewed, isV02WriteMode
-            ? currentStatus == "viewed"
-            : currentStatus == "not_viewed");
+        SetStatusButtonColor(buttonNotViewed, currentStatus == "viewed");
         SetStatusButtonColor(buttonInterested, currentStatus == "interested");
         SetStatusButtonColor(buttonNotApplying, currentStatus == "not_applying");
         SetStatusButtonColor(buttonApplied, currentStatus == "applied");
@@ -704,12 +640,8 @@ public class Panel_JobDetail : MonoBehaviour
         SetStatusButtonColor(buttonWaitingReply, currentStatus == "waiting_reply");
         SetStatusButtonColor(buttonOffer, currentStatus == "offer");
         SetStatusButtonColor(buttonRejected, currentStatus == "rejected");
-        SetStatusButtonColor(buttonArchived, isV02WriteMode
-            ? currentTracking != null && currentTracking.favorite
-            : currentStatus == "archived");
-        SetStatusButtonColor(buttonArchivedWaitOtherJobResult, isV02WriteMode
-            ? currentStatus == "contacted"
-            : currentStatus == "archived_wait_other_job_result");
+        SetStatusButtonColor(buttonArchived, currentTracking != null && currentTracking.favorite);
+        SetStatusButtonColor(buttonArchivedWaitOtherJobResult, currentStatus == "contacted");
     }
 
     /// <summary>
@@ -823,9 +755,9 @@ public class Panel_JobDetail : MonoBehaviour
         AppendLine(builder, "工作性質", data.work_conditions != null ? data.work_conditions.employment_type : string.Empty);
         AppendLine(builder, "上班時段", data.work_conditions != null ? data.work_conditions.working_hours : string.Empty);
         AppendLine(builder, "需求人數", data.job != null ? data.job.openings : string.Empty);
-        AppendLine(builder, "目前狀態", FormatStatus(GetCurrentStatus(data)));
+        AppendLine(builder, "目前狀態", FormatStatus(GetCurrentStatus()));
         AppendLine(builder, "最後操作日期", currentTracking != null ? currentTracking.last_action_at : string.Empty);
-        AppendLine(builder, isV02WriteMode ? "下次追蹤日期" : "人工過期日期", currentTracking != null ? currentTracking.manual_expire_at : string.Empty);
+        AppendLine(builder, "下次追蹤日期", currentTracking != null ? currentTracking.manual_expire_at : string.Empty);
         AppendLine(builder, "是否逾期", IsCurrentTrackingExpired() ? "是" : "否");
         AppendLine(builder, "我的最愛", currentTracking != null && currentTracking.favorite ? "是" : "否");
         AppendLine(builder, "我的備註", currentTracking != null ? currentTracking.notes : string.Empty);
@@ -1225,7 +1157,7 @@ public class Panel_JobDetail : MonoBehaviour
 
     public void ShowNotesInput()
     {
-        if (!isV02WriteMode || currentData == null)
+        if (currentData == null)
         {
             return;
         }
@@ -1301,18 +1233,18 @@ public class Panel_JobDetail : MonoBehaviour
 
         if (allJobPage == null || currentTracking == null)
         {
-            textExpireDay.text = isV02WriteMode ? "下次追蹤日: -" : "到期日: -";
+            textExpireDay.text = "下次追蹤日: -";
             return;
         }
 
         DateTimeOffset expireAt;
         if (allJobPage.TryGetTrackingExpireAt(currentTracking, out expireAt))
         {
-            textExpireDay.text = (isV02WriteMode ? "下次追蹤日: " : "到期日: ") + expireAt.ToString("yyyy/MM/dd");
+            textExpireDay.text = "下次追蹤日: " + expireAt.ToString("yyyy/MM/dd");
             return;
         }
 
-        textExpireDay.text = isV02WriteMode ? "下次追蹤日: -" : "到期日: -";
+        textExpireDay.text = "下次追蹤日: -";
     }
 
     /// <summary>
@@ -1550,18 +1482,17 @@ public class Panel_JobDetail : MonoBehaviour
     }
 
     /// <summary>
-    /// 取得目前顯示用狀態，優先使用 tracking 狀態。
+    /// 取得目前 V0.2 Application 投影出的狀態。
     /// </summary>
-    /// <param name="data">職缺詳細資料。</param>
     /// <returns>目前狀態代碼。</returns>
-    private string GetCurrentStatus(JobDetailData data)
+    private string GetCurrentStatus()
     {
         if (currentTracking != null && !string.IsNullOrEmpty(currentTracking.status))
         {
             return currentTracking.status;
         }
 
-        return data != null && data.tracking != null ? data.tracking.status : string.Empty;
+        return string.Empty;
     }
 
     /// <summary>

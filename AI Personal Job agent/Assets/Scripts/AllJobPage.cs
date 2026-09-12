@@ -9,21 +9,13 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 職缺總攬頁控制器：載入索引、套用 tracking、處理分頁、排序與開啟詳細頁。
+/// 職缺總攬頁控制器：載入 V0.2 資料、處理分頁、排序與開啟詳細頁。
 /// </summary>
 public class AllJobPage : MonoBehaviour
 {
     [Header("Data")]
-    [Tooltip("V0.2 讀寫新版 data；Legacy V0.1 只保留舊版回退路徑。")]
-    [SerializeField] private JobDataSource dataSource = JobDataSource.V02;
     [Tooltip("V0.2 data 根目錄，相對於 Unity 專案根目錄。預設 ../data 指向儲存庫根目錄的 data。")]
     [SerializeField] private string v02DataRootPath = "../data";
-    [Tooltip("職缺總攬索引檔路徑，相對於 Unity 專案根目錄。")]
-    [SerializeField] private string jobsIndexPath = "../job_index/jobs_index.json";
-    [Tooltip("索引檔不存在時，用來掃描詳細職缺 JSON 的資料夾。")]
-    [SerializeField] private string jobsFolderPath = "../jobs";
-    [Tooltip("使用者操作資料 tracking JSON 的資料夾。")]
-    [SerializeField] private string jobTrackingFolderPath = "../job_tracking";
 
     [Header("UI")]
     [Tooltip("載入全部職缺資料的按鈕。")]
@@ -70,11 +62,6 @@ public class AllJobPage : MonoBehaviour
         }
     }
 
-    private bool IsV02Mode
-    {
-        get { return dataSource == JobDataSource.V02; }
-    }
-
     private void Awake()
     {
         AutoBindReferences();
@@ -83,29 +70,14 @@ public class AllJobPage : MonoBehaviour
     }
 
     /// <summary>
-    /// 載入職缺索引或職缺資料夾，並依逾期/最愛規則排序後刷新畫面。
+    /// 載入 V0.2 data，並依逾期/最愛規則排序後刷新畫面。
     /// </summary>
     public void Load()
     {
         loadedJobs.Clear();
         currentPage = 0;
 
-        if (IsV02Mode)
-        {
-            LoadFromV02Data(ResolveProjectRelativePath(v02DataRootPath));
-        }
-        else
-        {
-            string indexFullPath = ResolveProjectRelativePath(jobsIndexPath);
-            if (File.Exists(indexFullPath))
-            {
-                LoadFromIndex(indexFullPath);
-            }
-            else
-            {
-                LoadFromJobFolder(ResolveProjectRelativePath(jobsFolderPath));
-            }
-        }
+        LoadFromV02Data(ResolveProjectRelativePath(v02DataRootPath));
 
         ApplyFilter(currentFilter);
     }
@@ -160,16 +132,10 @@ public class AllJobPage : MonoBehaviour
     }
 
     /// <summary>
-    /// 開啟 V0.2 新增職缺表單。Legacy 模式不允許使用新版寫入入口。
+    /// 開啟 V0.2 新增職缺表單。
     /// </summary>
     public void ShowAddJobPosting()
     {
-        if (!IsV02Mode)
-        {
-            Debug.LogWarning("新增職缺表單目前只支援 V0.2 data。");
-            return;
-        }
-
         if (jobPostingCreatePanel == null)
         {
             jobPostingCreatePanel = GetComponentInChildren<Panel_JobPostingCreate>(true);
@@ -190,20 +156,6 @@ public class AllJobPage : MonoBehaviour
     public PersistenceStorageResult<JobPostingWriteSummary> CreateV02JobPosting(
         JobPostingCreateRequest request)
     {
-        if (!IsV02Mode)
-        {
-            return new PersistenceStorageResult<JobPostingWriteSummary>(
-                null,
-                new[]
-                {
-                    new PersistenceStorageIssue(
-                        PersistenceStorageError.EntityValidationFailed,
-                        null,
-                        "data_source",
-                        "新增職缺只支援 V0.2 data。")
-                });
-        }
-
         PersistenceStorageResult<JobPostingWriteSummary> result =
             JobPostingCommandService.Create(
                 ResolveProjectRelativePath(v02DataRootPath),
@@ -230,9 +182,9 @@ public class AllJobPage : MonoBehaviour
     /// </summary>
     public void ShowEditJobPosting(JobDetailData data)
     {
-        if (!IsV02Mode || data == null)
+        if (data == null)
         {
-            Debug.LogWarning("編輯職缺目前只支援有效的 V0.2 data。");
+            Debug.LogWarning("缺少有效的 V0.2 職缺資料。");
             return;
         }
 
@@ -257,20 +209,6 @@ public class AllJobPage : MonoBehaviour
     public PersistenceStorageResult<JobPostingWriteSummary> UpdateV02JobPosting(
         JobPostingEditRequest request)
     {
-        if (!IsV02Mode)
-        {
-            return new PersistenceStorageResult<JobPostingWriteSummary>(
-                null,
-                new[]
-                {
-                    new PersistenceStorageIssue(
-                        PersistenceStorageError.EntityValidationFailed,
-                        null,
-                        "data_source",
-                        "編輯職缺只支援 V0.2 data。")
-                });
-        }
-
         PersistenceStorageResult<JobPostingWriteSummary> result =
             JobPostingCommandService.Update(
                 ResolveProjectRelativePath(v02DataRootPath),
@@ -344,42 +282,15 @@ public class AllJobPage : MonoBehaviour
             return;
         }
 
-        if (IsV02Mode)
+        if (job.v02Detail == null)
         {
-            if (job.v02Detail == null)
-            {
-                Debug.LogWarning("V0.2 job detail is unavailable: " + job.id);
-                return;
-            }
-
-            jobDetailPanel.SetAllJobPage(this);
-            jobDetailPanel.SetV02WriteMode(true);
-            jobDetailPanel.SetReadOnly(false);
-            jobDetailPanel.Show(job.v02Detail, job.v02Tracking);
-            gameObject.SetActive(false);
+            Debug.LogWarning("V0.2 job detail is unavailable: " + job.id);
             return;
         }
-
-        if (string.IsNullOrEmpty(job.detailFullPath))
-        {
-            Debug.LogWarning("Job detail path is empty: " + job.id);
-            return;
-        }
-
-        if (!File.Exists(job.detailFullPath))
-        {
-            Debug.LogWarning("Job detail json not found: " + job.detailFullPath);
-            return;
-        }
-
-        string json = File.ReadAllText(job.detailFullPath);
-        JobDetailData detail = JsonUtility.FromJson<JobDetailData>(json);
-        JobTrackingData tracking = LoadOrCreateTracking(job.id);
 
         jobDetailPanel.SetAllJobPage(this);
-        jobDetailPanel.SetV02WriteMode(false);
         jobDetailPanel.SetReadOnly(false);
-        jobDetailPanel.Show(detail, tracking);
+        jobDetailPanel.Show(job.v02Detail, job.v02Tracking);
         gameObject.SetActive(false);
     }
 
@@ -393,94 +304,33 @@ public class AllJobPage : MonoBehaviour
     }
 
     /// <summary>
-    /// 更新職缺狀態，寫回 tracking JSON，並刷新列表。
-    /// </summary>
-    /// <param name="jobId">職缺 ID。</param>
-    /// <param name="status">新的狀態代碼。</param>
-    /// <returns>更新後的 tracking 資料。</returns>
-    public JobTrackingData UpdateJobTrackingStatus(string jobId, string status)
-    {
-        if (IsV02Mode)
-        {
-            return UpdateV02ApplicationStatus(jobId, status, null, null, null);
-        }
-
-        JobTrackingData tracking = LoadOrCreateTracking(jobId);
-        tracking.status = status;
-        tracking.last_action_at = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:sszzz");
-        tracking.manual_expire_at = string.Empty;
-        SaveTracking(tracking);
-
-        foreach (JobSummaryData job in loadedJobs)
-        {
-            if (job.id == jobId)
-            {
-                job.status = tracking.status;
-                job.last_action_at = tracking.last_action_at;
-                job.manual_expire_at = tracking.manual_expire_at;
-                job.favorite = tracking.favorite;
-                job.fit_score = tracking.fit_score;
-                job.is_expired = IsTrackingExpired(tracking);
-                break;
-            }
-        }
-
-        ApplyFilter(currentFilter);
-        RefreshPage();
-        return tracking;
-    }
-
-    /// <summary>
-    /// 更新人工指定到期日並寫回 tracking JSON。
+    /// 以 V0.2 Application Event 更新人工指定的下次追蹤時間。
     /// </summary>
     /// <param name="jobId">職缺 ID。</param>
     /// <param name="manualExpireAt">人工指定到期日，空字串代表清除。</param>
     /// <returns>更新後的 tracking 資料。</returns>
     public JobTrackingData UpdateJobTrackingManualExpireAt(string jobId, string manualExpireAt)
     {
-        if (IsV02Mode)
+        DateTimeOffset? followUpAt = null;
+        DateTimeOffset parsed = default;
+        if (!string.IsNullOrWhiteSpace(manualExpireAt)
+            && !DateTimeOffset.TryParse(manualExpireAt, out parsed))
         {
-            DateTimeOffset? followUpAt = null;
-            DateTimeOffset parsed = default;
-            if (!string.IsNullOrWhiteSpace(manualExpireAt)
-                && !DateTimeOffset.TryParse(manualExpireAt, out parsed))
-            {
-                Debug.LogError("V0.2 下次追蹤時間格式錯誤：" + manualExpireAt);
-                return FindLoadedV02Tracking(jobId);
-            }
-
-            if (!string.IsNullOrWhiteSpace(manualExpireAt))
-            {
-                followUpAt = parsed;
-            }
-
-            PersistenceStorageResult<ApplicationWriteSummary> result =
-                ApplicationCommandService.SetManualFollowUp(
-                    ResolveProjectRelativePath(v02DataRootPath),
-                    jobId,
-                    followUpAt);
-            return FinishV02Write(jobId, result);
+            Debug.LogError("V0.2 下次追蹤時間格式錯誤：" + manualExpireAt);
+            return FindLoadedV02Tracking(jobId);
         }
 
-        JobTrackingData tracking = LoadOrCreateTracking(jobId);
-        tracking.manual_expire_at = manualExpireAt;
-        tracking.last_action_at = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:sszzz");
-        SaveTracking(tracking);
-
-        foreach (JobSummaryData job in loadedJobs)
+        if (!string.IsNullOrWhiteSpace(manualExpireAt))
         {
-            if (job.id == jobId)
-            {
-                job.last_action_at = tracking.last_action_at;
-                job.manual_expire_at = tracking.manual_expire_at;
-                job.is_expired = IsTrackingExpired(tracking);
-                break;
-            }
+            followUpAt = parsed;
         }
 
-        ApplyFilter(currentFilter);
-        RefreshPage();
-        return tracking;
+        PersistenceStorageResult<ApplicationWriteSummary> result =
+            ApplicationCommandService.SetManualFollowUp(
+                ResolveProjectRelativePath(v02DataRootPath),
+                jobId,
+                followUpAt);
+        return FinishV02Write(jobId, result);
     }
 
     /// <summary>
@@ -640,7 +490,7 @@ public class AllJobPage : MonoBehaviour
 
         foreach (JobPostingReadOnlyItem item in result.Value.Items)
         {
-            JobSummaryData summary = JobCheckV02DisplayAdapter.CreateSummary(item, dataRoot);
+            JobSummaryData summary = JobCheckV02DisplayAdapter.CreateSummary(item);
             summary.is_expired = IsTrackingExpired(summary.v02Tracking);
             loadedJobs.Add(summary);
         }
@@ -672,11 +522,6 @@ public class AllJobPage : MonoBehaviour
         string closeReasonNote,
         DateTimeOffset? scheduledFor)
     {
-        if (!IsV02Mode)
-        {
-            return UpdateJobTrackingStatus(jobId, status);
-        }
-
         if (!TryMapV02Event(status, out ApplicationEventType eventType, out EventActor actor))
         {
             Debug.LogError("V0.2 不支援的狀態操作：" + status);
@@ -764,99 +609,6 @@ public class AllJobPage : MonoBehaviour
     }
 
     /// <summary>
-    /// 從 jobs_index.json 載入列表摘要。
-    /// </summary>
-    /// <param name="indexFullPath">索引檔完整路徑。</param>
-    private void LoadFromIndex(string indexFullPath)
-    {
-        string json = File.ReadAllText(indexFullPath);
-        JobsIndexData indexData = JsonUtility.FromJson<JobsIndexData>(json);
-        string indexDirectory = Path.GetDirectoryName(indexFullPath);
-
-        if (indexData == null || indexData.jobs == null)
-        {
-            Debug.LogWarning("jobs_index.json parsed empty.");
-            return;
-        }
-
-        foreach (JobSummaryData job in indexData.jobs)
-        {
-            if (job == null)
-            {
-                continue;
-            }
-
-            job.detailFullPath = ResolvePathFromBase(indexDirectory, job.file);
-            ApplyDetailDataToSummary(job);
-            ApplyTrackingToSummary(job);
-            loadedJobs.Add(job);
-        }
-    }
-
-    /// <summary>
-    /// 直接掃描 jobs 資料夾建立列表摘要。
-    /// </summary>
-    /// <param name="folderFullPath">jobs 資料夾完整路徑。</param>
-    private void LoadFromJobFolder(string folderFullPath)
-    {
-        if (!Directory.Exists(folderFullPath))
-        {
-            Debug.LogWarning("Job folder not found: " + folderFullPath);
-            return;
-        }
-
-        string[] files = Directory.GetFiles(folderFullPath, "*.json", SearchOption.TopDirectoryOnly);
-        Array.Sort(files, StringComparer.OrdinalIgnoreCase);
-
-        foreach (string file in files)
-        {
-            string json = File.ReadAllText(file);
-            JobDetailData detail = JsonUtility.FromJson<JobDetailData>(json);
-
-            if (detail == null)
-            {
-                continue;
-            }
-
-            JobSummaryData summary = new JobSummaryData();
-            summary.id = detail.id;
-            summary.file = file;
-            summary.detailFullPath = file;
-            summary.company = detail.company != null ? detail.company.name : string.Empty;
-            summary.title = detail.job != null ? detail.job.title : string.Empty;
-            summary.salary = detail.compensation != null ? detail.compensation.raw_text : string.Empty;
-            summary.salary_min = detail.compensation != null ? detail.compensation.min : 0;
-            summary.parse_status = detail.parse_status;
-            ApplyTrackingToSummary(summary);
-            loadedJobs.Add(summary);
-        }
-    }
-
-    /// <summary>
-    /// 從詳細 JSON 補足列表篩選需要的資料。
-    /// </summary>
-    /// <param name="job">要補資料的職缺摘要。</param>
-    private void ApplyDetailDataToSummary(JobSummaryData job)
-    {
-        if (job == null || string.IsNullOrEmpty(job.detailFullPath) || !File.Exists(job.detailFullPath))
-        {
-            return;
-        }
-
-        string json = File.ReadAllText(job.detailFullPath);
-        JobDetailData detail = JsonUtility.FromJson<JobDetailData>(json);
-        if (detail == null)
-        {
-            return;
-        }
-
-        if (detail.compensation != null)
-        {
-            job.salary_min = detail.compensation.min;
-        }
-    }
-
-    /// <summary>
     /// 判斷職缺是否符合目前篩選條件。
     /// </summary>
     /// <param name="job">職缺摘要。</param>
@@ -890,56 +642,6 @@ public class AllJobPage : MonoBehaviour
         }
 
         return true;
-    }
-
-    /// <summary>
-    /// 將 tracking 狀態、最愛、適配度、逾期結果套用到列表資料。
-    /// </summary>
-    /// <param name="job">要套用 tracking 的職缺摘要。</param>
-    private void ApplyTrackingToSummary(JobSummaryData job)
-    {
-        if (job == null)
-        {
-            return;
-        }
-
-        JobTrackingData tracking = LoadOrCreateTracking(job.id);
-        job.status = tracking.status;
-        job.last_action_at = tracking.last_action_at;
-        job.manual_expire_at = tracking.manual_expire_at;
-        job.favorite = tracking.favorite;
-        job.fit_score = tracking.fit_score;
-        job.is_expired = IsTrackingExpired(tracking);
-    }
-
-    /// <summary>
-    /// 讀取 tracking；如果不存在則建立預設 tracking 檔。
-    /// </summary>
-    /// <param name="jobId">職缺 ID。</param>
-    /// <returns>職缺 tracking 資料。</returns>
-    private JobTrackingData LoadOrCreateTracking(string jobId)
-    {
-        string trackingPath = GetTrackingPath(jobId);
-
-        if (File.Exists(trackingPath))
-        {
-            string json = File.ReadAllText(trackingPath);
-            JobTrackingData loaded = JsonUtility.FromJson<JobTrackingData>(json);
-            if (loaded != null && !string.IsNullOrEmpty(loaded.job_id))
-            {
-                return loaded;
-            }
-        }
-
-        JobTrackingData tracking = new JobTrackingData();
-        tracking.job_id = jobId;
-        tracking.status = "not_viewed";
-        tracking.last_action_at = string.Empty;
-        tracking.manual_expire_at = string.Empty;
-        tracking.favorite = false;
-        tracking.fit_score = -1;
-        SaveTracking(tracking);
-        return tracking;
     }
 
     /// <summary>
@@ -1012,33 +714,6 @@ public class AllJobPage : MonoBehaviour
         }
 
         return string.Compare(left.id, right.id, StringComparison.OrdinalIgnoreCase);
-    }
-
-    /// <summary>
-    /// 將 tracking 資料寫回檔案。
-    /// </summary>
-    /// <param name="tracking">要儲存的 tracking 資料。</param>
-    private void SaveTracking(JobTrackingData tracking)
-    {
-        string folderPath = ResolveProjectRelativePath(jobTrackingFolderPath);
-        if (!Directory.Exists(folderPath))
-        {
-            Directory.CreateDirectory(folderPath);
-        }
-
-        string json = JsonUtility.ToJson(tracking, true);
-        File.WriteAllText(GetTrackingPath(tracking.job_id), json);
-    }
-
-    /// <summary>
-    /// 取得 tracking 檔完整路徑。
-    /// </summary>
-    /// <param name="jobId">職缺 ID。</param>
-    /// <returns>tracking JSON 完整路徑。</returns>
-    private string GetTrackingPath(string jobId)
-    {
-        string folderPath = ResolveProjectRelativePath(jobTrackingFolderPath);
-        return Path.Combine(folderPath, jobId + ".tracking.json");
     }
 
     /// <summary>
@@ -1176,37 +851,6 @@ public class AllJobPage : MonoBehaviour
         return Path.GetFullPath(Path.Combine(projectRoot, path));
     }
 
-    /// <summary>
-    /// 將基準資料夾下的相對路徑轉成完整路徑。
-    /// </summary>
-    /// <param name="baseDirectory">基準資料夾。</param>
-    /// <param name="path">絕對路徑或相對路徑。</param>
-    /// <returns>完整路徑。</returns>
-    private string ResolvePathFromBase(string baseDirectory, string path)
-    {
-        if (string.IsNullOrEmpty(path))
-        {
-            return string.Empty;
-        }
-
-        if (Path.IsPathRooted(path))
-        {
-            return path;
-        }
-
-        return Path.GetFullPath(Path.Combine(baseDirectory, path));
-    }
-}
-
-[Serializable]
-/// <summary>
-/// jobs_index.json 的根資料。
-/// </summary>
-public class JobsIndexData
-{
-    public string schema_version;
-    public string generated_at;
-    public List<JobSummaryData> jobs;
 }
 
 [Serializable]
@@ -1216,7 +860,6 @@ public class JobsIndexData
 public class JobSummaryData
 {
     public string id;
-    public string file;
     public string company;
     public string title;
     public string salary;
@@ -1229,18 +872,8 @@ public class JobSummaryData
     public int fit_score;
     public bool is_expired;
 
-    [NonSerialized] public string detailFullPath;
     [NonSerialized] public JobDetailData v02Detail;
     [NonSerialized] public JobTrackingData v02Tracking;
-}
-
-/// <summary>
-/// 總攬頁的資料來源。V0.2 是目前正式讀寫路徑；Legacy V0.1 僅供回退驗證。
-/// </summary>
-public enum JobDataSource
-{
-    V02,
-    LegacyV01
 }
 
 [Serializable]
@@ -1264,7 +897,6 @@ public class JobDetailData
     public List<string> recruitment_process;
     public List<string> tags;
     public List<string> risk_flags;
-    public TrackingJsonData tracking;
 }
 
 [Serializable]
@@ -1392,21 +1024,7 @@ public class BenefitsJsonData
 
 [Serializable]
 /// <summary>
-/// 舊版職缺 JSON 內的 tracking 資料。主要保留相容用途。
-/// </summary>
-public class TrackingJsonData
-{
-    public string status;
-    public string priority;
-    public bool favorite;
-    public string applied_at;
-    public string last_updated_at;
-    public string notes;
-}
-
-[Serializable]
-/// <summary>
-/// job_tracking/*.tracking.json 的使用者操作資料。
+/// V0.2 Application 與事件投影成 UI 使用的追蹤資料。
 /// </summary>
 public class JobTrackingData
 {

@@ -1,4 +1,3 @@
-using System.IO;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -18,8 +17,6 @@ public class Panel_SingleJob : MonoBehaviour
     [SerializeField] private TMP_Text textStatus;
     [Tooltip("點擊開啟詳細頁的按鈕。")]
     [SerializeField] private Button buttonOpenDetail;
-    [Tooltip("備用詳細頁引用；通常由 AllJobPage 統一處理。")]
-    [SerializeField] private Panel_JobDetail jobDetailPanel;
     [Tooltip("列表文字大小。小於等於 0 時不主動調整。")]
     [SerializeField] private float displayFontSize = 22f;
     [Tooltip("正常狀態文字顏色。")]
@@ -90,42 +87,7 @@ public class Panel_SingleJob : MonoBehaviour
             return;
         }
 
-        LoadJobDetail(currentData);
-    }
-
-    /// <summary>
-    /// 備用詳細頁載入流程；沒有 ownerPage 時使用。
-    /// </summary>
-    /// <param name="data">要載入的職缺摘要資料。</param>
-    public void LoadJobDetail(JobSummaryData data)
-    {
-        if (data == null || string.IsNullOrEmpty(data.detailFullPath))
-        {
-            return;
-        }
-
-        if (!File.Exists(data.detailFullPath))
-        {
-            Debug.LogWarning("Job detail json not found: " + data.detailFullPath);
-            return;
-        }
-
-        string json = File.ReadAllText(data.detailFullPath);
-        Debug.Log("Loaded job detail json: " + data.detailFullPath);
-
-        if (jobDetailPanel == null)
-        {
-            jobDetailPanel = FindObjectOfType<Panel_JobDetail>(true);
-        }
-
-        if (jobDetailPanel != null)
-        {
-            jobDetailPanel.LoadFromJson(json);
-        }
-        else
-        {
-            Debug.LogWarning("Panel_JobDetail not found in scene.");
-        }
+        Debug.LogError("Panel_SingleJob requires an AllJobPage owner before it can open details.", this);
     }
 
     /// <summary>
@@ -163,10 +125,6 @@ public class Panel_SingleJob : MonoBehaviour
             Debug.LogError("Panel_SingleJob requires a Button component on the prefab root.", this);
         }
 
-        if (jobDetailPanel == null)
-        {
-            jobDetailPanel = FindObjectOfType<Panel_JobDetail>(true);
-        }
     }
 
     /// <summary>
