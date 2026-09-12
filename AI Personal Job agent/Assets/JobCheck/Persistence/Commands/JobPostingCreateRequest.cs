@@ -40,6 +40,44 @@ namespace JobCheck.Persistence
     }
 
     /// <summary>
+    /// UI 編輯既有職缺時交給 Persistence 的最小輸入。
+    /// JobPostingId 用來找到原資料，其餘欄位只更新目前表單可編輯的內容。
+    /// </summary>
+    public sealed class JobPostingEditRequest
+    {
+        /// <summary>
+        /// 要編輯的既有職缺 ID。更新成功後此 ID 不會改變。
+        /// </summary>
+        public string JobPostingId { get; set; }
+
+        /// <summary>
+        /// 公司顯示名稱，必填。改名代表讓本職缺改連到正規化後同名的公司，
+        /// 不會直接改掉可能被其他職缺共用的 Company。
+        /// </summary>
+        public string CompanyName { get; set; }
+
+        /// <summary>
+        /// 職缺顯示名稱，必填。
+        /// </summary>
+        public string Title { get; set; }
+
+        /// <summary>
+        /// 職缺來源平台，必填。
+        /// </summary>
+        public string SourcePlatform { get; set; }
+
+        /// <summary>
+        /// 原始職缺網址；可以不填，有填時必須是 HTTP 或 HTTPS 絕對網址。
+        /// </summary>
+        public string SourceUrl { get; set; }
+
+        /// <summary>
+        /// 完整職缺描述原文；可以不填。
+        /// </summary>
+        public string RawDescription { get; set; }
+    }
+
+    /// <summary>
     /// 成功建立職缺後回傳給 UI 的識別資訊。
     /// </summary>
     public sealed class JobPostingWriteSummary

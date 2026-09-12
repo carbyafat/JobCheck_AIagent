@@ -148,6 +148,133 @@ namespace JobCheck.Tests
             Assert.IsEmpty(Directory.GetFiles(root, "*.tmp-*", SearchOption.AllDirectories));
         }
 
+        [Test]
+        public void Update_ChangesEditableFieldsAndPreservesIdentityAndApplicationHistory()
+        {
+            PersistenceStorageResult<JobPostingWriteSummary> created = Create();
+            string jobId = created.Value.JobPostingId;
+            DateTimeOffset? capturedAt = Load().JobPostings.Single().CapturedAt;
+            PersistenceStorageResult<ApplicationWriteSummary> applied =
+                ApplicationCommandService.RecordEvent(
+                    root,
+                    jobId,
+                    ApplicationEventType.Applied,
+                    EventActor.Candidate,
+                    capturedAt.Value.AddMinutes(5));
+            Assert.IsTrue(applied.IsSuccess, FormatIssues(applied));
+
+            PersistenceStorageResult<JobPostingWriteSummary> result = Update(
+                jobId,
+                companyName: "  新公司  ",
+                title: "  資深 Unity 工程師  ",
+                platform: "  公司官網  ",
+                url: "  https://example.com/jobs/updated  ",
+                rawDescription: "  更新後原文  ");
+
+            Assert.IsTrue(result.IsSuccess, FormatIssues(result));
+            Assert.AreEqual(jobId, result.Value.JobPostingId);
+            JobCheckDataSet data = Load();
+            JobPosting job = data.JobPostings.Single();
+            Assert.AreEqual(jobId, job.Id);
+            Assert.AreEqual(capturedAt, job.CapturedAt);
+            Assert.AreEqual("資深 Unity 工程師", job.Title);
+            Assert.AreEqual("公司官網", job.Source.Platform);
+            Assert.AreEqual("https://example.com/jobs/updated", job.Source.Url);
+            Assert.AreEqual("更新後原文", job.RawDescription);
+            Assert.AreEqual(applied.Value.ApplicationId, data.Applications.Single().Id);
+            Assert.AreEqual(1, data.ApplicationEvents.Count);
+        }
+
+        [Test]
+        public void Update_ToExistingEquivalentCompany_ReusesCompany()
+        {
+            string firstJobId = Create(companyName: "第一公司").Value.JobPostingId;
+            string secondJobId = Create(companyName: "目標　公司", title: "第二職缺")
+                .Value.JobPostingId;
+            JobCheckDataSet before = Load();
+            string targetCompanyId = before.JobPostings
+                .Single(item => item.Id == secondJobId)
+                .CompanyId;
+
+            PersistenceStorageResult<JobPostingWriteSummary> result = Update(
+                firstJobId,
+                companyName: "  目標 公司  ");
+
+            Assert.IsTrue(result.IsSuccess, FormatIssues(result));
+            Assert.IsFalse(result.Value.CompanyCreated);
+            Assert.AreEqual(targetCompanyId, result.Value.CompanyId);
+            JobCheckDataSet after = Load();
+            Assert.AreEqual(2, after.Companies.Count);
+            Assert.AreEqual(
+                targetCompanyId,
+                after.JobPostings.Single(item => item.Id == firstJobId).CompanyId);
+        }
+
+        [Test]
+        public void Update_ToUnknownCompany_CreatesCompanyWithoutRenamingOriginal()
+        {
+            string jobId = Create(companyName: "原公司").Value.JobPostingId;
+
+            PersistenceStorageResult<JobPostingWriteSummary> result = Update(
+                jobId,
+                companyName: "新公司");
+
+            Assert.IsTrue(result.IsSuccess, FormatIssues(result));
+            Assert.IsTrue(result.Value.CompanyCreated);
+            JobCheckDataSet data = Load();
+            Assert.AreEqual(2, data.Companies.Count);
+            Assert.That(data.Companies.Select(item => item.Name), Contains.Item("原公司"));
+            Assert.That(data.Companies.Select(item => item.Name), Contains.Item("新公司"));
+            Assert.AreEqual(result.Value.CompanyId, data.JobPostings.Single().CompanyId);
+        }
+
+        [Test]
+        public void Update_InvalidUrl_DoesNotModifyJobOrCreateCompany()
+        {
+            string jobId = Create().Value.JobPostingId;
+            JobPosting before = Load().JobPostings.Single();
+
+            PersistenceStorageResult<JobPostingWriteSummary> result = Update(
+                jobId,
+                companyName: "不應建立的公司",
+                title: "不應保存的職稱",
+                url: "invalid-url");
+
+            Assert.IsFalse(result.IsSuccess);
+            JobCheckDataSet after = Load();
+            Assert.AreEqual(1, after.Companies.Count);
+            Assert.AreEqual(before.CompanyId, after.JobPostings.Single().CompanyId);
+            Assert.AreEqual(before.Title, after.JobPostings.Single().Title);
+            Assert.AreEqual(before.Source.Url, after.JobPostings.Single().Source.Url);
+        }
+
+        [Test]
+        public void Update_UnknownJobId_FailsWithoutFilesChanged()
+        {
+            Create();
+
+            PersistenceStorageResult<JobPostingWriteSummary> result =
+                Update("job_00000000000000000022222222222222");
+
+            Assert.IsFalse(result.IsSuccess);
+            Assert.AreEqual("job_posting_id", result.Issues.Single().FieldPath);
+            JobCheckDataSet data = Load();
+            Assert.AreEqual(1, data.Companies.Count);
+            Assert.AreEqual(1, data.JobPostings.Count);
+        }
+
+        [Test]
+        public void SuccessfulUpdate_LeavesNoTemporaryFiles()
+        {
+            string jobId = Create().Value.JobPostingId;
+
+            PersistenceStorageResult<JobPostingWriteSummary> result =
+                Update(jobId, rawDescription: "更新");
+
+            Assert.IsTrue(result.IsSuccess, FormatIssues(result));
+            Assert.IsEmpty(Directory.GetFiles(root, "*.tmp-*", SearchOption.AllDirectories));
+        }
+
         private PersistenceStorageResult<JobPostingWriteSummary> Create(
             string companyName = "測試公司",
             string title = "Unity 工程師",
@@ -165,6 +292,27 @@ namespace JobCheck.Tests
                     SourceUrl = url,
                     RawDescription = rawDescription,
                     CapturedAt = CapturedAt
+                });
+        }
+
+        private PersistenceStorageResult<JobPostingWriteSummary> Update(
+            string jobPostingId,
+            string companyName = "測試公司",
+            string title = "Unity 工程師",
+            string platform = "104",
+            string url = "https://example.com/jobs/1",
+            string rawDescription = "職缺內容")
+        {
+            return JobPostingCommandService.Update(
+                root,
+                new JobPostingEditRequest
+                {
+                    JobPostingId = jobPostingId,
+                    CompanyName = companyName,
+                    Title = title,
+                    SourcePlatform = platform,
+                    SourceUrl = url,
+                    RawDescription = rawDescription
                 });
         }
 

@@ -103,6 +103,106 @@ namespace JobCheck.Persistence
                 jobPosting);
         }
 
+        /// <summary>
+        /// 更新既有職缺的最小可編輯欄位，並保留原 JobPosting ID、收錄時間、
+        /// 結構化內容以及所有既有 Application / ApplicationEvent 關聯。
+        /// 公司名稱若改變，只會改連到同名公司或建立新公司，不會重新命名共用 Company。
+        /// </summary>
+        public static PersistenceStorageResult<JobPostingWriteSummary> Update(
+            string dataRoot,
+            JobPostingEditRequest request)
+        {
+            if (request == null)
+            {
+                return Failure(null, "request", "編輯職缺資料不可為 null。");
+            }
+
+            string jobPostingId = TrimOrNull(request.JobPostingId);
+            string companyName = TrimOrNull(request.CompanyName);
+            string title = TrimOrNull(request.Title);
+            string sourcePlatform = TrimOrNull(request.SourcePlatform);
+            string sourceUrl = TrimOrNull(request.SourceUrl);
+            string rawDescription = TrimOrNull(request.RawDescription);
+
+            if (jobPostingId == null)
+            {
+                return Failure(null, "job_posting_id", "職缺 ID 為必填。");
+            }
+
+            if (companyName == null)
+            {
+                return Failure(jobPostingId, "company_name", "公司名稱為必填。");
+            }
+
+            if (title == null)
+            {
+                return Failure(jobPostingId, "title", "職缺名稱為必填。");
+            }
+
+            if (sourcePlatform == null)
+            {
+                return Failure(jobPostingId, "source.platform", "來源平台為必填。");
+            }
+
+            PersistenceStorageResult<JobCheckDataSet> load =
+                JobCheckDataRepository.Load(dataRoot);
+            if (!load.IsSuccess)
+            {
+                return Failure(load.Issues);
+            }
+
+            JobPosting existing = load.Value.JobPostings.SingleOrDefault(item =>
+                item != null
+                && string.Equals(item.Id, jobPostingId, StringComparison.Ordinal));
+            if (existing == null)
+            {
+                return Failure(jobPostingId, "job_posting_id", "找不到要編輯的職缺。");
+            }
+
+            Company company = load.Value.Companies
+                .Where(item => item != null
+                    && CompanyNameNormalizer.AreEquivalent(item.Name, companyName))
+                .OrderBy(item => item.Id, StringComparer.Ordinal)
+                .FirstOrDefault();
+            bool companyCreated = company == null;
+            if (companyCreated)
+            {
+                DateTimeOffset createdAt = DateTimeOffset.Now;
+                company = new Company
+                {
+                    Id = CompanyIdGenerator.Create(),
+                    SchemaVersion = Company.CurrentSchemaVersion,
+                    Name = CompanyNameNormalizer.Normalize(companyName),
+                    CreatedAt = createdAt,
+                    UpdatedAt = createdAt
+                };
+            }
+
+            existing.CompanyId = company.Id;
+            existing.Title = title;
+            existing.Source = new JobSource
+            {
+                Platform = sourcePlatform,
+                Url = sourceUrl
+            };
+            existing.RawDescription = rawDescription;
+
+            IReadOnlyList<JobPostingValidationError> errors =
+                JobPostingValidator.ValidateNew(existing);
+            if (errors.Count > 0)
+            {
+                return Failure(
+                    existing.Id,
+                    "job_posting",
+                    "職缺資料驗證失敗：" + string.Join(", ", errors));
+            }
+
+            return JobCheckDataRepository.UpdateJobPosting(
+                dataRoot,
+                companyCreated ? company : null,
+                existing);
+        }
+
         private static string TrimOrNull(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
