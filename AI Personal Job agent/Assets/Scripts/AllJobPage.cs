@@ -547,7 +547,8 @@ public class AllJobPage : MonoBehaviour
         string status,
         CandidateCloseReason? closeReason,
         string closeReasonNote,
-        DateTimeOffset? scheduledFor)
+        DateTimeOffset? scheduledFor,
+        DateTimeOffset? occurredAt = null)
     {
         if (!TryMapV02Event(status, out ApplicationEventType eventType, out EventActor actor))
         {
@@ -561,6 +562,7 @@ public class AllJobPage : MonoBehaviour
                 jobId,
                 eventType,
                 actor,
+                occurredAt: occurredAt,
                 scheduledFor: scheduledFor,
                 closeReason: closeReason,
                 closeReasonNote: closeReasonNote);
