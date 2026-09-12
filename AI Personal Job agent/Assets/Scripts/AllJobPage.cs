@@ -70,9 +70,6 @@ public class AllJobPage : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// V0.2 接軌第一階段只讀取與顯示，任何既有 tracking 寫入都必須被阻擋。
-    /// </summary>
     private bool IsV02Mode
     {
         get { return dataSource == JobDataSource.V02; }

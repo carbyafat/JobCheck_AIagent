@@ -1,0 +1,18 @@
+# JobCheck V0.2 runtime records created from the Unity UI.
+# Official demo records are committed explicitly; newly generated UUID records stay local.
+/data/companies/cmp_*.json
+/data/jobs/job_*.json
+/data/applications/app_*.json
+
+# V0.2 UI acceptance demo allowlist.
+!/data/companies/cmp_436719324216441fbe0b3c8e398358d1.json
+!/data/companies/cmp_4cfaf35d8ba14e2fa5eaa27db4b6f8ee.json
+!/data/companies/cmp_9ef79eae0d634ace812079550f1664b7.json
+!/data/companies/cmp_e4893581f9574a8faa20ced8932ad411.json
+!/data/jobs/job_17133afad9064eb58d0b9c9dd856c276.json
+!/data/jobs/job_3a6fadaf884a4838b94f0474dbe2edde.json
+!/data/jobs/job_9fb4f1f063b54a1781542bb0038227e5.json
+!/data/jobs/job_aff6cc85aa574e509e01641f52f4de64.json
+!/data/jobs/job_b196d37bd23b43eeb0adf49a878b912b.json
+!/data/applications/app_670401795faa4b09a1078cf42b2fad8e.json
+

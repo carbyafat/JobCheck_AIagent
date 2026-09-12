@@ -99,7 +99,6 @@ public class Panel_SingleJob : MonoBehaviour
     /// <param name="data">要載入的職缺摘要資料。</param>
     public void LoadJobDetail(JobSummaryData data)
     {
-        // TODO: Detail UI is not implemented yet. This method is the entry point for refreshing it later.
         if (data == null || string.IsNullOrEmpty(data.detailFullPath))
         {
             return;
