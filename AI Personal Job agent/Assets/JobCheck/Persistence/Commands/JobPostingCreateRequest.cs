@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace JobCheck.Persistence
 {
@@ -32,6 +33,16 @@ namespace JobCheck.Persistence
         /// 使用者貼入的完整職缺內容；可以不填，第一版不嘗試自動拆解成薪資或技能欄位。
         /// </summary>
         public string RawDescription { get; set; }
+
+        /// <summary>
+        /// 使用者選擇的職缺分類標籤；值使用 JobPostingLabelCatalog 定義的小寫代碼。
+        /// </summary>
+        public List<string> Tags { get; set; } = new List<string>();
+
+        /// <summary>
+        /// 使用者選擇的職缺風險標記；值使用 JobPostingLabelCatalog 定義的小寫代碼。
+        /// </summary>
+        public List<string> RiskFlags { get; set; } = new List<string>();
 
         /// <summary>
         /// 實際收錄時間。UI 通常不傳，由服務使用目前時間；測試可以傳入固定時間。
@@ -75,6 +86,16 @@ namespace JobCheck.Persistence
         /// 完整職缺描述原文；可以不填。
         /// </summary>
         public string RawDescription { get; set; }
+
+        /// <summary>
+        /// 編輯後要保存的完整職缺分類標籤集合。
+        /// </summary>
+        public List<string> Tags { get; set; } = new List<string>();
+
+        /// <summary>
+        /// 編輯後要保存的完整職缺風險標記集合。
+        /// </summary>
+        public List<string> RiskFlags { get; set; } = new List<string>();
     }
 
     /// <summary>

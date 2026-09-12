@@ -154,6 +154,22 @@ namespace JobCheck.Domain
             return ContainsValue(RiskFlagOptionValues, value);
         }
 
+        /// <summary>
+        /// 將使用者輸入的 Tag 英文值或中文名稱解析成穩定持久化值。
+        /// </summary>
+        public static bool TryResolveTag(string input, out string value)
+        {
+            return TryResolve(TagOptionValues, input, out value);
+        }
+
+        /// <summary>
+        /// 將使用者輸入的 RiskFlag 英文值或中文名稱解析成穩定持久化值。
+        /// </summary>
+        public static bool TryResolveRiskFlag(string input, out string value)
+        {
+            return TryResolve(RiskFlagOptionValues, input, out value);
+        }
+
         private static string GetDisplayName(
             IReadOnlyList<JobPostingLabelOption> options,
             string value)
@@ -187,6 +203,31 @@ namespace JobCheck.Domain
             {
                 if (string.Equals(option.Value, value, StringComparison.OrdinalIgnoreCase))
                 {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryResolve(
+            IReadOnlyList<JobPostingLabelOption> options,
+            string input,
+            out string value)
+        {
+            value = null;
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                return false;
+            }
+
+            string candidate = input.Trim();
+            foreach (JobPostingLabelOption option in options)
+            {
+                if (string.Equals(option.Value, candidate, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(option.DisplayName, candidate, StringComparison.OrdinalIgnoreCase))
+                {
+                    value = option.Value;
                     return true;
                 }
             }

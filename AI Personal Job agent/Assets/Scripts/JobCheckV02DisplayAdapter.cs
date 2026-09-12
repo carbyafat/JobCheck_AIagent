@@ -87,7 +87,9 @@ public static class JobCheckV02DisplayAdapter
             responsibilities = CopyStrings(job.Responsibilities),
             requirements = CreateRequirements(job.Requirements),
             benefits = CreateBenefits(job.Benefits),
-            recruitment_process = CopyStrings(job.RecruitmentProcess)
+            recruitment_process = CopyStrings(job.RecruitmentProcess),
+            tags = CopyStrings(job.Tags),
+            risk_flags = CopyStrings(job.RiskFlags)
         };
     }
 
