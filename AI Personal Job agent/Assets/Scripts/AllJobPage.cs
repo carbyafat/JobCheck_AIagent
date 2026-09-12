@@ -1283,6 +1283,8 @@ public class JobDetailData
     public RequirementsJsonData requirements;
     public BenefitsJsonData benefits;
     public List<string> recruitment_process;
+    public List<string> tags;
+    public List<string> risk_flags;
     public TrackingJsonData tracking;
 }
 

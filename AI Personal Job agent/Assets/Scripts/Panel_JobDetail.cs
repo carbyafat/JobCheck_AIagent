@@ -818,6 +818,8 @@ public class Panel_JobDetail : MonoBehaviour
 
         AppendLine(builder, "來源", data.source != null ? data.source.platform : string.Empty);
         AppendLine(builder, "網址", data.source != null ? data.source.url : string.Empty);
+        AppendLine(builder, "職缺標籤", FormatJobLabels(data.tags, false));
+        AppendLine(builder, "風險提醒", FormatJobLabels(data.risk_flags, true));
         AppendLine(builder, "工作性質", data.work_conditions != null ? data.work_conditions.employment_type : string.Empty);
         AppendLine(builder, "上班時段", data.work_conditions != null ? data.work_conditions.working_hours : string.Empty);
         AppendLine(builder, "需求人數", data.job != null ? data.job.openings : string.Empty);
@@ -830,6 +832,34 @@ public class Panel_JobDetail : MonoBehaviour
         AppendLine(builder, "適配度", currentTracking != null && currentTracking.fit_score >= 0 ? currentTracking.fit_score.ToString() : "尚未評分");
 
         return builder.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// 將 Tag 或 RiskFlag 的穩定代碼轉為中文顯示文字。
+    /// 未知的既有值仍原樣顯示，避免舊資料在畫面上消失。
+    /// </summary>
+    private string FormatJobLabels(IEnumerable<string> values, bool isRiskFlag)
+    {
+        if (values == null)
+        {
+            return string.Empty;
+        }
+
+        var displayValues = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string value in values)
+        {
+            if (string.IsNullOrWhiteSpace(value) || !seen.Add(value.Trim()))
+            {
+                continue;
+            }
+
+            displayValues.Add(isRiskFlag
+                ? JobPostingLabelCatalog.GetRiskFlagDisplayName(value)
+                : JobPostingLabelCatalog.GetTagDisplayName(value));
+        }
+
+        return string.Join("、", displayValues);
     }
 
     private void RefreshEventHistoryText()

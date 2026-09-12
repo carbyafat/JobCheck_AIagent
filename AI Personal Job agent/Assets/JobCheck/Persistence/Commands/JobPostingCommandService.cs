@@ -84,7 +84,9 @@ namespace JobCheck.Persistence
                     Url = sourceUrl
                 },
                 CapturedAt = capturedAt,
-                RawDescription = rawDescription
+                RawDescription = rawDescription,
+                Tags = NormalizeLabels(request.Tags),
+                RiskFlags = NormalizeLabels(request.RiskFlags)
             };
 
             IReadOnlyList<JobPostingValidationError> errors =
@@ -186,6 +188,8 @@ namespace JobCheck.Persistence
                 Url = sourceUrl
             };
             existing.RawDescription = rawDescription;
+            existing.Tags = NormalizeLabels(request.Tags);
+            existing.RiskFlags = NormalizeLabels(request.RiskFlags);
 
             IReadOnlyList<JobPostingValidationError> errors =
                 JobPostingValidator.ValidateNew(existing);
@@ -206,6 +210,32 @@ namespace JobCheck.Persistence
         private static string TrimOrNull(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        private static List<string> NormalizeLabels(IEnumerable<string> values)
+        {
+            if (values == null)
+            {
+                return new List<string>();
+            }
+
+            var result = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string value in values)
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    continue;
+                }
+
+                string normalized = value.Trim();
+                if (seen.Add(normalized))
+                {
+                    result.Add(normalized);
+                }
+            }
+
+            return result;
         }
 
         private static PersistenceStorageResult<JobPostingWriteSummary> Failure(

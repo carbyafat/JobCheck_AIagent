@@ -52,6 +52,54 @@ namespace JobCheck.Domain.Tests
                     typeof(CandidateCloseReason),
                     CandidateCloseReason.Other));
         }
+
+        /// <summary>
+        /// 確認 UI 可以用中文名稱取得穩定的 Tag 持久化值。
+        /// </summary>
+        [TestCase("Unity", JobPostingLabelCatalog.TagUnity)]
+        [TestCase("C#", JobPostingLabelCatalog.TagCSharp)]
+        [TestCase("遠端工作", JobPostingLabelCatalog.TagRemote)]
+        public void JobTagCatalog_ResolvesDisplayName(string input, string expected)
+        {
+            Assert.IsTrue(JobPostingLabelCatalog.TryResolveTag(input, out string value));
+            Assert.AreEqual(expected, value);
+        }
+
+        /// <summary>
+        /// 確認博弈產業與其他風險中文名稱能轉成穩定的 RiskFlag 值。
+        /// </summary>
+        [TestCase("博弈產業", JobPostingLabelCatalog.RiskGamblingIndustry)]
+        [TestCase("週末值班", JobPostingLabelCatalog.RiskWeekendDuty)]
+        [TestCase("薪資不透明", JobPostingLabelCatalog.RiskSalaryOpaque)]
+        public void JobRiskFlagCatalog_ResolvesDisplayName(string input, string expected)
+        {
+            Assert.IsTrue(JobPostingLabelCatalog.TryResolveRiskFlag(input, out string value));
+            Assert.AreEqual(expected, value);
+        }
+
+        /// <summary>
+        /// 確認未知舊值不會被轉成空字串，詳細頁仍能顯示原始內容。
+        /// </summary>
+        [Test]
+        public void JobLabelCatalog_UnknownValue_RemainsVisible()
+        {
+            Assert.AreEqual(
+                "legacy_custom_tag",
+                JobPostingLabelCatalog.GetTagDisplayName("legacy_custom_tag"));
+            Assert.AreEqual(
+                "legacy_custom_risk",
+                JobPostingLabelCatalog.GetRiskFlagDisplayName("legacy_custom_risk"));
+        }
+
+        /// <summary>
+        /// 確認 UI 不會接受受控清單之外的新自由文字值。
+        /// </summary>
+        [Test]
+        public void JobLabelCatalog_UnknownInput_IsRejected()
+        {
+            Assert.IsFalse(JobPostingLabelCatalog.TryResolveTag("隨手亂填", out _));
+            Assert.IsFalse(JobPostingLabelCatalog.TryResolveRiskFlag("不明風險", out _));
+        }
     }
 }
 
