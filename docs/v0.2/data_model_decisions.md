@@ -267,7 +267,7 @@ ApplicationEvent 建立後不可直接改寫歷史內容。需要修正時新增
 - RiskFlag 描述評估時需要注意什麼，例如 weekend_duty、salary_opaque、long_commute、role_ambiguous。
 - CandidateCloseReason 描述本人為何結束一筆 Application，只能在結案時使用。
 - 同一字串不可同時當作 Tag 與 RiskFlag。
-- V0.2 初期允許 Tag 使用受控字串清單；RiskFlag 與 CandidateCloseReason 使用固定 enum。
+- V0.2.0 的 Tag 與 RiskFlag 使用受控字串清單，持久化時保存穩定代碼，UI 顯示中文名稱；CandidateCloseReason 使用固定 enum。
 - 新增 enum 必須更新 schema、中文顯示 mapping、測試與文件。
 
 ## 8. Application 狀態推導
@@ -426,7 +426,7 @@ data/
 - 第一批測試全部通過。
 - 現有 jobs、job_tracking、job_index、scene 與 prefab 沒有內容變更。
 - V0.1 golden input 已鎖定並可被測試讀取。
-- 尚未執行正式 migration，也尚未讓 UI 改讀 V0.2。
+- 本節是「第一批」當時的完成定義；後續已完成 demo migration，UI 也已切換為 V0.2 正式讀寫路徑。
 
 ## 17. 已確認事項
 
