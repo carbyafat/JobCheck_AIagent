@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using JobCheck.Domain;
@@ -140,6 +141,23 @@ namespace JobCheck.Tests
         }
 
         [Test]
+        public void Create_PersistsTagsAndRiskFlagsAfterReload()
+        {
+            PersistenceStorageResult<JobPostingWriteSummary> result = Create(
+                tags: new[] { " unity ", "csharp", "UNITY" },
+                riskFlags: new[] { "salary_opaque", " gambling_industry " });
+
+            Assert.IsTrue(result.IsSuccess, FormatIssues(result));
+            JobPosting job = Load().JobPostings.Single();
+            CollectionAssert.AreEqual(
+                new[] { "unity", "csharp" },
+                job.Tags);
+            CollectionAssert.AreEqual(
+                new[] { "salary_opaque", "gambling_industry" },
+                job.RiskFlags);
+        }
+
+        [Test]
         public void SuccessfulCreate_LeavesNoTemporaryFiles()
         {
             PersistenceStorageResult<JobPostingWriteSummary> result = Create();
@@ -208,6 +226,26 @@ namespace JobCheck.Tests
             Assert.AreEqual(
                 targetCompanyId,
                 after.JobPostings.Single(item => item.Id == firstJobId).CompanyId);
+        }
+
+        [Test]
+        public void Update_ReplacesLabelsAndPreservesUnknownLegacyValue()
+        {
+            string jobId = Create(
+                tags: new[] { "unity" },
+                riskFlags: new[] { "salary_opaque" }).Value.JobPostingId;
+
+            PersistenceStorageResult<JobPostingWriteSummary> result = Update(
+                jobId,
+                tags: new[] { "csharp", "Legacy_Custom_Tag" },
+                riskFlags: new[] { "weekend_duty" });
+
+            Assert.IsTrue(result.IsSuccess, FormatIssues(result));
+            JobPosting job = Load().JobPostings.Single();
+            CollectionAssert.AreEqual(
+                new[] { "csharp", "Legacy_Custom_Tag" },
+                job.Tags);
+            CollectionAssert.AreEqual(new[] { "weekend_duty" }, job.RiskFlags);
         }
 
         [Test]
@@ -280,7 +318,9 @@ namespace JobCheck.Tests
             string title = "Unity 工程師",
             string platform = "104",
             string url = "https://example.com/jobs/1",
-            string rawDescription = "職缺內容")
+            string rawDescription = "職缺內容",
+            IEnumerable<string> tags = null,
+            IEnumerable<string> riskFlags = null)
         {
             return JobPostingCommandService.Create(
                 root,
@@ -291,6 +331,10 @@ namespace JobCheck.Tests
                     SourcePlatform = platform,
                     SourceUrl = url,
                     RawDescription = rawDescription,
+                    Tags = tags == null ? new List<string>() : new List<string>(tags),
+                    RiskFlags = riskFlags == null
+                        ? new List<string>()
+                        : new List<string>(riskFlags),
                     CapturedAt = CapturedAt
                 });
         }
@@ -301,7 +345,9 @@ namespace JobCheck.Tests
             string title = "Unity 工程師",
             string platform = "104",
             string url = "https://example.com/jobs/1",
-            string rawDescription = "職缺內容")
+            string rawDescription = "職缺內容",
+            IEnumerable<string> tags = null,
+            IEnumerable<string> riskFlags = null)
         {
             return JobPostingCommandService.Update(
                 root,
@@ -312,7 +358,11 @@ namespace JobCheck.Tests
                     Title = title,
                     SourcePlatform = platform,
                     SourceUrl = url,
-                    RawDescription = rawDescription
+                    RawDescription = rawDescription,
+                    Tags = tags == null ? new List<string>() : new List<string>(tags),
+                    RiskFlags = riskFlags == null
+                        ? new List<string>()
+                        : new List<string>(riskFlags)
                 });
         }
 

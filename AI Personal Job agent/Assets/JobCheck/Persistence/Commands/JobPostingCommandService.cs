@@ -219,11 +219,23 @@ namespace JobCheck.Persistence
                 return new List<string>();
             }
 
-            return values
-                .Where(value => !string.IsNullOrWhiteSpace(value))
-                .Select(value => value.Trim().ToLowerInvariant())
-                .Distinct(StringComparer.Ordinal)
-                .ToList();
+            var result = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string value in values)
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    continue;
+                }
+
+                string normalized = value.Trim();
+                if (seen.Add(normalized))
+                {
+                    result.Add(normalized);
+                }
+            }
+
+            return result;
         }
 
         private static PersistenceStorageResult<JobPostingWriteSummary> Failure(
