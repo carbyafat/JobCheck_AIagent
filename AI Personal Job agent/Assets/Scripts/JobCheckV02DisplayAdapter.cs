@@ -19,9 +19,7 @@ public static class JobCheckV02DisplayAdapter
             id = item.JobPosting.Id,
             company = item.Company != null ? item.Company.Name : string.Empty,
             title = item.JobPosting.Title,
-            salary = item.JobPosting.Compensation != null
-                ? item.JobPosting.Compensation.RawText
-                : string.Empty,
+            salary = FormatCompensation(item.JobPosting.Compensation),
             salary_min = item.JobPosting.Compensation?.Minimum ?? 0,
             parse_status = "ok",
             status = tracking.status,
@@ -99,9 +97,97 @@ public static class JobCheckV02DisplayAdapter
             min = value.Minimum ?? 0,
             max = value.Maximum ?? 0,
             currency = value.Currency,
-            raw_text = value.RawText,
+            raw_text = FormatCompensation(value),
             notes = value.Notes
         };
+    }
+
+    /// <summary>
+    /// 優先保留來源的薪資原文；沒有原文時，使用結構化欄位產生可讀文字。
+    /// </summary>
+    public static string FormatCompensation(CompensationJsonData value)
+    {
+        if (value == null)
+        {
+            return string.Empty;
+        }
+
+        if (!string.IsNullOrWhiteSpace(value.raw_text))
+        {
+            return value.raw_text.Trim();
+        }
+
+        return FormatCompensationParts(
+            value.type,
+            value.period,
+            value.has_min ? (int?)value.min : null,
+            value.has_max ? (int?)value.max : null,
+            value.currency);
+    }
+
+    private static string FormatCompensation(Domain.JobCompensation value)
+    {
+        if (value == null)
+        {
+            return string.Empty;
+        }
+
+        if (!string.IsNullOrWhiteSpace(value.RawText))
+        {
+            return value.RawText.Trim();
+        }
+
+        return FormatCompensationParts(
+            value.Type,
+            value.Period,
+            value.Minimum,
+            value.Maximum,
+            value.Currency);
+    }
+
+    private static string FormatCompensationParts(
+        string type,
+        string period,
+        int? minimum,
+        int? maximum,
+        string currency)
+    {
+        if (!minimum.HasValue && !maximum.HasValue)
+        {
+            return string.Equals(type, "negotiable", System.StringComparison.OrdinalIgnoreCase)
+                ? "面議"
+                : string.Empty;
+        }
+
+        string amount;
+        if (minimum.HasValue && maximum.HasValue)
+        {
+            amount = minimum.Value.ToString("N0") + "–" + maximum.Value.ToString("N0");
+        }
+        else if (minimum.HasValue)
+        {
+            amount = minimum.Value.ToString("N0") + " 以上";
+        }
+        else
+        {
+            amount = maximum.Value.ToString("N0") + " 以下";
+        }
+
+        return (string.IsNullOrWhiteSpace(currency) ? string.Empty : currency.Trim() + " ")
+            + amount
+            + FormatCompensationPeriod(period);
+    }
+
+    private static string FormatCompensationPeriod(string period)
+    {
+        switch ((period ?? string.Empty).Trim().ToLowerInvariant())
+        {
+            case "monthly": return "／月";
+            case "yearly": return "／年";
+            case "hourly": return "／時";
+            case "daily": return "／日";
+            default: return string.IsNullOrWhiteSpace(period) ? string.Empty : "／" + period.Trim();
+        }
     }
 
     private static LocationJsonData CreateLocation(Domain.JobLocation value)

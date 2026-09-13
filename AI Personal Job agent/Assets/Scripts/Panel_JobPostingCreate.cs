@@ -40,6 +40,16 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
     [SerializeField] private TMP_InputField inputTools;
     [SerializeField] private TMP_InputField inputSkills;
 
+    [Header("Single Select Fields")]
+    [SerializeField] private TMP_Dropdown dropdownCompensationType;
+    [SerializeField] private TMP_Dropdown dropdownCompensationPeriod;
+    [SerializeField] private TMP_Dropdown dropdownWorkMode;
+    [SerializeField] private TMP_Dropdown dropdownEmploymentType;
+
+    [Header("Multiple Select Fields")]
+    [SerializeField] private JobPostingMultiSelectField multiSelectTags;
+    [SerializeField] private JobPostingMultiSelectField multiSelectRiskFlags;
+
     [Header("Actions")]
     [SerializeField] private TMP_Text textTitle;
     [SerializeField] private Button buttonSave;
@@ -52,10 +62,15 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> existingUnknownRiskFlags =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> compensationTypeValues = new List<string>();
+    private readonly List<string> compensationPeriodValues = new List<string>();
+    private readonly List<string> workModeValues = new List<string>();
+    private readonly List<string> employmentTypeValues = new List<string>();
 
     private void Awake()
     {
         AutoBindReferences();
+        SetupStructuredFields();
         BindButtons();
     }
 
@@ -67,9 +82,11 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         owner = page;
         editingJobPostingId = null;
         AutoBindReferences();
+        SetupStructuredFields();
         BindButtons();
         ClearFields();
         SetText(inputCompensationPeriod, "monthly");
+        SetDropdownValue(dropdownCompensationPeriod, compensationPeriodValues, "monthly");
         SetText(inputCompensationCurrency, "TWD");
         SetPanelLabels("新增職缺", "儲存");
         SetMessage(string.Empty, false);
@@ -90,6 +107,7 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         owner = page;
         editingJobPostingId = data != null ? data.id : null;
         AutoBindReferences();
+        SetupStructuredFields();
         BindButtons();
         SetText(inputCompanyName, data != null && data.company != null ? data.company.name : null);
         SetText(inputTitle, data != null && data.job != null ? data.job.title : null);
@@ -101,6 +119,14 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         SetText(inputCategory, data != null && data.job != null ? data.job.category : null);
         SetText(inputCompensationType, data != null && data.compensation != null ? data.compensation.type : null);
         SetText(inputCompensationPeriod, data != null && data.compensation != null ? data.compensation.period : null);
+        SetDropdownValue(
+            dropdownCompensationType,
+            compensationTypeValues,
+            data != null && data.compensation != null ? data.compensation.type : null);
+        SetDropdownValue(
+            dropdownCompensationPeriod,
+            compensationPeriodValues,
+            data != null && data.compensation != null ? data.compensation.period : null);
         SetText(
             inputCompensationMinimum,
             data != null && data.compensation != null && data.compensation.has_min
@@ -116,6 +142,14 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         SetText(inputLocationRawText, data != null && data.location != null ? data.location.raw_text : null);
         SetText(inputWorkMode, data != null && data.location != null ? data.location.work_mode : null);
         SetText(inputEmploymentType, data != null && data.work_conditions != null ? data.work_conditions.employment_type : null);
+        SetDropdownValue(
+            dropdownWorkMode,
+            workModeValues,
+            data != null && data.location != null ? data.location.work_mode : null);
+        SetDropdownValue(
+            dropdownEmploymentType,
+            employmentTypeValues,
+            data != null && data.work_conditions != null ? data.work_conditions.employment_type : null);
         SetText(inputWorkingHours, data != null && data.work_conditions != null ? data.work_conditions.working_hours : null);
         SetText(inputExperience, data != null && data.requirements != null ? data.requirements.experience : null);
         SetText(inputEducation, data != null && data.requirements != null ? data.requirements.education : null);
@@ -125,6 +159,16 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         SetLabelsForEdit(inputTags, data != null ? data.tags : null, false, existingUnknownTags);
         SetLabelsForEdit(
             inputRiskFlags,
+            data != null ? data.risk_flags : null,
+            true,
+            existingUnknownRiskFlags);
+        SetMultiSelectForEdit(
+            multiSelectTags,
+            data != null ? data.tags : null,
+            false,
+            existingUnknownTags);
+        SetMultiSelectForEdit(
+            multiSelectRiskFlags,
             data != null ? data.risk_flags : null,
             true,
             existingUnknownRiskFlags);
@@ -166,7 +210,8 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
             return;
         }
 
-        if (!TryReadLabels(
+        if (!TryReadSelectedLabels(
+            multiSelectTags,
             inputTags,
             false,
             existingUnknownTags,
@@ -177,7 +222,8 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
             return;
         }
 
-        if (!TryReadLabels(
+        if (!TryReadSelectedLabels(
+            multiSelectRiskFlags,
             inputRiskFlags,
             true,
             existingUnknownRiskFlags,
@@ -200,15 +246,15 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
                 CapturedAt = capturedAt,
                 Department = GetText(inputDepartment),
                 Category = GetText(inputCategory),
-                CompensationType = GetText(inputCompensationType),
-                CompensationPeriod = GetText(inputCompensationPeriod),
+                CompensationType = GetStructuredValue(dropdownCompensationType, compensationTypeValues, inputCompensationType),
+                CompensationPeriod = GetStructuredValue(dropdownCompensationPeriod, compensationPeriodValues, inputCompensationPeriod),
                 CompensationMinimum = compensationMinimum,
                 CompensationMaximum = compensationMaximum,
                 CompensationCurrency = GetText(inputCompensationCurrency),
                 CompensationRawText = GetText(inputCompensationRawText),
                 LocationRawText = GetText(inputLocationRawText),
-                WorkMode = GetText(inputWorkMode),
-                EmploymentType = GetText(inputEmploymentType),
+                WorkMode = GetStructuredValue(dropdownWorkMode, workModeValues, inputWorkMode),
+                EmploymentType = GetStructuredValue(dropdownEmploymentType, employmentTypeValues, inputEmploymentType),
                 WorkingHours = GetText(inputWorkingHours),
                 Experience = GetText(inputExperience),
                 Education = GetText(inputEducation),
@@ -228,15 +274,15 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
                 CapturedAt = capturedAt,
                 Department = GetText(inputDepartment),
                 Category = GetText(inputCategory),
-                CompensationType = GetText(inputCompensationType),
-                CompensationPeriod = GetText(inputCompensationPeriod),
+                CompensationType = GetStructuredValue(dropdownCompensationType, compensationTypeValues, inputCompensationType),
+                CompensationPeriod = GetStructuredValue(dropdownCompensationPeriod, compensationPeriodValues, inputCompensationPeriod),
                 CompensationMinimum = compensationMinimum,
                 CompensationMaximum = compensationMaximum,
                 CompensationCurrency = GetText(inputCompensationCurrency),
                 CompensationRawText = GetText(inputCompensationRawText),
                 LocationRawText = GetText(inputLocationRawText),
-                WorkMode = GetText(inputWorkMode),
-                EmploymentType = GetText(inputEmploymentType),
+                WorkMode = GetStructuredValue(dropdownWorkMode, workModeValues, inputWorkMode),
+                EmploymentType = GetStructuredValue(dropdownEmploymentType, employmentTypeValues, inputEmploymentType),
                 WorkingHours = GetText(inputWorkingHours),
                 Experience = GetText(inputExperience),
                 Education = GetText(inputEducation),
@@ -295,6 +341,12 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         inputResponsibilities = inputResponsibilities ?? FindInput("Input_Responsibilities");
         inputTools = inputTools ?? FindInput("Input_Tools");
         inputSkills = inputSkills ?? FindInput("Input_Skills");
+        dropdownCompensationType = dropdownCompensationType ?? FindDropdown("Dropdown_CompensationType");
+        dropdownCompensationPeriod = dropdownCompensationPeriod ?? FindDropdown("Dropdown_CompensationPeriod");
+        dropdownWorkMode = dropdownWorkMode ?? FindDropdown("Dropdown_WorkMode");
+        dropdownEmploymentType = dropdownEmploymentType ?? FindDropdown("Dropdown_EmploymentType");
+        multiSelectTags = multiSelectTags ?? FindMultiSelect("MultiSelect_Tags");
+        multiSelectRiskFlags = multiSelectRiskFlags ?? FindMultiSelect("MultiSelect_RiskFlags");
         if (textTitle == null)
         {
             Transform title = transform.Find("Text_Title");
@@ -327,14 +379,50 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
 
     private TMP_InputField FindInput(string childName)
     {
-        Transform child = transform.Find(childName);
-        return child == null ? null : child.GetComponent<TMP_InputField>();
+        TMP_InputField[] inputs = GetComponentsInChildren<TMP_InputField>(true);
+        foreach (TMP_InputField input in inputs)
+        {
+            if (input.name == childName)
+            {
+                return input;
+            }
+        }
+
+        return null;
     }
 
     private Button FindButton(string childName)
     {
         Transform child = transform.Find(childName);
         return child == null ? null : child.GetComponent<Button>();
+    }
+
+    private TMP_Dropdown FindDropdown(string childName)
+    {
+        TMP_Dropdown[] dropdowns = GetComponentsInChildren<TMP_Dropdown>(true);
+        foreach (TMP_Dropdown dropdown in dropdowns)
+        {
+            if (dropdown.name == childName)
+            {
+                return dropdown;
+            }
+        }
+
+        return null;
+    }
+
+    private JobPostingMultiSelectField FindMultiSelect(string childName)
+    {
+        JobPostingMultiSelectField[] fields = GetComponentsInChildren<JobPostingMultiSelectField>(true);
+        foreach (JobPostingMultiSelectField field in fields)
+        {
+            if (field.name == childName)
+            {
+                return field;
+            }
+        }
+
+        return null;
     }
 
     private void ClearFields()
@@ -364,6 +452,12 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         SetText(inputResponsibilities, string.Empty);
         SetText(inputTools, string.Empty);
         SetText(inputSkills, string.Empty);
+        SetDropdownValue(dropdownCompensationType, compensationTypeValues, null);
+        SetDropdownValue(dropdownCompensationPeriod, compensationPeriodValues, null);
+        SetDropdownValue(dropdownWorkMode, workModeValues, null);
+        SetDropdownValue(dropdownEmploymentType, employmentTypeValues, null);
+        multiSelectTags?.SetSelectedValues(null);
+        multiSelectRiskFlags?.SetSelectedValues(null);
         existingUnknownTags.Clear();
         existingUnknownRiskFlags.Clear();
     }
@@ -502,6 +596,162 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         }
 
         return parsed.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture);
+    }
+
+    private void SetupStructuredFields()
+    {
+        SetupDropdown(
+            dropdownCompensationType,
+            compensationTypeValues,
+            new[] { "未設定", "範圍", "固定金額", "最低薪資", "面議" },
+            new[] { "", "range", "fixed", "minimum", "negotiable" });
+        SetupDropdown(
+            dropdownCompensationPeriod,
+            compensationPeriodValues,
+            new[] { "未設定", "月薪", "年薪", "時薪", "日薪" },
+            new[] { "", "monthly", "yearly", "hourly", "daily" });
+        SetupDropdown(
+            dropdownWorkMode,
+            workModeValues,
+            new[] { "未設定", "現場", "混合", "遠端" },
+            new[] { "", "onsite", "hybrid", "remote" });
+        SetupDropdown(
+            dropdownEmploymentType,
+            employmentTypeValues,
+            new[] { "未設定", "全職", "兼職", "約聘", "派遣", "實習", "直聘" },
+            new[] { "", "全職", "兼職", "約聘", "派遣", "實習", "直聘" });
+        multiSelectTags?.Configure(JobPostingLabelCatalog.TagOptions);
+        multiSelectRiskFlags?.Configure(JobPostingLabelCatalog.RiskFlagOptions);
+    }
+
+    private static void SetupDropdown(
+        TMP_Dropdown dropdown,
+        List<string> values,
+        IEnumerable<string> labels,
+        IEnumerable<string> stableValues)
+    {
+        values.Clear();
+        values.AddRange(stableValues);
+        if (dropdown == null)
+        {
+            return;
+        }
+
+        dropdown.ClearOptions();
+        dropdown.AddOptions(new List<string>(labels));
+        dropdown.SetValueWithoutNotify(0);
+        dropdown.RefreshShownValue();
+    }
+
+    private static string GetDropdownValue(TMP_Dropdown dropdown, IReadOnlyList<string> values)
+    {
+        if (dropdown == null || dropdown.value < 0 || dropdown.value >= values.Count)
+        {
+            return null;
+        }
+
+        return string.IsNullOrWhiteSpace(values[dropdown.value]) ? null : values[dropdown.value];
+    }
+
+    private static string GetStructuredValue(
+        TMP_Dropdown dropdown,
+        IReadOnlyList<string> values,
+        TMP_InputField fallbackInput)
+    {
+        return dropdown == null ? GetText(fallbackInput) : GetDropdownValue(dropdown, values);
+    }
+
+    private static void SetDropdownValue(TMP_Dropdown dropdown, List<string> values, string value)
+    {
+        if (dropdown == null)
+        {
+            return;
+        }
+
+        int index = 0;
+        for (int i = 0; i < values.Count; i++)
+        {
+            if (string.Equals(values[i], value, StringComparison.OrdinalIgnoreCase))
+            {
+                index = i;
+                break;
+            }
+        }
+
+        if (index == 0 && !string.IsNullOrWhiteSpace(value))
+        {
+            values.Add(value);
+            dropdown.options.Add(new TMP_Dropdown.OptionData(value));
+            index = values.Count - 1;
+        }
+
+        dropdown.SetValueWithoutNotify(index);
+        dropdown.RefreshShownValue();
+    }
+
+    private static void SetMultiSelectForEdit(
+        JobPostingMultiSelectField field,
+        IEnumerable<string> values,
+        bool isRiskFlag,
+        ISet<string> unknownValues)
+    {
+        if (field == null)
+        {
+            return;
+        }
+
+        unknownValues.Clear();
+        var knownValues = new List<string>();
+        if (values != null)
+        {
+            foreach (string value in values)
+            {
+                bool known = isRiskFlag
+                    ? JobPostingLabelCatalog.IsKnownRiskFlag(value)
+                    : JobPostingLabelCatalog.IsKnownTag(value);
+                if (known)
+                {
+                    knownValues.Add(value);
+                }
+                else if (!string.IsNullOrWhiteSpace(value))
+                {
+                    unknownValues.Add(value.Trim());
+                }
+            }
+        }
+
+        field.SetSelectedValues(knownValues);
+    }
+
+    private static bool TryReadSelectedLabels(
+        JobPostingMultiSelectField field,
+        TMP_InputField fallbackInput,
+        bool isRiskFlag,
+        ISet<string> allowedUnknownValues,
+        out List<string> values,
+        out string invalidValue)
+    {
+        if (field == null)
+        {
+            return TryReadLabels(
+                fallbackInput,
+                isRiskFlag,
+                allowedUnknownValues,
+                out values,
+                out invalidValue);
+        }
+
+        values = field.GetSelectedValues();
+        foreach (string unknownValue in allowedUnknownValues)
+        {
+            if (!values.Contains(unknownValue))
+            {
+                values.Add(unknownValue);
+            }
+        }
+
+        invalidValue = null;
+        return true;
     }
 
     private static void SetLabelsForEdit(

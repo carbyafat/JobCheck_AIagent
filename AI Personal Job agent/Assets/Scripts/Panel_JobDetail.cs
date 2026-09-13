@@ -181,7 +181,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetText(textCompanyTitle, title);
         SetText(textStatus, "狀態: " + status);
         SetStatusTextColor(isExpired);
-        SetText(textSalary, BuildLabelLine("薪資", data.compensation != null ? data.compensation.raw_text : string.Empty));
+        SetText(textSalary, BuildLabelLine("薪資", JobCheckV02DisplayAdapter.FormatCompensation(data.compensation)));
         SetText(textWorkPosition, BuildLabelLine("工作地點", data.location != null ? data.location.raw_text : string.Empty));
         SetText(textWorkMode, BuildLabelLine("工作模式", data.location != null ? FormatWorkMode(data.location.work_mode) : string.Empty));
         SetText(textExperience, BuildLabelLine("經驗", data.requirements != null ? data.requirements.experience : string.Empty));
