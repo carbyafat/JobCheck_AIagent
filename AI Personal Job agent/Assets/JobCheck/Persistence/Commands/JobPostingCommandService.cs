@@ -84,6 +84,13 @@ namespace JobCheck.Persistence
                     Url = sourceUrl
                 },
                 CapturedAt = capturedAt,
+                Department = TrimOrNull(request.Department),
+                Category = TrimOrNull(request.Category),
+                Compensation = BuildCompensation(request),
+                Location = BuildLocation(request),
+                WorkConditions = BuildWorkConditions(request),
+                Responsibilities = NormalizeTextEntries(request.Responsibilities),
+                Requirements = BuildRequirements(request),
                 RawDescription = rawDescription,
                 Tags = NormalizeLabels(request.Tags),
                 RiskFlags = NormalizeLabels(request.RiskFlags)
@@ -187,6 +194,18 @@ namespace JobCheck.Persistence
                 Platform = sourcePlatform,
                 Url = sourceUrl
             };
+            if (request.CapturedAt.HasValue)
+            {
+                existing.CapturedAt = request.CapturedAt;
+            }
+
+            existing.Department = TrimOrNull(request.Department);
+            existing.Category = TrimOrNull(request.Category);
+            existing.Compensation = UpdateCompensation(existing.Compensation, request);
+            existing.Location = UpdateLocation(existing.Location, request);
+            existing.WorkConditions = UpdateWorkConditions(existing.WorkConditions, request);
+            existing.Responsibilities = NormalizeTextEntries(request.Responsibilities);
+            existing.Requirements = UpdateRequirements(existing.Requirements, request);
             existing.RawDescription = rawDescription;
             existing.Tags = NormalizeLabels(request.Tags);
             existing.RiskFlags = NormalizeLabels(request.RiskFlags);
@@ -210,6 +229,158 @@ namespace JobCheck.Persistence
         private static string TrimOrNull(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        private static JobCompensation BuildCompensation(JobPostingCreateRequest request)
+        {
+            var value = new JobCompensation
+            {
+                Type = TrimOrNull(request.CompensationType),
+                Period = TrimOrNull(request.CompensationPeriod),
+                Minimum = request.CompensationMinimum,
+                Maximum = request.CompensationMaximum,
+                Currency = TrimOrNull(request.CompensationCurrency),
+                RawText = TrimOrNull(request.CompensationRawText)
+            };
+            return IsEmpty(value) ? null : value;
+        }
+
+        private static JobCompensation UpdateCompensation(
+            JobCompensation existing,
+            JobPostingEditRequest request)
+        {
+            var value = existing ?? new JobCompensation();
+            value.Type = TrimOrNull(request.CompensationType);
+            value.Period = TrimOrNull(request.CompensationPeriod);
+            value.Minimum = request.CompensationMinimum;
+            value.Maximum = request.CompensationMaximum;
+            value.Currency = TrimOrNull(request.CompensationCurrency);
+            value.RawText = TrimOrNull(request.CompensationRawText);
+            return IsEmpty(value) ? null : value;
+        }
+
+        private static bool IsEmpty(JobCompensation value)
+        {
+            return value == null
+                || (value.Type == null
+                    && value.Period == null
+                    && !value.Minimum.HasValue
+                    && !value.Maximum.HasValue
+                    && value.Currency == null
+                    && value.RawText == null
+                    && value.Notes == null);
+        }
+
+        private static JobLocation BuildLocation(JobPostingCreateRequest request)
+        {
+            var value = new JobLocation
+            {
+                WorkMode = TrimOrNull(request.WorkMode),
+                RawText = TrimOrNull(request.LocationRawText)
+            };
+            return IsEmpty(value) ? null : value;
+        }
+
+        private static JobLocation UpdateLocation(
+            JobLocation existing,
+            JobPostingEditRequest request)
+        {
+            var value = existing ?? new JobLocation();
+            value.WorkMode = TrimOrNull(request.WorkMode);
+            value.RawText = TrimOrNull(request.LocationRawText);
+            return IsEmpty(value) ? null : value;
+        }
+
+        private static bool IsEmpty(JobLocation value)
+        {
+            return value == null
+                || (value.WorkMode == null
+                    && value.City == null
+                    && value.District == null
+                    && value.Address == null
+                    && !value.RemoteAllowed.HasValue
+                    && value.RawText == null);
+        }
+
+        private static JobWorkConditions BuildWorkConditions(JobPostingCreateRequest request)
+        {
+            var value = new JobWorkConditions
+            {
+                EmploymentType = TrimOrNull(request.EmploymentType),
+                WorkingHours = TrimOrNull(request.WorkingHours)
+            };
+            return IsEmpty(value) ? null : value;
+        }
+
+        private static JobWorkConditions UpdateWorkConditions(
+            JobWorkConditions existing,
+            JobPostingEditRequest request)
+        {
+            var value = existing ?? new JobWorkConditions();
+            value.EmploymentType = TrimOrNull(request.EmploymentType);
+            value.WorkingHours = TrimOrNull(request.WorkingHours);
+            return IsEmpty(value) ? null : value;
+        }
+
+        private static bool IsEmpty(JobWorkConditions value)
+        {
+            return value == null
+                || (value.EmploymentType == null
+                    && value.WorkingHours == null
+                    && value.BusinessTrip == null
+                    && value.ManagementResponsibility == null
+                    && value.LeavePolicy == null
+                    && value.StartDate == null);
+        }
+
+        private static JobRequirements BuildRequirements(JobPostingCreateRequest request)
+        {
+            var value = new JobRequirements
+            {
+                Experience = TrimOrNull(request.Experience),
+                Education = TrimOrNull(request.Education),
+                Tools = NormalizeTextEntries(request.Tools),
+                Skills = NormalizeTextEntries(request.Skills)
+            };
+            return IsEmpty(value) ? null : value;
+        }
+
+        private static JobRequirements UpdateRequirements(
+            JobRequirements existing,
+            JobPostingEditRequest request)
+        {
+            var value = existing ?? new JobRequirements();
+            value.Experience = TrimOrNull(request.Experience);
+            value.Education = TrimOrNull(request.Education);
+            value.Tools = NormalizeTextEntries(request.Tools);
+            value.Skills = NormalizeTextEntries(request.Skills);
+            return IsEmpty(value) ? null : value;
+        }
+
+        private static bool IsEmpty(JobRequirements value)
+        {
+            return value == null
+                || (value.Experience == null
+                    && value.Education == null
+                    && value.Major == null
+                    && (value.Languages == null || value.Languages.Count == 0)
+                    && (value.Tools == null || value.Tools.Count == 0)
+                    && (value.Skills == null || value.Skills.Count == 0)
+                    && (value.OtherConditions == null || value.OtherConditions.Count == 0));
+        }
+
+        private static List<string> NormalizeTextEntries(IEnumerable<string> values)
+        {
+            if (values == null)
+            {
+                return new List<string>();
+            }
+
+            return values
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         private static List<string> NormalizeLabels(IEnumerable<string> values)

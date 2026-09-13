@@ -34,6 +34,57 @@ namespace JobCheck.Persistence
         /// </summary>
         public string RawDescription { get; set; }
 
+        /// <summary>來源公開的部門名稱；可選。</summary>
+        public string Department { get; set; }
+
+        /// <summary>來源平台的職務類別；可選。</summary>
+        public string Category { get; set; }
+
+        /// <summary>薪資表示方式，例如 range、fixed 或 negotiable；可選。</summary>
+        public string CompensationType { get; set; }
+
+        /// <summary>薪資週期，例如 monthly、yearly 或 hourly；可選。</summary>
+        public string CompensationPeriod { get; set; }
+
+        /// <summary>薪資下限；null 代表來源未提供，不可以 0 代替未知。</summary>
+        public int? CompensationMinimum { get; set; }
+
+        /// <summary>薪資上限；null 代表來源未提供。</summary>
+        public int? CompensationMaximum { get; set; }
+
+        /// <summary>薪資幣別，例如 TWD；可選且不得由 Persistence 猜測。</summary>
+        public string CompensationCurrency { get; set; }
+
+        /// <summary>來源頁面的完整薪資文字；可選。</summary>
+        public string CompensationRawText { get; set; }
+
+        /// <summary>來源頁面的完整工作地點文字；可選。</summary>
+        public string LocationRawText { get; set; }
+
+        /// <summary>工作模式，例如 onsite、hybrid 或 remote；可選。</summary>
+        public string WorkMode { get; set; }
+
+        /// <summary>聘僱形式，例如全職、兼職或約聘；可選。</summary>
+        public string EmploymentType { get; set; }
+
+        /// <summary>上班時段或工時說明；可選。</summary>
+        public string WorkingHours { get; set; }
+
+        /// <summary>工作經驗要求原文；可選。</summary>
+        public string Experience { get; set; }
+
+        /// <summary>學歷要求原文；可選。</summary>
+        public string Education { get; set; }
+
+        /// <summary>工作內容與主要責任，一個項目保存為一筆字串。</summary>
+        public List<string> Responsibilities { get; set; } = new List<string>();
+
+        /// <summary>明確列出的工具、框架或技術，一個項目保存為一筆字串。</summary>
+        public List<string> Tools { get; set; } = new List<string>();
+
+        /// <summary>技能或能力要求，一個項目保存為一筆字串。</summary>
+        public List<string> Skills { get; set; } = new List<string>();
+
         /// <summary>
         /// 使用者選擇的職缺分類標籤；值使用 JobPostingLabelCatalog 定義的小寫代碼。
         /// </summary>
@@ -86,6 +137,27 @@ namespace JobCheck.Persistence
         /// 完整職缺描述原文；可以不填。
         /// </summary>
         public string RawDescription { get; set; }
+
+        /// <summary>修正後的收錄時間；null 代表保留原值。</summary>
+        public DateTimeOffset? CapturedAt { get; set; }
+
+        public string Department { get; set; }
+        public string Category { get; set; }
+        public string CompensationType { get; set; }
+        public string CompensationPeriod { get; set; }
+        public int? CompensationMinimum { get; set; }
+        public int? CompensationMaximum { get; set; }
+        public string CompensationCurrency { get; set; }
+        public string CompensationRawText { get; set; }
+        public string LocationRawText { get; set; }
+        public string WorkMode { get; set; }
+        public string EmploymentType { get; set; }
+        public string WorkingHours { get; set; }
+        public string Experience { get; set; }
+        public string Education { get; set; }
+        public List<string> Responsibilities { get; set; } = new List<string>();
+        public List<string> Tools { get; set; } = new List<string>();
+        public List<string> Skills { get; set; } = new List<string>();
 
         /// <summary>
         /// 編輯後要保存的完整職缺分類標籤集合。
