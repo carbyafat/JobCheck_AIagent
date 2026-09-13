@@ -314,7 +314,6 @@ public class Panel_JobDetail : MonoBehaviour
         SetButtonLabel(buttonWaitInterview, "安排面試");
         SetButtonLabel(buttonWithInterview, "已完成面試");
         SetButtonLabel(buttonWaitingReply, "等待回覆");
-        SetButtonLabel(buttonNoResponse, "標記長期無回覆");
         SetButtonLabel(buttonArchived, "收藏 / 取消收藏");
         SetButtonLabel(buttonArchivedWaitOtherJobResult, "公司已聯絡");
         SetButtonLabel(buttonManualSetExpireDay, "設定下次追蹤日");
@@ -323,6 +322,8 @@ public class Panel_JobDetail : MonoBehaviour
         {
             buttonEditNotes.gameObject.SetActive(true);
         }
+
+        RefreshNoResponseButton();
     }
 
     /// <summary>
@@ -343,7 +344,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetButtonInteractable(buttonWaitInterview, !value);
         SetButtonInteractable(buttonWithInterview, !value);
         SetButtonInteractable(buttonWaitingReply, !value);
-        SetButtonInteractable(buttonNoResponse, !value);
+        RefreshNoResponseButton();
         SetButtonInteractable(buttonOffer, !value);
         SetButtonInteractable(buttonRejected, !value);
         SetButtonInteractable(buttonArchived, !value);
@@ -431,6 +432,13 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void MarkNoResponse()
     {
+        if (!HasCurrentApplication())
+        {
+            Debug.LogWarning("尚未建立 Application；請先標記有興趣或已投遞，再記錄長期無回覆。", this);
+            CloseStatusPanel();
+            return;
+        }
+
         ChangeStatus("no_response");
     }
 
@@ -722,6 +730,24 @@ public class Panel_JobDetail : MonoBehaviour
         SetStatusButtonColor(buttonRejected, currentStatus == "rejected");
         SetStatusButtonColor(buttonArchived, currentTracking != null && currentTracking.favorite);
         SetStatusButtonColor(buttonArchivedWaitOtherJobResult, currentStatus == "contacted");
+        RefreshNoResponseButton();
+    }
+
+    private bool HasCurrentApplication()
+    {
+        return currentTracking != null
+            && !string.IsNullOrWhiteSpace(currentTracking.application_id);
+    }
+
+    private void RefreshNoResponseButton()
+    {
+        bool hasApplication = HasCurrentApplication();
+        SetButtonInteractable(buttonNoResponse, !isReadOnly && hasApplication);
+        SetButtonLabel(
+            buttonNoResponse,
+            hasApplication
+                ? "標記長期無回覆"
+                : "無回覆（先標記有興趣或已投遞）");
     }
 
     /// <summary>
