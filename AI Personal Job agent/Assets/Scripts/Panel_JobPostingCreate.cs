@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using JobCheck.Domain;
 using JobCheck.Persistence;
@@ -20,6 +21,24 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
     [SerializeField] private TMP_InputField inputRawDescription;
     [SerializeField] private TMP_InputField inputTags;
     [SerializeField] private TMP_InputField inputRiskFlags;
+    [SerializeField] private TMP_InputField inputCapturedAt;
+    [SerializeField] private TMP_InputField inputDepartment;
+    [SerializeField] private TMP_InputField inputCategory;
+    [SerializeField] private TMP_InputField inputCompensationType;
+    [SerializeField] private TMP_InputField inputCompensationPeriod;
+    [SerializeField] private TMP_InputField inputCompensationMinimum;
+    [SerializeField] private TMP_InputField inputCompensationMaximum;
+    [SerializeField] private TMP_InputField inputCompensationCurrency;
+    [SerializeField] private TMP_InputField inputCompensationRawText;
+    [SerializeField] private TMP_InputField inputLocationRawText;
+    [SerializeField] private TMP_InputField inputWorkMode;
+    [SerializeField] private TMP_InputField inputEmploymentType;
+    [SerializeField] private TMP_InputField inputWorkingHours;
+    [SerializeField] private TMP_InputField inputExperience;
+    [SerializeField] private TMP_InputField inputEducation;
+    [SerializeField] private TMP_InputField inputResponsibilities;
+    [SerializeField] private TMP_InputField inputTools;
+    [SerializeField] private TMP_InputField inputSkills;
 
     [Header("Actions")]
     [SerializeField] private TMP_Text textTitle;
@@ -50,6 +69,8 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         AutoBindReferences();
         BindButtons();
         ClearFields();
+        SetText(inputCompensationPeriod, "monthly");
+        SetText(inputCompensationCurrency, "TWD");
         SetPanelLabels("新增職缺", "儲存");
         SetMessage(string.Empty, false);
         gameObject.SetActive(true);
@@ -62,7 +83,7 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
     }
 
     /// <summary>
-    /// 以既有資料開啟編輯模式。此表單只修改目前支援的五個欄位。
+    /// 以既有資料開啟編輯模式，並回填目前表單可維護的職缺欄位。
     /// </summary>
     public void ShowForEdit(AllJobPage page, JobDetailData data)
     {
@@ -75,6 +96,32 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         SetText(inputSourcePlatform, data != null && data.source != null ? data.source.platform : null);
         SetText(inputSourceUrl, data != null && data.source != null ? data.source.url : null);
         SetText(inputRawDescription, data != null && data.job != null ? data.job.raw_text : null);
+        SetText(inputCapturedAt, FormatDateForInput(data != null && data.source != null ? data.source.captured_at : null));
+        SetText(inputDepartment, data != null && data.job != null ? data.job.department : null);
+        SetText(inputCategory, data != null && data.job != null ? data.job.category : null);
+        SetText(inputCompensationType, data != null && data.compensation != null ? data.compensation.type : null);
+        SetText(inputCompensationPeriod, data != null && data.compensation != null ? data.compensation.period : null);
+        SetText(
+            inputCompensationMinimum,
+            data != null && data.compensation != null && data.compensation.has_min
+                ? data.compensation.min.ToString(CultureInfo.InvariantCulture)
+                : null);
+        SetText(
+            inputCompensationMaximum,
+            data != null && data.compensation != null && data.compensation.has_max
+                ? data.compensation.max.ToString(CultureInfo.InvariantCulture)
+                : null);
+        SetText(inputCompensationCurrency, data != null && data.compensation != null ? data.compensation.currency : null);
+        SetText(inputCompensationRawText, data != null && data.compensation != null ? data.compensation.raw_text : null);
+        SetText(inputLocationRawText, data != null && data.location != null ? data.location.raw_text : null);
+        SetText(inputWorkMode, data != null && data.location != null ? data.location.work_mode : null);
+        SetText(inputEmploymentType, data != null && data.work_conditions != null ? data.work_conditions.employment_type : null);
+        SetText(inputWorkingHours, data != null && data.work_conditions != null ? data.work_conditions.working_hours : null);
+        SetText(inputExperience, data != null && data.requirements != null ? data.requirements.experience : null);
+        SetText(inputEducation, data != null && data.requirements != null ? data.requirements.education : null);
+        SetLines(inputResponsibilities, data != null ? data.responsibilities : null);
+        SetLines(inputTools, data != null && data.requirements != null ? data.requirements.tools : null);
+        SetLines(inputSkills, data != null && data.requirements != null ? data.requirements.skills : null);
         SetLabelsForEdit(inputTags, data != null ? data.tags : null, false, existingUnknownTags);
         SetLabelsForEdit(
             inputRiskFlags,
@@ -101,6 +148,24 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         }
 
         bool isEditing = !string.IsNullOrEmpty(editingJobPostingId);
+        if (!TryReadOptionalDate(inputCapturedAt, out DateTimeOffset? capturedAt, out string dateError))
+        {
+            SetMessage("無法儲存職缺：\n• " + dateError, true);
+            return;
+        }
+
+        if (!TryReadOptionalInt(inputCompensationMinimum, "薪資下限", out int? compensationMinimum, out string minimumError))
+        {
+            SetMessage("無法儲存職缺：\n• " + minimumError, true);
+            return;
+        }
+
+        if (!TryReadOptionalInt(inputCompensationMaximum, "薪資上限", out int? compensationMaximum, out string maximumError))
+        {
+            SetMessage("無法儲存職缺：\n• " + maximumError, true);
+            return;
+        }
+
         if (!TryReadLabels(
             inputTags,
             false,
@@ -132,6 +197,24 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
                 SourcePlatform = GetText(inputSourcePlatform),
                 SourceUrl = GetText(inputSourceUrl),
                 RawDescription = GetText(inputRawDescription),
+                CapturedAt = capturedAt,
+                Department = GetText(inputDepartment),
+                Category = GetText(inputCategory),
+                CompensationType = GetText(inputCompensationType),
+                CompensationPeriod = GetText(inputCompensationPeriod),
+                CompensationMinimum = compensationMinimum,
+                CompensationMaximum = compensationMaximum,
+                CompensationCurrency = GetText(inputCompensationCurrency),
+                CompensationRawText = GetText(inputCompensationRawText),
+                LocationRawText = GetText(inputLocationRawText),
+                WorkMode = GetText(inputWorkMode),
+                EmploymentType = GetText(inputEmploymentType),
+                WorkingHours = GetText(inputWorkingHours),
+                Experience = GetText(inputExperience),
+                Education = GetText(inputEducation),
+                Responsibilities = GetLines(inputResponsibilities),
+                Tools = GetLines(inputTools),
+                Skills = GetLines(inputSkills),
                 Tags = tags,
                 RiskFlags = riskFlags
             })
@@ -142,6 +225,24 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
                 SourcePlatform = GetText(inputSourcePlatform),
                 SourceUrl = GetText(inputSourceUrl),
                 RawDescription = GetText(inputRawDescription),
+                CapturedAt = capturedAt,
+                Department = GetText(inputDepartment),
+                Category = GetText(inputCategory),
+                CompensationType = GetText(inputCompensationType),
+                CompensationPeriod = GetText(inputCompensationPeriod),
+                CompensationMinimum = compensationMinimum,
+                CompensationMaximum = compensationMaximum,
+                CompensationCurrency = GetText(inputCompensationCurrency),
+                CompensationRawText = GetText(inputCompensationRawText),
+                LocationRawText = GetText(inputLocationRawText),
+                WorkMode = GetText(inputWorkMode),
+                EmploymentType = GetText(inputEmploymentType),
+                WorkingHours = GetText(inputWorkingHours),
+                Experience = GetText(inputExperience),
+                Education = GetText(inputEducation),
+                Responsibilities = GetLines(inputResponsibilities),
+                Tools = GetLines(inputTools),
+                Skills = GetLines(inputSkills),
                 Tags = tags,
                 RiskFlags = riskFlags
             });
@@ -176,6 +277,24 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         inputRawDescription = inputRawDescription ?? FindInput("Input_RawDescription");
         inputTags = inputTags ?? FindInput("Input_Tags");
         inputRiskFlags = inputRiskFlags ?? FindInput("Input_RiskFlags");
+        inputCapturedAt = inputCapturedAt ?? FindInput("Input_CapturedAt");
+        inputDepartment = inputDepartment ?? FindInput("Input_Department");
+        inputCategory = inputCategory ?? FindInput("Input_Category");
+        inputCompensationType = inputCompensationType ?? FindInput("Input_CompensationType");
+        inputCompensationPeriod = inputCompensationPeriod ?? FindInput("Input_CompensationPeriod");
+        inputCompensationMinimum = inputCompensationMinimum ?? FindInput("Input_CompensationMinimum");
+        inputCompensationMaximum = inputCompensationMaximum ?? FindInput("Input_CompensationMaximum");
+        inputCompensationCurrency = inputCompensationCurrency ?? FindInput("Input_CompensationCurrency");
+        inputCompensationRawText = inputCompensationRawText ?? FindInput("Input_CompensationRawText");
+        inputLocationRawText = inputLocationRawText ?? FindInput("Input_LocationRawText");
+        inputWorkMode = inputWorkMode ?? FindInput("Input_WorkMode");
+        inputEmploymentType = inputEmploymentType ?? FindInput("Input_EmploymentType");
+        inputWorkingHours = inputWorkingHours ?? FindInput("Input_WorkingHours");
+        inputExperience = inputExperience ?? FindInput("Input_Experience");
+        inputEducation = inputEducation ?? FindInput("Input_Education");
+        inputResponsibilities = inputResponsibilities ?? FindInput("Input_Responsibilities");
+        inputTools = inputTools ?? FindInput("Input_Tools");
+        inputSkills = inputSkills ?? FindInput("Input_Skills");
         if (textTitle == null)
         {
             Transform title = transform.Find("Text_Title");
@@ -227,6 +346,24 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         SetText(inputRawDescription, string.Empty);
         SetText(inputTags, string.Empty);
         SetText(inputRiskFlags, string.Empty);
+        SetText(inputCapturedAt, string.Empty);
+        SetText(inputDepartment, string.Empty);
+        SetText(inputCategory, string.Empty);
+        SetText(inputCompensationType, string.Empty);
+        SetText(inputCompensationPeriod, string.Empty);
+        SetText(inputCompensationMinimum, string.Empty);
+        SetText(inputCompensationMaximum, string.Empty);
+        SetText(inputCompensationCurrency, string.Empty);
+        SetText(inputCompensationRawText, string.Empty);
+        SetText(inputLocationRawText, string.Empty);
+        SetText(inputWorkMode, string.Empty);
+        SetText(inputEmploymentType, string.Empty);
+        SetText(inputWorkingHours, string.Empty);
+        SetText(inputExperience, string.Empty);
+        SetText(inputEducation, string.Empty);
+        SetText(inputResponsibilities, string.Empty);
+        SetText(inputTools, string.Empty);
+        SetText(inputSkills, string.Empty);
         existingUnknownTags.Clear();
         existingUnknownRiskFlags.Clear();
     }
@@ -272,6 +409,99 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         {
             input.SetTextWithoutNotify(value);
         }
+    }
+
+    private static bool TryReadOptionalDate(
+        TMP_InputField input,
+        out DateTimeOffset? value,
+        out string error)
+    {
+        value = null;
+        error = null;
+        string text = GetText(input);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return true;
+        }
+
+        if (!DateTime.TryParseExact(
+            text.Trim(),
+            "yyyy.MM.dd",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out DateTime date))
+        {
+            error = "收錄日期請使用 yyyy.MM.dd，例如 2026.09.13。";
+            return false;
+        }
+
+        date = DateTime.SpecifyKind(date.Date.AddHours(12), DateTimeKind.Local);
+        value = new DateTimeOffset(date);
+        return true;
+    }
+
+    private static bool TryReadOptionalInt(
+        TMP_InputField input,
+        string label,
+        out int? value,
+        out string error)
+    {
+        value = null;
+        error = null;
+        string text = GetText(input);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return true;
+        }
+
+        string normalized = text.Trim().Replace(",", string.Empty);
+        if (!int.TryParse(normalized, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed) || parsed < 0)
+        {
+            error = label + "必須是大於或等於 0 的整數。";
+            return false;
+        }
+
+        value = parsed;
+        return true;
+    }
+
+    private static List<string> GetLines(TMP_InputField input)
+    {
+        var values = new List<string>();
+        string text = GetText(input);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return values;
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        string[] lines = text.Replace("\r\n", "\n").Split('\n');
+        foreach (string line in lines)
+        {
+            string value = line.Trim();
+            if (value.Length > 0 && seen.Add(value))
+            {
+                values.Add(value);
+            }
+        }
+
+        return values;
+    }
+
+    private static void SetLines(TMP_InputField input, IEnumerable<string> values)
+    {
+        SetText(input, values == null ? string.Empty : string.Join(Environment.NewLine, values));
+    }
+
+    private static string FormatDateForInput(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) ||
+            !DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out DateTimeOffset parsed))
+        {
+            return string.Empty;
+        }
+
+        return parsed.ToString("yyyy.MM.dd", CultureInfo.InvariantCulture);
     }
 
     private static void SetLabelsForEdit(

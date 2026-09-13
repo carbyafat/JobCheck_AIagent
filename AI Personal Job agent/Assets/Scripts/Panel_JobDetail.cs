@@ -99,6 +99,8 @@ public class Panel_JobDetail : MonoBehaviour
     [SerializeField] private Button buttonWithInterview;
     [Tooltip("切換為等回覆。")]
     [SerializeField] private Button buttonWaitingReply;
+    [Tooltip("記錄一次長期無回覆事件，不改變目前流程階段。")]
+    [SerializeField] private Button buttonNoResponse;
     [Tooltip("切換為錄取。")]
     [SerializeField] private Button buttonOffer;
     [Tooltip("切換為未錄取。")]
@@ -312,6 +314,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetButtonLabel(buttonWaitInterview, "安排面試");
         SetButtonLabel(buttonWithInterview, "已完成面試");
         SetButtonLabel(buttonWaitingReply, "等待回覆");
+        SetButtonLabel(buttonNoResponse, "標記長期無回覆");
         SetButtonLabel(buttonArchived, "收藏 / 取消收藏");
         SetButtonLabel(buttonArchivedWaitOtherJobResult, "公司已聯絡");
         SetButtonLabel(buttonManualSetExpireDay, "設定下次追蹤日");
@@ -340,6 +343,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetButtonInteractable(buttonWaitInterview, !value);
         SetButtonInteractable(buttonWithInterview, !value);
         SetButtonInteractable(buttonWaitingReply, !value);
+        SetButtonInteractable(buttonNoResponse, !value);
         SetButtonInteractable(buttonOffer, !value);
         SetButtonInteractable(buttonRejected, !value);
         SetButtonInteractable(buttonArchived, !value);
@@ -420,6 +424,14 @@ public class Panel_JobDetail : MonoBehaviour
     public void SetStatusWaitingReply()
     {
         ChangeStatus("waiting_reply");
+    }
+
+    /// <summary>
+    /// 記錄本次追蹤為長期無回覆；事件會保留，但不會覆蓋目前應徵階段。
+    /// </summary>
+    public void MarkNoResponse()
+    {
+        ChangeStatus("no_response");
     }
 
     /// <summary>
@@ -705,6 +717,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetStatusButtonColor(buttonWaitInterview, currentStatus == "interview_scheduled");
         SetStatusButtonColor(buttonWithInterview, currentStatus == "interviewing");
         SetStatusButtonColor(buttonWaitingReply, currentStatus == "waiting_reply");
+        SetStatusButtonColor(buttonNoResponse, false);
         SetStatusButtonColor(buttonOffer, currentStatus == "offer");
         SetStatusButtonColor(buttonRejected, currentStatus == "rejected");
         SetStatusButtonColor(buttonArchived, currentTracking != null && currentTracking.favorite);
@@ -1004,6 +1017,7 @@ public class Panel_JobDetail : MonoBehaviour
         if (buttonWithInterview == null) buttonWithInterview = FindChildButton("Button_WithInterview");
         if (buttonWaitingReply == null) buttonWaitingReply = FindChildButton("Button_WaitingReply");
         if (buttonWaitingReply == null) buttonWaitingReply = FindChildButton("Button_WaitInterviewResult");
+        if (buttonNoResponse == null) buttonNoResponse = FindChildButton("Button_NoResponse");
         if (buttonOffer == null) buttonOffer = FindChildButton("Button_Offer");
         if (buttonRejected == null) buttonRejected = FindChildButton("Button_Rejected");
         if (buttonArchived == null) buttonArchived = FindChildButton("Button_Archived");
@@ -1044,6 +1058,7 @@ public class Panel_JobDetail : MonoBehaviour
         BindButton(buttonWaitInterview, SetStatusWaitInterview);
         BindButton(buttonWithInterview, SetStatusWithInterview);
         BindButton(buttonWaitingReply, SetStatusWaitingReply);
+        BindButton(buttonNoResponse, MarkNoResponse);
         BindButton(buttonOffer, SetStatusOffer);
         BindButton(buttonRejected, SetStatusRejected);
         BindButton(buttonArchived, SetStatusArchived);
