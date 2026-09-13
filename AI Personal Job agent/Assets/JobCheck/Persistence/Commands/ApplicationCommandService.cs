@@ -63,7 +63,9 @@ namespace JobCheck.Persistence
                     JobPostingId = jobPostingId,
                     SourceType = SourceType.MyApplication,
                     CurrentStage = ApplicationStage.Saved,
-                    CreatedAt = recordedAt,
+                    // 事後補登時，Application 的生命週期必須從事件真正發生的時間開始，
+                    // 而不是從今天輸入資料的時間開始。
+                    CreatedAt = eventOccurredAt,
                     UpdatedAt = recordedAt,
                     PreviousApplicationId = latest?.Id
                 };
@@ -74,6 +76,11 @@ namespace JobCheck.Persistence
                     item.ApplicationId,
                     application.Id,
                     StringComparison.Ordinal)));
+            }
+
+            if (!application.CreatedAt.HasValue || eventOccurredAt < application.CreatedAt.Value)
+            {
+                application.CreatedAt = eventOccurredAt;
             }
 
             if (IsTerminal(application.CurrentStage) && !startsReapplication)

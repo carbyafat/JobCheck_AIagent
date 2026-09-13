@@ -54,6 +54,47 @@ namespace JobCheck.Tests
         }
 
         [Test]
+        public void RecordHistoricalFirstEvent_UsesOccurredAtAsApplicationCreatedAt()
+        {
+            DateTimeOffset historicalDate = FirstTime.AddMonths(-3);
+
+            PersistenceStorageResult<ApplicationWriteSummary> result = Record(
+                ApplicationEventType.Applied,
+                EventActor.Candidate,
+                historicalDate);
+
+            Assert.IsTrue(result.IsSuccess, FormatIssues(result));
+            JobCheckDataSet data = Load();
+            Application application = data.Applications.Single();
+            ApplicationEvent applicationEvent = data.ApplicationEvents.Single();
+            Assert.AreEqual(historicalDate, application.CreatedAt);
+            Assert.AreEqual(historicalDate, applicationEvent.OccurredAt);
+            Assert.GreaterOrEqual(applicationEvent.RecordedAt, application.CreatedAt);
+        }
+
+        [Test]
+        public void RecordFutureFirstEvent_IsRejectedWithoutCreatingFile()
+        {
+            DateTimeOffset futureDate = new DateTimeOffset(
+                2100,
+                1,
+                1,
+                12,
+                0,
+                0,
+                TimeSpan.FromHours(8));
+
+            PersistenceStorageResult<ApplicationWriteSummary> result = Record(
+                ApplicationEventType.Applied,
+                EventActor.Candidate,
+                futureDate);
+
+            Assert.IsFalse(result.IsSuccess);
+            Assert.IsEmpty(Directory.GetFiles(
+                Path.Combine(root, JobCheckDataRepository.ApplicationsDirectoryName)));
+        }
+
+        [Test]
         public void RecordApplied_AfterSaved_UsesSameApplication()
         {
             Record(ApplicationEventType.Saved, EventActor.Candidate, FirstTime);
@@ -69,6 +110,29 @@ namespace JobCheck.Tests
         }
 
         [Test]
+        public void RecordEarlierHistoricalEvent_MovesApplicationCreatedAtBackward()
+        {
+            Record(ApplicationEventType.Applied, EventActor.Candidate, FirstTime);
+            DateTimeOffset earlier = FirstTime.AddDays(-1);
+
+            PersistenceStorageResult<ApplicationWriteSummary> result = Record(
+                ApplicationEventType.Saved,
+                EventActor.Candidate,
+                earlier);
+
+            Assert.IsTrue(result.IsSuccess, FormatIssues(result));
+            JobCheckDataSet data = Load();
+            Assert.AreEqual(earlier, data.Applications.Single().CreatedAt);
+            Assert.AreEqual(ApplicationStage.Applied, data.Applications.Single().CurrentStage);
+            Assert.AreEqual(
+                new[] { ApplicationEventType.Saved, ApplicationEventType.Applied },
+                data.ApplicationEvents
+                    .OrderBy(item => item.OccurredAt)
+                    .Select(item => item.EventType)
+                    .ToArray());
+        }
+
+        [Test]
         public void RecordApplied_AfterAlreadyApplied_CreatesLinkedReapplication()
         {
             Record(ApplicationEventType.Applied, EventActor.Candidate, FirstTime);
@@ -81,6 +145,7 @@ namespace JobCheck.Tests
             Application newest = data.Applications.Single(item => item.Id != firstId);
             Assert.AreEqual(firstId, newest.PreviousApplicationId);
             Assert.AreEqual(ApplicationStage.Applied, newest.CurrentStage);
+            Assert.AreEqual(FirstTime.AddDays(1), newest.CreatedAt);
         }
 
         [Test]

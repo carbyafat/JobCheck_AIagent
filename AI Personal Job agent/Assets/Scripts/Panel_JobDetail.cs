@@ -117,12 +117,17 @@ public class Panel_JobDetail : MonoBehaviour
     private AllJobPage allJobPage;
     private bool isReadOnly;
     private DetailInputMode inputMode;
+    private string pendingStatus;
+    private CandidateCloseReason? pendingCloseReason;
+    private string pendingCloseReasonNote;
+    private DateTimeOffset? pendingScheduledFor;
 
     private enum DetailInputMode
     {
         FollowUp,
         InterviewSchedule,
         CandidateClose,
+        EventOccurredAt,
         Notes
     }
 
@@ -375,8 +380,11 @@ public class Panel_JobDetail : MonoBehaviour
     public void SetStatusNotApplying()
     {
         CloseStatusPanel();
+        BeginPendingStatus("not_applying");
         inputMode = DetailInputMode.CandidateClose;
-        ShowTextInput("原因：薪資/博弈/通勤/工時/週末/職務/技術/公司/更好機會/無回覆/其他說明");
+        ShowTextInput(
+            "原因：薪資/博弈/通勤/工時/週末/職務/技術/公司/更好機會/無回覆/其他說明",
+            "下一步");
     }
 
     /// <summary>
@@ -393,8 +401,9 @@ public class Panel_JobDetail : MonoBehaviour
     public void SetStatusWaitInterview()
     {
         CloseStatusPanel();
+        BeginPendingStatus("interview_scheduled");
         inputMode = DetailInputMode.InterviewSchedule;
-        ShowTextInput("面試日期 yyyy.mm.dd");
+        ShowTextInput("面試日期 yyyy.mm.dd", "下一步");
     }
 
     /// <summary>
@@ -486,6 +495,7 @@ public class Panel_JobDetail : MonoBehaviour
         }
 
         inputMode = DetailInputMode.FollowUp;
+        SetButtonLabel(buttonConfirmExpiredDay, "確認追蹤日");
         SetExpireDayInputVisible(true);
 
         if (inputFieldExpireDay != null)
@@ -520,21 +530,58 @@ public class Panel_JobDetail : MonoBehaviour
                 return;
             }
 
-            ParseCandidateCloseReason(input, out CandidateCloseReason reason, out string reasonNote);
-            currentTracking = allJobPage.UpdateV02ApplicationStatus(
-                currentData.id,
-                "not_applying",
-                reason,
-                reasonNote,
-                null);
-            SetExpireDayInputVisible(false);
-            Refresh(currentData);
+            ParseCandidateCloseReason(
+                input,
+                out CandidateCloseReason reason,
+                out string reasonNote);
+            pendingCloseReason = reason;
+            pendingCloseReasonNote = reasonNote;
+            ShowEventOccurredAtInput();
             return;
         }
 
         if (inputMode == DetailInputMode.Notes)
         {
             currentTracking = allJobPage.UpdateV02Notes(currentData.id, input);
+            SetExpireDayInputVisible(false);
+            Refresh(currentData);
+            return;
+        }
+
+        if (inputMode == DetailInputMode.EventOccurredAt)
+        {
+            DateTimeOffset? occurredAt = null;
+            if (!string.IsNullOrWhiteSpace(input))
+            {
+                if (!DateTime.TryParseExact(
+                    input,
+                    "yyyy.MM.dd",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out DateTime occurredDate))
+                {
+                    SetText(textExpireDay, "日期格式錯誤，請輸入 yyyy.mm.dd；留空代表現在");
+                    return;
+                }
+
+                occurredAt = new DateTimeOffset(
+                    occurredDate.Year,
+                    occurredDate.Month,
+                    occurredDate.Day,
+                    12,
+                    0,
+                    0,
+                    DateTimeOffset.Now.Offset);
+            }
+
+            currentTracking = allJobPage.UpdateV02ApplicationStatus(
+                currentData.id,
+                pendingStatus,
+                pendingCloseReason,
+                pendingCloseReasonNote,
+                pendingScheduledFor,
+                occurredAt);
+            ResetPendingStatus();
             SetExpireDayInputVisible(false);
             Refresh(currentData);
             return;
@@ -558,12 +605,9 @@ public class Panel_JobDetail : MonoBehaviour
 
         if (inputMode == DetailInputMode.InterviewSchedule)
         {
-            currentTracking = allJobPage.UpdateV02ApplicationStatus(
-                currentData.id,
-                "interview_scheduled",
-                null,
-                null,
-                expireAt);
+            pendingScheduledFor = expireAt;
+            ShowEventOccurredAtInput();
+            return;
         }
         else
         {
@@ -586,12 +630,13 @@ public class Panel_JobDetail : MonoBehaviour
         }
 
         inputMode = DetailInputMode.FollowUp;
+        ResetPendingStatus();
         SetExpireDayInputVisible(false);
         RefreshExpireDayText();
     }
 
     /// <summary>
-    /// 修改目前職缺狀態並寫回 tracking。
+    /// 準備修改目前職缺狀態；先讓使用者選填事件實際發生日，再一次寫回 tracking。
     /// </summary>
     /// <param name="status">新的狀態代碼。</param>
     private void ChangeStatus(string status)
@@ -607,9 +652,31 @@ public class Panel_JobDetail : MonoBehaviour
             return;
         }
 
-        currentTracking = allJobPage.UpdateV02ApplicationStatus(currentData.id, status, null, null, null);
-        Refresh(currentData);
         CloseStatusPanel();
+        BeginPendingStatus(status);
+        ShowEventOccurredAtInput();
+    }
+
+    private void BeginPendingStatus(string status)
+    {
+        pendingStatus = status;
+        pendingCloseReason = null;
+        pendingCloseReasonNote = null;
+        pendingScheduledFor = null;
+    }
+
+    private void ShowEventOccurredAtInput()
+    {
+        inputMode = DetailInputMode.EventOccurredAt;
+        ShowTextInput("事件日期 yyyy.mm.dd（留空＝現在）", "記錄事件");
+    }
+
+    private void ResetPendingStatus()
+    {
+        pendingStatus = null;
+        pendingCloseReason = null;
+        pendingCloseReasonNote = null;
+        pendingScheduledFor = null;
     }
 
     /// <summary>
@@ -1105,10 +1172,11 @@ public class Panel_JobDetail : MonoBehaviour
         }
     }
 
-    private void ShowTextInput(string prompt)
+    private void ShowTextInput(string prompt, string confirmLabel = "確認")
     {
         SetExpireDayInputVisible(true);
         SetText(textExpireDay, prompt);
+        SetButtonLabel(buttonConfirmExpiredDay, confirmLabel);
         if (inputFieldExpireDay == null)
         {
             return;
@@ -1164,7 +1232,7 @@ public class Panel_JobDetail : MonoBehaviour
 
         CloseStatusPanel();
         inputMode = DetailInputMode.Notes;
-        ShowTextInput("輸入這次應徵的備註；留空可清除");
+        ShowTextInput("輸入這次應徵的備註；留空可清除", "儲存備註");
         if (inputFieldExpireDay != null && currentTracking != null)
         {
             inputFieldExpireDay.text = currentTracking.notes ?? string.Empty;
