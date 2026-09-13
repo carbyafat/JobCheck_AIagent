@@ -158,6 +158,69 @@ namespace JobCheck.Tests
         }
 
         [Test]
+        public void Create_PersistsStructuredRealJobFieldsAfterReload()
+        {
+            DateTimeOffset historicalCapturedAt = CapturedAt.AddMonths(-2);
+            var request = CreateStructuredRequest(historicalCapturedAt);
+
+            PersistenceStorageResult<JobPostingWriteSummary> result =
+                JobPostingCommandService.Create(root, request);
+
+            Assert.IsTrue(result.IsSuccess, FormatIssues(result));
+            JobPosting job = Load().JobPostings.Single();
+            Assert.AreEqual(historicalCapturedAt, job.CapturedAt);
+            Assert.AreEqual("研發部", job.Department);
+            Assert.AreEqual("軟體工程", job.Category);
+            Assert.AreEqual("range", job.Compensation.Type);
+            Assert.AreEqual("monthly", job.Compensation.Period);
+            Assert.AreEqual(50000, job.Compensation.Minimum);
+            Assert.AreEqual(80000, job.Compensation.Maximum);
+            Assert.AreEqual("TWD", job.Compensation.Currency);
+            Assert.AreEqual("月薪 50,000 至 80,000 元", job.Compensation.RawText);
+            Assert.AreEqual("台北市信義區", job.Location.RawText);
+            Assert.AreEqual("hybrid", job.Location.WorkMode);
+            Assert.AreEqual("全職", job.WorkConditions.EmploymentType);
+            Assert.AreEqual("日班", job.WorkConditions.WorkingHours);
+            Assert.AreEqual("兩年以上", job.Requirements.Experience);
+            Assert.AreEqual("大學", job.Requirements.Education);
+            CollectionAssert.AreEqual(
+                new[] { "維護 Unity 專案", "撰寫測試" },
+                job.Responsibilities);
+            CollectionAssert.AreEqual(new[] { "Unity", "Git" }, job.Requirements.Tools);
+            CollectionAssert.AreEqual(new[] { "溝通", "除錯" }, job.Requirements.Skills);
+        }
+
+        [Test]
+        public void Create_WithoutStructuredDetails_KeepsOptionalObjectsNull()
+        {
+            PersistenceStorageResult<JobPostingWriteSummary> result = Create();
+
+            Assert.IsTrue(result.IsSuccess, FormatIssues(result));
+            JobPosting job = Load().JobPostings.Single();
+            Assert.IsNull(job.Compensation);
+            Assert.IsNull(job.Location);
+            Assert.IsNull(job.WorkConditions);
+            Assert.IsNull(job.Requirements);
+            Assert.IsEmpty(job.Responsibilities);
+        }
+
+        [Test]
+        public void Create_CompensationMaximumBelowMinimum_FailsWithoutFiles()
+        {
+            JobPostingCreateRequest request = CreateStructuredRequest(CapturedAt);
+            request.CompensationMinimum = 80000;
+            request.CompensationMaximum = 50000;
+
+            PersistenceStorageResult<JobPostingWriteSummary> result =
+                JobPostingCommandService.Create(root, request);
+
+            Assert.IsFalse(result.IsSuccess);
+            Assert.That(result.Issues.Single().Message,
+                Does.Contain("CompensationMaximumBelowMinimum"));
+            AssertEntityDirectoriesAreEmpty();
+        }
+
+        [Test]
         public void SuccessfulCreate_LeavesNoTemporaryFiles()
         {
             PersistenceStorageResult<JobPostingWriteSummary> result = Create();
@@ -226,6 +289,66 @@ namespace JobCheck.Tests
             Assert.AreEqual(
                 targetCompanyId,
                 after.JobPostings.Single(item => item.Id == firstJobId).CompanyId);
+        }
+
+        [Test]
+        public void Update_StructuredFields_PreservesNestedFieldsNotExposedByRequest()
+        {
+            string jobId = JobPostingCommandService.Create(
+                root,
+                CreateStructuredRequest(CapturedAt)).Value.JobPostingId;
+            JobPosting seeded = Load().JobPostings.Single();
+            seeded.Compensation.Notes = "含績效獎金";
+            seeded.Location.City = "台北市";
+            seeded.Location.RemoteAllowed = true;
+            seeded.WorkConditions.BusinessTrip = "偶爾出差";
+            seeded.Requirements.Major = "資訊相關";
+            seeded.Requirements.OtherConditions.Add("需附作品集");
+            PersistenceStorageResult<JobPostingWriteSummary> seedResult =
+                JobCheckDataRepository.UpdateJobPosting(root, null, seeded);
+            Assert.IsTrue(seedResult.IsSuccess, FormatIssues(seedResult));
+
+            DateTimeOffset correctedCapturedAt = CapturedAt.AddDays(-10);
+            var request = new JobPostingEditRequest
+            {
+                JobPostingId = jobId,
+                CompanyName = "測試公司",
+                Title = "資深 Unity 工程師",
+                SourcePlatform = "104",
+                SourceUrl = "https://example.com/jobs/1",
+                CapturedAt = correctedCapturedAt,
+                CompensationType = "fixed",
+                CompensationPeriod = "monthly",
+                CompensationMinimum = 70000,
+                CompensationMaximum = 70000,
+                CompensationCurrency = "TWD",
+                CompensationRawText = "月薪 70,000 元",
+                LocationRawText = "新北市板橋區",
+                WorkMode = "onsite",
+                EmploymentType = "全職",
+                WorkingHours = "日班",
+                Experience = "三年以上",
+                Education = "專科以上",
+                Responsibilities = new List<string> { "帶領專案" },
+                Tools = new List<string> { "Unity" },
+                Skills = new List<string> { "系統設計" }
+            };
+
+            PersistenceStorageResult<JobPostingWriteSummary> result =
+                JobPostingCommandService.Update(root, request);
+
+            Assert.IsTrue(result.IsSuccess, FormatIssues(result));
+            JobPosting job = Load().JobPostings.Single();
+            Assert.AreEqual(correctedCapturedAt, job.CapturedAt);
+            Assert.AreEqual("含績效獎金", job.Compensation.Notes);
+            Assert.AreEqual("台北市", job.Location.City);
+            Assert.AreEqual(true, job.Location.RemoteAllowed);
+            Assert.AreEqual("偶爾出差", job.WorkConditions.BusinessTrip);
+            Assert.AreEqual("資訊相關", job.Requirements.Major);
+            CollectionAssert.AreEqual(
+                new[] { "需附作品集" },
+                job.Requirements.OtherConditions);
+            CollectionAssert.AreEqual(new[] { "帶領專案" }, job.Responsibilities);
         }
 
         [Test]
@@ -337,6 +460,42 @@ namespace JobCheck.Tests
                         : new List<string>(riskFlags),
                     CapturedAt = CapturedAt
                 });
+        }
+
+        private static JobPostingCreateRequest CreateStructuredRequest(
+            DateTimeOffset capturedAt)
+        {
+            return new JobPostingCreateRequest
+            {
+                CompanyName = "測試公司",
+                Title = "Unity 工程師",
+                SourcePlatform = "104",
+                SourceUrl = "https://example.com/jobs/1",
+                RawDescription = "完整職缺原文",
+                CapturedAt = capturedAt,
+                Department = " 研發部 ",
+                Category = " 軟體工程 ",
+                CompensationType = " range ",
+                CompensationPeriod = " monthly ",
+                CompensationMinimum = 50000,
+                CompensationMaximum = 80000,
+                CompensationCurrency = " TWD ",
+                CompensationRawText = " 月薪 50,000 至 80,000 元 ",
+                LocationRawText = " 台北市信義區 ",
+                WorkMode = " hybrid ",
+                EmploymentType = " 全職 ",
+                WorkingHours = " 日班 ",
+                Experience = " 兩年以上 ",
+                Education = " 大學 ",
+                Responsibilities = new List<string>
+                {
+                    " 維護 Unity 專案 ",
+                    "撰寫測試",
+                    "維護 Unity 專案"
+                },
+                Tools = new List<string> { " Unity ", "Git", "unity" },
+                Skills = new List<string> { "溝通", " 除錯 " }
+            };
         }
 
         private PersistenceStorageResult<JobPostingWriteSummary> Update(

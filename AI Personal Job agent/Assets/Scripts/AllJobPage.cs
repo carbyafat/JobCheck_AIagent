@@ -630,6 +630,7 @@ public class AllJobPage : MonoBehaviour
             case "interview_scheduled": eventType = ApplicationEventType.InterviewScheduled; actor = EventActor.Company; return true;
             case "interviewing": eventType = ApplicationEventType.InterviewCompleted; return true;
             case "waiting_reply": eventType = ApplicationEventType.WaitingResponseStarted; return true;
+            case "no_response": eventType = ApplicationEventType.NoResponseMarked; return true;
             case "offer": eventType = ApplicationEventType.OfferReceived; actor = EventActor.Company; return true;
             case "rejected": eventType = ApplicationEventType.RejectedByCompany; actor = EventActor.Company; return true;
             case "not_applying": eventType = ApplicationEventType.ClosedByCandidate; return true;
@@ -1072,6 +1073,8 @@ public class CompensationJsonData
 {
     public string type;
     public string period;
+    public bool has_min;
+    public bool has_max;
     public int min;
     public int max;
     public string currency;

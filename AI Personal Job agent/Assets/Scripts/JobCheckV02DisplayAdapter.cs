@@ -94,6 +94,8 @@ public static class JobCheckV02DisplayAdapter
         {
             type = value.Type,
             period = value.Period,
+            has_min = value.Minimum.HasValue,
+            has_max = value.Maximum.HasValue,
             min = value.Minimum ?? 0,
             max = value.Maximum ?? 0,
             currency = value.Currency,
