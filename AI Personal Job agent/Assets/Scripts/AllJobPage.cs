@@ -258,6 +258,58 @@ public class AllJobPage : MonoBehaviour
     }
 
     /// <summary>
+    /// 個人資料區才允許刪除；Demo 是版本控制內的驗收資料，不可由執行中的 UI 改動。
+    /// </summary>
+    public bool CanDeleteJobPostings => currentDataProfile == JobCheckDataProfile.Personal;
+
+    /// <summary>
+    /// 將職缺及所有相關 Application（包含內嵌事件）移入個人資料回收區。
+    /// </summary>
+    public PersistenceStorageResult<JobPostingTrashSummary> DeleteV02JobPosting(string jobPostingId)
+    {
+        if (!CanDeleteJobPostings)
+        {
+            var blocked = new PersistenceStorageResult<JobPostingTrashSummary>(
+                null,
+                new[]
+                {
+                    new PersistenceStorageIssue(
+                        PersistenceStorageError.EntityValidationFailed,
+                        jobPostingId,
+                        "data_profile",
+                        "Demo 資料不可刪除；請切換至個人資料區。")
+                });
+            LogDeleteIssues(blocked.Issues);
+            return blocked;
+        }
+
+        PersistenceStorageResult<JobPostingTrashSummary> result =
+            JobPostingTrashService.MoveToTrash(
+                ResolveProjectRelativePath(ActiveDataRootPath),
+                jobPostingId);
+        if (result.IsSuccess)
+        {
+            Load();
+        }
+        else
+        {
+            LogDeleteIssues(result.Issues);
+        }
+
+        return result;
+    }
+
+    private static void LogDeleteIssues(IEnumerable<PersistenceStorageIssue> issues)
+    {
+        foreach (PersistenceStorageIssue issue in issues)
+        {
+            Debug.LogError(
+                "V0.2 job delete failed [" + issue.Error + "] "
+                + issue.FieldPath + " " + issue.Message);
+        }
+    }
+
+    /// <summary>
     /// 套用篩選條件並刷新列表。
     /// </summary>
     /// <param name="condition">篩選條件。</param>

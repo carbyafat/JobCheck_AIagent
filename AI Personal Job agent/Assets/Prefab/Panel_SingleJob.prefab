@@ -31,12 +31,11 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 380942399324988861}
-  m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 500, y: 80}
+  m_AnchoredPosition: {x: -23, y: 0}
+  m_SizeDelta: {x: 546, y: 80}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1388388039438491035
 CanvasRenderer:
@@ -166,13 +165,12 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 380942399324988861}
-  m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 456, y: 0}
-  m_SizeDelta: {x: 200, y: 80}
-  m_Pivot: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 1, y: 1}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: -5, y: -28}
+  m_SizeDelta: {x: 468.2506, y: 50}
+  m_Pivot: {x: 1, y: 0.5}
 --- !u!222 &4428443105213563147
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -301,13 +299,12 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 380942399324988861}
-  m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 672, y: 0}
-  m_SizeDelta: {x: 200, y: 80}
-  m_Pivot: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 1, y: 0}
+  m_AnchorMax: {x: 1, y: 0}
+  m_AnchoredPosition: {x: -5, y: 26}
+  m_SizeDelta: {x: 533.5939, y: 50}
+  m_Pivot: {x: 1, y: 0.5}
 --- !u!222 &8731356373362192993
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -442,7 +439,6 @@ RectTransform:
   - {fileID: 3904134116545593259}
   - {fileID: 2073575348713772900}
   m_Father: {fileID: 0}
-  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
@@ -504,7 +500,10 @@ MonoBehaviour:
   textSalary: {fileID: 2691084415504271267}
   textStatus: {fileID: 4047207744265477654}
   buttonOpenDetail: {fileID: 2795011611422186880}
-  displayFontSize: 22
+  size1: 45
+  size2: 30
+  normalStatusTextColor: {r: 1, g: 1, b: 1, a: 1}
+  expiredStatusTextColor: {r: 1, g: 0, b: 0, a: 1}
 --- !u!114 &2795011611422186880
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -580,7 +579,6 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 380942399324988861}
-  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}

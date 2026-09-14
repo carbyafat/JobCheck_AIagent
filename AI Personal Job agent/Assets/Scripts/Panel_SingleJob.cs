@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 /// <summary>
@@ -17,8 +18,11 @@ public class Panel_SingleJob : MonoBehaviour
     [SerializeField] private TMP_Text textStatus;
     [Tooltip("點擊開啟詳細頁的按鈕。")]
     [SerializeField] private Button buttonOpenDetail;
-    [Tooltip("列表文字大小。小於等於 0 時不主動調整。")]
-    [SerializeField] private float displayFontSize = 22f;
+    [Tooltip("公司名稱與職缺名稱的文字大小。小於等於 0 時不主動調整。")]
+    [FormerlySerializedAs("displayFontSize")]
+    [SerializeField] private float size1 = 45f;
+    [Tooltip("薪資與狀態的文字大小。小於等於 0 時不主動調整。")]
+    [SerializeField] private float size2 = 30f;
     [Tooltip("正常狀態文字顏色。")]
     [SerializeField] private Color normalStatusTextColor = Color.white;
     [Tooltip("逾期狀態文字顏色。")]
@@ -170,21 +174,22 @@ public class Panel_SingleJob : MonoBehaviour
     /// </summary>
     private void ApplyDisplayFontSize()
     {
-        SetFontSize(textCompany);
-        SetFontSize(textJobName);
-        SetFontSize(textSalary);
-        SetFontSize(textStatus);
+        SetFontSize(textCompany, size1);
+        SetFontSize(textJobName, size1);
+        SetFontSize(textSalary, size2);
+        SetFontSize(textStatus, size2);
     }
 
     /// <summary>
     /// 設定單一文字大小。
     /// </summary>
     /// <param name="target">目標文字元件。</param>
-    private void SetFontSize(TMP_Text target)
+    /// <param name="fontSize">要套用的文字大小。</param>
+    private void SetFontSize(TMP_Text target, float fontSize)
     {
-        if (target != null && displayFontSize > 0f)
+        if (target != null && fontSize > 0f)
         {
-            target.fontSize = displayFontSize;
+            target.fontSize = fontSize;
         }
     }
 

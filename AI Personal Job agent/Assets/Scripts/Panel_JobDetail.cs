@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using JobCheck.Domain;
+using JobCheck.Persistence;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -114,6 +115,18 @@ public class Panel_JobDetail : MonoBehaviour
     [Tooltip("V0.2 編輯目前職缺的基本資料。")]
     [SerializeField] private Button buttonEditJobPosting;
 
+    [Header("Delete Job Posting")]
+    [Tooltip("開啟可復原刪除確認畫面；只有個人資料區可使用。")]
+    [SerializeField] private Button buttonDeleteJobPosting;
+    [Tooltip("刪除前的二次確認面板。")]
+    [SerializeField] private GameObject panelDeleteConfirmation;
+    [Tooltip("顯示即將刪除的公司、職稱與影響範圍。")]
+    [SerializeField] private TMP_Text textDeleteConfirmation;
+    [Tooltip("確認將職缺與相關應徵資料移入回收區。")]
+    [SerializeField] private Button buttonConfirmDelete;
+    [Tooltip("取消刪除並關閉確認面板。")]
+    [SerializeField] private Button buttonCancelDelete;
+
     private JobDetailData currentData;
     private JobTrackingData currentTracking;
     private AllJobPage allJobPage;
@@ -138,6 +151,7 @@ public class Panel_JobDetail : MonoBehaviour
         AutoBindReferences();
         BindButtons();
         SetEventHistoryVisible(false);
+        SetDeleteConfirmationVisible(false);
     }
 
     /// <summary>
@@ -155,6 +169,7 @@ public class Panel_JobDetail : MonoBehaviour
             buttonShowEventHistory.gameObject.SetActive(true);
         }
         SetEventHistoryVisible(false);
+        SetDeleteConfirmationVisible(false);
         // 詳情物件若原本 inactive，Awake 會在上一行才完成自動綁定；此時再套一次唯讀狀態。
         SetReadOnly(isReadOnly);
         ApplyV02Labels();
@@ -224,6 +239,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetText(textExpireDay, string.Empty);
         SetText(textEventHistory, string.Empty);
         SetEventHistoryVisible(false);
+        SetDeleteConfirmationVisible(false);
         SetExpireDayInputVisible(false);
         ForceBuildLayout();
     }
@@ -269,6 +285,75 @@ public class Panel_JobDetail : MonoBehaviour
 
         allJobPage.ShowEditJobPosting(currentData);
         gameObject.SetActive(false);
+    }
+
+    /// <summary>
+    /// 顯示刪除影響範圍。實際資料在第二次確認前不會移動。
+    /// </summary>
+    public void ShowDeleteConfirmation()
+    {
+        if (currentData == null || allJobPage == null || !allJobPage.CanDeleteJobPostings)
+        {
+            return;
+        }
+
+        string company = currentData.company != null ? currentData.company.name : "未知公司";
+        string title = currentData.job != null ? currentData.job.title : "未知職缺";
+        if (panelDeleteConfirmation != null)
+        {
+            TMP_Text[] panelTexts = panelDeleteConfirmation.GetComponentsInChildren<TMP_Text>(true);
+            foreach (TMP_Text panelText in panelTexts)
+            {
+                if (panelText.name == "TMP_EventHistoryTitle_V02")
+                {
+                    panelText.text = "刪除職缺";
+                    break;
+                }
+            }
+        }
+
+        SetText(
+            textDeleteConfirmation,
+            "確認刪除以下職缺？\n\n"
+            + company + " / " + title
+            + "\n\n相關投遞與事件會一併移至 personal_data/trash。"
+            + "\n公司資料會保留，之後仍可手動復原。");
+        SetDeleteConfirmationVisible(true);
+        SetEventHistoryVisible(false);
+        if (panelStatusBtn != null)
+        {
+            panelStatusBtn.SetActive(false);
+        }
+    }
+
+    /// <summary>
+    /// 執行可復原刪除，成功後返回已重新載入的職缺總覽。
+    /// </summary>
+    public void ConfirmDeleteJobPosting()
+    {
+        if (currentData == null || allJobPage == null)
+        {
+            return;
+        }
+
+        PersistenceStorageResult<JobPostingTrashSummary> result =
+            allJobPage.DeleteV02JobPosting(currentData.id);
+        if (!result.IsSuccess)
+        {
+            SetText(
+                textDeleteConfirmation,
+                "刪除失敗，資料沒有完成移動。\n請查看 Console 的詳細錯誤。");
+            return;
+        }
+
+        SetDeleteConfirmationVisible(false);
+        gameObject.SetActive(false);
+        allJobPage.ShowAllJobPage();
+    }
+
+    public void CancelDeleteJobPosting()
+    {
+        SetDeleteConfirmationVisible(false);
     }
 
     /// <summary>
@@ -323,6 +408,15 @@ public class Panel_JobDetail : MonoBehaviour
             buttonEditNotes.gameObject.SetActive(true);
         }
 
+        if (buttonDeleteJobPosting != null)
+        {
+            bool canDelete = allJobPage != null && allJobPage.CanDeleteJobPostings;
+            SetButtonLabel(
+                buttonDeleteJobPosting,
+                canDelete ? "刪除職缺" : "Demo 不可刪除");
+            SetButtonInteractable(buttonDeleteJobPosting, canDelete && !isReadOnly);
+        }
+
         RefreshNoResponseButton();
     }
 
@@ -351,6 +445,9 @@ public class Panel_JobDetail : MonoBehaviour
         SetButtonInteractable(buttonArchivedWaitOtherJobResult, !value);
         SetButtonInteractable(buttonEditNotes, !value);
         SetButtonInteractable(buttonEditJobPosting, !value);
+        SetButtonInteractable(
+            buttonDeleteJobPosting,
+            !value && allJobPage != null && allJobPage.CanDeleteJobPostings);
 
         if (value)
         {
@@ -360,6 +457,7 @@ public class Panel_JobDetail : MonoBehaviour
             }
 
             SetExpireDayInputVisible(false);
+            SetDeleteConfirmationVisible(false);
         }
     }
 
@@ -946,6 +1044,14 @@ public class Panel_JobDetail : MonoBehaviour
         }
     }
 
+    private void SetDeleteConfirmationVisible(bool value)
+    {
+        if (panelDeleteConfirmation != null)
+        {
+            panelDeleteConfirmation.SetActive(value);
+        }
+    }
+
     /// <summary>
     /// 建立條列式區塊文字。
     /// </summary>
@@ -1050,6 +1156,18 @@ public class Panel_JobDetail : MonoBehaviour
         if (buttonArchivedWaitOtherJobResult == null) buttonArchivedWaitOtherJobResult = FindChildButton("Button_Archived_WaitOtherJobResult");
         if (buttonEditNotes == null) buttonEditNotes = FindChildButton("Button_EditNotes_V02");
         if (buttonEditJobPosting == null) buttonEditJobPosting = FindChildButton("Button_EditJobPosting_V02");
+        if (buttonDeleteJobPosting == null) buttonDeleteJobPosting = FindChildButton("Button_DeleteJobPosting_V02");
+        if (buttonConfirmDelete == null) buttonConfirmDelete = FindChildButton("Button_ConfirmDeleteJobPosting_V02");
+        if (buttonCancelDelete == null) buttonCancelDelete = FindChildButton("Button_CancelDeleteJobPosting_V02");
+        if (textDeleteConfirmation == null) textDeleteConfirmation = FindChildText("TMP_DeleteJobPostingConfirmation_V02");
+        if (panelDeleteConfirmation == null)
+        {
+            Transform foundDeletePanel = FindChildTransform("Panel_DeleteJobPostingConfirmation_V02");
+            if (foundDeletePanel != null)
+            {
+                panelDeleteConfirmation = foundDeletePanel.gameObject;
+            }
+        }
         if (buttonShowEventHistory == null) buttonShowEventHistory = FindChildButton("Button_ShowEventHistory_V02");
         if (buttonCloseEventHistory == null) buttonCloseEventHistory = FindChildButton("Button_CloseEventHistory_V02");
         if (textEventHistory == null) textEventHistory = FindChildText("TMP_EventHistory_V02");
@@ -1090,6 +1208,9 @@ public class Panel_JobDetail : MonoBehaviour
         BindButton(buttonArchived, SetStatusArchived);
         BindButton(buttonArchivedWaitOtherJobResult, SetStatusArchivedWaitOtherJobResult);
         BindButton(buttonEditJobPosting, EditJobPosting);
+        BindButton(buttonDeleteJobPosting, ShowDeleteConfirmation);
+        BindButton(buttonConfirmDelete, ConfirmDeleteJobPosting);
+        BindButton(buttonCancelDelete, CancelDeleteJobPosting);
         BindButton(buttonShowEventHistory, ToggleEventHistory);
         BindButton(buttonCloseEventHistory, CloseEventHistory);
     }
