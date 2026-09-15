@@ -116,7 +116,10 @@ namespace JobCheck.Tests
                 Create(url: "not-a-web-url");
 
             Assert.IsFalse(result.IsSuccess);
-            Assert.That(result.Issues.Single().Message, Does.Contain("InvalidSourceUrl"));
+            Assert.That(
+                result.Issues.Single().Message,
+                Does.Contain("來源網址必須是有效的 HTTP 或 HTTPS 網址。"));
+            Assert.That(result.Issues.Single().Message, Does.Not.Contain("InvalidSourceUrl"));
             AssertEntityDirectoriesAreEmpty();
         }
 
@@ -215,8 +218,12 @@ namespace JobCheck.Tests
                 JobPostingCommandService.Create(root, request);
 
             Assert.IsFalse(result.IsSuccess);
-            Assert.That(result.Issues.Single().Message,
-                Does.Contain("CompensationMaximumBelowMinimum"));
+            Assert.That(
+                result.Issues.Single().Message,
+                Does.Contain("薪資上限不可低於薪資下限。"));
+            Assert.That(
+                result.Issues.Single().Message,
+                Does.Not.Contain("CompensationMaximumBelowMinimum"));
             AssertEntityDirectoriesAreEmpty();
         }
 

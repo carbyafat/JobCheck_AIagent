@@ -103,7 +103,9 @@ namespace JobCheck.Persistence
                 return Failure(
                     jobPosting.Id,
                     "job_posting",
-                    "職缺資料驗證失敗：" + string.Join(", ", errors));
+                    "職缺資料驗證失敗：" + string.Join(
+                        "、",
+                        errors.Select(ValidationErrorLocalizer.ToChinese)));
             }
 
             return JobCheckDataRepository.SaveNewJobPosting(
@@ -217,7 +219,9 @@ namespace JobCheck.Persistence
                 return Failure(
                     existing.Id,
                     "job_posting",
-                    "職缺資料驗證失敗：" + string.Join(", ", errors));
+                    "職缺資料驗證失敗：" + string.Join(
+                        "、",
+                        errors.Select(ValidationErrorLocalizer.ToChinese)));
             }
 
             return JobCheckDataRepository.UpdateJobPosting(

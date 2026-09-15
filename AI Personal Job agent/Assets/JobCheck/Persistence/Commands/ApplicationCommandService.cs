@@ -109,7 +109,9 @@ namespace JobCheck.Persistence
                 return Failure(
                     applicationEvent.Id,
                     "event",
-                    "事件驗證失敗：" + string.Join(", ", eventErrors));
+                    "事件驗證失敗：" + string.Join(
+                        "、",
+                        eventErrors.Select(ValidationErrorLocalizer.ToChinese)));
             }
 
             events.Add(applicationEvent);
@@ -120,7 +122,9 @@ namespace JobCheck.Persistence
                 return Failure(
                     application.Id,
                     "events",
-                    "事件順序無法安全套用：" + string.Join(", ", reduction.Issues));
+                    "事件順序無法安全套用：" + string.Join(
+                        "、",
+                        reduction.Issues.Select(ValidationErrorLocalizer.ToChinese)));
             }
 
             application.CurrentStage = reduction.CurrentStage;
@@ -144,7 +148,9 @@ namespace JobCheck.Persistence
                 return Failure(
                     application.Id,
                     "application",
-                    "應徵資料驗證失敗：" + string.Join(", ", applicationErrors));
+                    "應徵資料驗證失敗：" + string.Join(
+                        "、",
+                        applicationErrors.Select(ValidationErrorLocalizer.ToChinese)));
             }
 
             return JobCheckDataRepository.SaveApplication(dataRoot, application, events);
@@ -240,7 +246,9 @@ namespace JobCheck.Persistence
                 return Failure(
                     application.Id,
                     "application",
-                    "應徵資料驗證失敗：" + string.Join(", ", errors));
+                    "應徵資料驗證失敗：" + string.Join(
+                        "、",
+                        errors.Select(ValidationErrorLocalizer.ToChinese)));
             }
 
             IEnumerable<ApplicationEvent> events = load.Value.ApplicationEvents.Where(

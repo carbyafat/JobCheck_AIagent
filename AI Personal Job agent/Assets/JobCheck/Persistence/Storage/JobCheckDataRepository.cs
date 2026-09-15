@@ -814,7 +814,9 @@ namespace JobCheck.Persistence
                 foreach (JobPostingValidationError error in
                     JobPostingValidator.ValidateForMigration(jobPosting))
                 {
-                    issues.Add(CreateEntityIssue(jobPosting?.Id, error.ToString()));
+                    issues.Add(CreateEntityIssue(
+                        jobPosting?.Id,
+                        ValidationErrorLocalizer.ToChinese(error)));
                 }
             }
 
@@ -829,7 +831,9 @@ namespace JobCheck.Persistence
                 foreach (ApplicationValidationError error in
                     ApplicationValidator.ValidateForMigration(application))
                 {
-                    issues.Add(CreateEntityIssue(application?.Id, error.ToString()));
+                    issues.Add(CreateEntityIssue(
+                        application?.Id,
+                        ValidationErrorLocalizer.ToChinese(error)));
                 }
             }
 
@@ -846,7 +850,9 @@ namespace JobCheck.Persistence
                 foreach (ApplicationEventValidationError error in
                     ApplicationEventValidator.ValidateForMigration(applicationEvent, createdAt))
                 {
-                    issues.Add(CreateEntityIssue(applicationEvent?.Id, error.ToString()));
+                    issues.Add(CreateEntityIssue(
+                        applicationEvent?.Id,
+                        ValidationErrorLocalizer.ToChinese(error)));
                 }
             }
 

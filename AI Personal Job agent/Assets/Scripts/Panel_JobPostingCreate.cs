@@ -45,6 +45,8 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
     [SerializeField] private TMP_Dropdown dropdownCompensationPeriod;
     [SerializeField] private TMP_Dropdown dropdownWorkMode;
     [SerializeField] private TMP_Dropdown dropdownEmploymentType;
+    [Tooltip("Dropdown 目前值與展開選項的字體大小。")]
+    [SerializeField] private float dropdownFontSize = 24f;
 
     [Header("Multiple Select Fields")]
     [SerializeField] private JobPostingMultiSelectField multiSelectTags;
@@ -66,6 +68,7 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
     private readonly List<string> compensationPeriodValues = new List<string>();
     private readonly List<string> workModeValues = new List<string>();
     private readonly List<string> employmentTypeValues = new List<string>();
+    private const float DefaultDropdownFontSize = 24f;
 
     private void Awake()
     {
@@ -207,6 +210,18 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         if (!TryReadOptionalInt(inputCompensationMaximum, "薪資上限", out int? compensationMaximum, out string maximumError))
         {
             SetMessage("無法儲存職缺：\n• " + maximumError, true);
+            return;
+        }
+
+        if (compensationMinimum.HasValue
+            && compensationMaximum.HasValue
+            && compensationMaximum.Value < compensationMinimum.Value)
+        {
+            SetMessage(
+                "無法儲存職缺：\n• 薪資上限不可低於薪資下限。"
+                + "（目前下限 " + compensationMinimum.Value
+                + "、上限 " + compensationMaximum.Value + "）",
+                true);
             return;
         }
 
@@ -624,7 +639,7 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         multiSelectRiskFlags?.Configure(JobPostingLabelCatalog.RiskFlagOptions);
     }
 
-    private static void SetupDropdown(
+    private void SetupDropdown(
         TMP_Dropdown dropdown,
         List<string> values,
         IEnumerable<string> labels,
@@ -639,8 +654,42 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
 
         dropdown.ClearOptions();
         dropdown.AddOptions(new List<string>(labels));
+        ApplyDropdownFontSize(dropdown);
         dropdown.SetValueWithoutNotify(0);
         dropdown.RefreshShownValue();
+    }
+
+    /// <summary>
+    /// 同時放大 Dropdown 收合狀態與展開清單的文字，並確保選項列高度不會裁切文字。
+    /// </summary>
+    private void ApplyDropdownFontSize(TMP_Dropdown dropdown)
+    {
+        if (dropdown == null)
+        {
+            return;
+        }
+
+        float fontSize = dropdownFontSize > 0f
+            ? dropdownFontSize
+            : DefaultDropdownFontSize;
+        if (dropdown.captionText != null)
+        {
+            dropdown.captionText.fontSize = fontSize;
+        }
+
+        if (dropdown.itemText == null)
+        {
+            return;
+        }
+
+        dropdown.itemText.fontSize = fontSize;
+        RectTransform itemRect = dropdown.itemText.transform.parent as RectTransform;
+        if (itemRect != null)
+        {
+            itemRect.sizeDelta = new Vector2(
+                itemRect.sizeDelta.x,
+                Mathf.Max(itemRect.sizeDelta.y, fontSize + 12f));
+        }
     }
 
     private static string GetDropdownValue(TMP_Dropdown dropdown, IReadOnlyList<string> values)
