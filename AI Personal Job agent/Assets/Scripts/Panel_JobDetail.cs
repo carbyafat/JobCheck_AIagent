@@ -73,17 +73,15 @@ public class Panel_JobDetail : MonoBehaviour
     [Tooltip("逾期狀態文字顏色。")]
     [SerializeField] private Color expiredStatusTextColor = Color.red;
 
-    [Header("Expire Day")]
+    [Header("Follow-up Date")]
     [Tooltip("到期日顯示文字。")]
     [SerializeField] private TMP_Text textExpireDay;
     [Tooltip("開啟到期日輸入 UI 的按鈕。")]
     [SerializeField] private Button buttonManualSetExpireDay;
-    [Tooltip("確認到期日輸入的按鈕。")]
-    [SerializeField] private Button buttonConfirmExpiredDay;
-    [Tooltip("取消本次日期／文字輸入，不寫入任何資料。")]
-    [SerializeField] private Button buttonCancelInput;
-    [Tooltip("到期日輸入框，格式限定 yyyy.mm.dd。")]
-    [SerializeField] private TMP_InputField inputFieldExpireDay;
+
+    [Header("Detail Input Dialog")]
+    [Tooltip("整合日期與多行文字輸入的共用視窗。")]
+    [SerializeField] private Panel_DetailInputDialog inputDialog;
 
     [Header("Status Buttons")]
     [Tooltip("切換為未檢視。")]
@@ -240,7 +238,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetText(textEventHistory, string.Empty);
         SetEventHistoryVisible(false);
         SetDeleteConfirmationVisible(false);
-        SetExpireDayInputVisible(false);
+        HideInputDialog();
         ForceBuildLayout();
     }
 
@@ -429,8 +427,7 @@ public class Panel_JobDetail : MonoBehaviour
         isReadOnly = value;
         SetButtonInteractable(buttonShowStatusPanel, !value);
         SetButtonInteractable(buttonManualSetExpireDay, !value);
-        SetButtonInteractable(buttonConfirmExpiredDay, !value);
-        SetButtonInteractable(buttonCancelInput, !value);
+        if (inputDialog != null) inputDialog.SetInteractable(!value);
         SetButtonInteractable(buttonNotViewed, !value);
         SetButtonInteractable(buttonInterested, !value);
         SetButtonInteractable(buttonNotApplying, !value);
@@ -456,7 +453,7 @@ public class Panel_JobDetail : MonoBehaviour
                 panelStatusBtn.SetActive(false);
             }
 
-            SetExpireDayInputVisible(false);
+            HideInputDialog();
             SetDeleteConfirmationVisible(false);
         }
     }
@@ -486,7 +483,9 @@ public class Panel_JobDetail : MonoBehaviour
         BeginPendingStatus("not_applying");
         inputMode = DetailInputMode.CandidateClose;
         ShowTextInput(
-            "原因：薪資/博弈/通勤/工時/週末/職務/技術/公司/更好機會/無回覆/其他說明",
+            "不再應徵原因",
+            "可輸入：薪資、博弈、通勤、工時、週末、職務、技術、公司、更好機會、無回覆，或填寫其他說明。",
+            string.Empty,
             "下一步");
     }
 
@@ -506,7 +505,11 @@ public class Panel_JobDetail : MonoBehaviour
         CloseStatusPanel();
         BeginPendingStatus("interview_scheduled");
         inputMode = DetailInputMode.InterviewSchedule;
-        ShowTextInput("面試日期 yyyy.mm.dd", "下一步");
+        ShowDateInput(
+            "設定面試日期",
+            "請輸入預定面試日期，格式為 yyyy.MM.dd。",
+            string.Empty,
+            "下一步");
     }
 
     /// <summary>
@@ -613,14 +616,11 @@ public class Panel_JobDetail : MonoBehaviour
         }
 
         inputMode = DetailInputMode.FollowUp;
-        SetButtonLabel(buttonConfirmExpiredDay, "確認追蹤日");
-        SetExpireDayInputVisible(true);
-
-        if (inputFieldExpireDay != null)
-        {
-            inputFieldExpireDay.text = GetCurrentManualExpireDayForInput();
-            inputFieldExpireDay.ActivateInputField();
-        }
+        ShowDateInput(
+            "設定下次追蹤日",
+            "請輸入下一次要回頭確認此職缺的日期，格式為 yyyy.MM.dd。",
+            GetCurrentManualExpireDayForInput(),
+            "確認追蹤日");
     }
 
     /// <summary>
@@ -634,17 +634,17 @@ public class Panel_JobDetail : MonoBehaviour
             return;
         }
 
-        if (currentData == null || allJobPage == null || inputFieldExpireDay == null)
+        if (currentData == null || allJobPage == null || inputDialog == null)
         {
             return;
         }
 
-        string input = inputFieldExpireDay.text.Trim();
+        string input = inputDialog.Value.Trim();
         if (inputMode == DetailInputMode.CandidateClose)
         {
             if (string.IsNullOrWhiteSpace(input))
             {
-                SetText(textExpireDay, "放棄原因不可空白");
+                inputDialog.SetError("放棄原因不可空白。");
                 return;
             }
 
@@ -661,7 +661,7 @@ public class Panel_JobDetail : MonoBehaviour
         if (inputMode == DetailInputMode.Notes)
         {
             currentTracking = allJobPage.UpdateV02Notes(currentData.id, input);
-            SetExpireDayInputVisible(false);
+            HideInputDialog();
             Refresh(currentData);
             return;
         }
@@ -678,7 +678,7 @@ public class Panel_JobDetail : MonoBehaviour
                     DateTimeStyles.None,
                     out DateTime occurredDate))
                 {
-                    SetText(textExpireDay, "日期格式錯誤，請輸入 yyyy.mm.dd；留空代表現在");
+                    inputDialog.SetError("日期格式錯誤，請輸入 yyyy.MM.dd；留空代表現在。");
                     return;
                 }
 
@@ -700,7 +700,7 @@ public class Panel_JobDetail : MonoBehaviour
                 pendingScheduledFor,
                 occurredAt);
             ResetPendingStatus();
-            SetExpireDayInputVisible(false);
+            HideInputDialog();
             Refresh(currentData);
             return;
         }
@@ -708,7 +708,7 @@ public class Panel_JobDetail : MonoBehaviour
         DateTime parsedDate;
         if (!DateTime.TryParseExact(input, "yyyy.MM.dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out parsedDate))
         {
-            SetText(textExpireDay, "日期格式錯誤，請輸入 yyyy.mm.dd");
+            inputDialog.SetError("日期格式錯誤，請輸入 yyyy.MM.dd。");
             return;
         }
 
@@ -733,7 +733,7 @@ public class Panel_JobDetail : MonoBehaviour
                 currentData.id,
                 expireAt.ToString("yyyy-MM-ddTHH:mm:sszzz"));
         }
-        SetExpireDayInputVisible(false);
+        HideInputDialog();
         Refresh(currentData);
     }
 
@@ -742,14 +742,9 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void CancelInput()
     {
-        if (inputFieldExpireDay != null)
-        {
-            inputFieldExpireDay.text = string.Empty;
-        }
-
         inputMode = DetailInputMode.FollowUp;
         ResetPendingStatus();
-        SetExpireDayInputVisible(false);
+        HideInputDialog();
         RefreshExpireDayText();
     }
 
@@ -786,7 +781,14 @@ public class Panel_JobDetail : MonoBehaviour
     private void ShowEventOccurredAtInput()
     {
         inputMode = DetailInputMode.EventOccurredAt;
-        ShowTextInput("事件日期 yyyy.mm.dd（留空＝現在）", "記錄事件");
+        string actionTitle = string.IsNullOrEmpty(pendingStatus)
+            ? "設定事件日期"
+            : FormatStatus(pendingStatus);
+        ShowDateInput(
+            actionTitle,
+            "請輸入「" + actionTitle + "」的實際發生日，格式為 yyyy.MM.dd；留空代表現在。",
+            string.Empty,
+            "記錄事件");
     }
 
     private void ResetPendingStatus()
@@ -1128,8 +1130,8 @@ public class Panel_JobDetail : MonoBehaviour
 
         if (buttonBack == null) buttonBack = FindChildButton("Button_Back");
         if (buttonManualSetExpireDay == null) buttonManualSetExpireDay = FindChildButton("Button_ManualSetExpireDay");
-        if (buttonConfirmExpiredDay == null) buttonConfirmExpiredDay = FindChildButton("Button_ConfirmExpiredDay");
-        if (inputFieldExpireDay == null) inputFieldExpireDay = FindChildInputField("InputField_ExpireDay");
+        if (inputDialog == null) inputDialog = GetComponentInChildren<Panel_DetailInputDialog>(true);
+        if (inputDialog != null) inputDialog.Initialize();
         if (buttonShowStatusPanel == null) buttonShowStatusPanel = FindChildButton("Button_ShowStatusPanel");
         if (panelStatusBtn == null)
         {
@@ -1180,9 +1182,7 @@ public class Panel_JobDetail : MonoBehaviour
             }
         }
         if (layoutRoot == null) layoutRoot = transform as RectTransform;
-        if (buttonCancelInput == null) buttonCancelInput = FindChildButton("Button_CancelInput_V02");
-        EnsureInputControls();
-        SetExpireDayInputVisible(false);
+        HideInputDialog();
     }
 
     /// <summary>
@@ -1192,8 +1192,11 @@ public class Panel_JobDetail : MonoBehaviour
     {
         BindButton(buttonBack, Hide);
         BindButton(buttonManualSetExpireDay, ShowExpireDayInput);
-        BindButton(buttonConfirmExpiredDay, ConfirmExpireDayInput);
-        BindButton(buttonCancelInput, CancelInput);
+        if (inputDialog != null)
+        {
+            BindButton(inputDialog.ConfirmButton, ConfirmExpireDayInput);
+            BindButton(inputDialog.CancelButton, CancelInput);
+        }
         BindButton(buttonShowStatusPanel, ToggleStatusPanel);
         BindButton(buttonNotViewed, SetStatusNotViewed);
         BindButton(buttonInterested, SetStatusInterested);
@@ -1270,25 +1273,6 @@ public class Panel_JobDetail : MonoBehaviour
     }
 
     /// <summary>
-    /// 依名稱尋找子物件 TMP_InputField。
-    /// </summary>
-    /// <param name="childName">子物件名稱。</param>
-    /// <returns>找到的 TMP_InputField；找不到回傳 null。</returns>
-    private TMP_InputField FindChildInputField(string childName)
-    {
-        TMP_InputField[] inputFields = GetComponentsInChildren<TMP_InputField>(true);
-        foreach (TMP_InputField inputField in inputFields)
-        {
-            if (inputField.name == childName)
-            {
-                return inputField;
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>
     /// 依名稱尋找子物件 Transform。
     /// </summary>
     /// <param name="childName">子物件名稱。</param>
@@ -1334,55 +1318,37 @@ public class Panel_JobDetail : MonoBehaviour
         }
     }
 
-    private void ShowTextInput(string prompt, string confirmLabel = "確認")
+    private void ShowDateInput(
+        string title,
+        string description,
+        string initialValue,
+        string confirmLabel)
     {
-        SetExpireDayInputVisible(true);
-        SetText(textExpireDay, prompt);
-        SetButtonLabel(buttonConfirmExpiredDay, confirmLabel);
-        if (inputFieldExpireDay == null)
+        if (inputDialog == null)
         {
+            Debug.LogError("Panel_JobDetail requires Panel_DetailInputDialog for date input.", this);
             return;
         }
 
-        inputFieldExpireDay.text = string.Empty;
-        TMP_Text placeholder = inputFieldExpireDay.placeholder as TMP_Text;
-        if (placeholder != null)
-        {
-            placeholder.text = prompt;
-        }
-
-        inputFieldExpireDay.ActivateInputField();
+        inputDialog.ShowDate(title, description, initialValue, confirmLabel);
     }
 
     /// <summary>
-    /// 保證輸入框具有足夠的可讀尺寸；正式按鈕與引用由 prefab 提供。
+    /// 開啟多行文字輸入模式。
     /// </summary>
-    private void EnsureInputControls()
+    private void ShowTextInput(
+        string title,
+        string description,
+        string initialValue,
+        string confirmLabel)
     {
-        if (inputFieldExpireDay != null)
+        if (inputDialog == null)
         {
-            RectTransform inputRect = inputFieldExpireDay.transform as RectTransform;
-            if (inputRect != null)
-            {
-                inputRect.sizeDelta = new Vector2(
-                    Mathf.Max(inputRect.sizeDelta.x, 360f),
-                    Mathf.Max(inputRect.sizeDelta.y, 36f));
-            }
-
-            if (inputFieldExpireDay.textComponent != null)
-            {
-                inputFieldExpireDay.textComponent.fontSize = Mathf.Max(
-                    inputFieldExpireDay.textComponent.fontSize,
-                    24f);
-            }
-
-            TMP_Text placeholder = inputFieldExpireDay.placeholder as TMP_Text;
-            if (placeholder != null)
-            {
-                placeholder.fontSize = Mathf.Max(placeholder.fontSize, 20f);
-            }
+            Debug.LogError("Panel_JobDetail requires Panel_DetailInputDialog for text input.", this);
+            return;
         }
 
+        inputDialog.ShowText(title, description, initialValue, confirmLabel);
     }
 
     public void ShowNotesInput()
@@ -1394,11 +1360,11 @@ public class Panel_JobDetail : MonoBehaviour
 
         CloseStatusPanel();
         inputMode = DetailInputMode.Notes;
-        ShowTextInput("輸入這次應徵的備註；留空可清除", "儲存備註");
-        if (inputFieldExpireDay != null && currentTracking != null)
-        {
-            inputFieldExpireDay.text = currentTracking.notes ?? string.Empty;
-        }
+        ShowTextInput(
+            "編輯應徵備註",
+            "可輸入多行備註；將內容清空後儲存即可移除既有備註。",
+            currentTracking != null ? currentTracking.notes : string.Empty,
+            "儲存備註");
     }
 
     /// <summary>
@@ -1430,25 +1396,11 @@ public class Panel_JobDetail : MonoBehaviour
     }
 
     /// <summary>
-    /// 切換到期日輸入 UI 顯示狀態。
+    /// 關閉共用輸入視窗。
     /// </summary>
-    /// <param name="visible">是否顯示輸入框與確認按鈕。</param>
-    private void SetExpireDayInputVisible(bool visible)
+    private void HideInputDialog()
     {
-        if (inputFieldExpireDay != null)
-        {
-            inputFieldExpireDay.gameObject.SetActive(visible);
-        }
-
-        if (buttonConfirmExpiredDay != null)
-        {
-            buttonConfirmExpiredDay.gameObject.SetActive(visible);
-        }
-
-        if (buttonCancelInput != null)
-        {
-            buttonCancelInput.gameObject.SetActive(visible);
-        }
+        if (inputDialog != null) inputDialog.Hide();
     }
 
     /// <summary>

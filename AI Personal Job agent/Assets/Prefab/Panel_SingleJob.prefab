@@ -168,9 +168,9 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -5, y: -28}
+  m_AnchoredPosition: {x: -262.12524, y: -28}
   m_SizeDelta: {x: 468.2506, y: 50}
-  m_Pivot: {x: 1, y: 0.5}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &4428443105213563147
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -302,9 +302,9 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 0}
   m_AnchorMax: {x: 1, y: 0}
-  m_AnchoredPosition: {x: -5, y: 26}
-  m_SizeDelta: {x: 533.5939, y: 50}
-  m_Pivot: {x: 1, y: 0.5}
+  m_AnchoredPosition: {x: -128, y: 26}
+  m_SizeDelta: {x: 200, y: 50}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &8731356373362192993
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -500,8 +500,7 @@ MonoBehaviour:
   textSalary: {fileID: 2691084415504271267}
   textStatus: {fileID: 4047207744265477654}
   buttonOpenDetail: {fileID: 2795011611422186880}
-  size1: 45
-  size2: 30
+  displayFontSize: 45
   normalStatusTextColor: {r: 1, g: 1, b: 1, a: 1}
   expiredStatusTextColor: {r: 1, g: 0, b: 0, a: 1}
 --- !u!114 &2795011611422186880
