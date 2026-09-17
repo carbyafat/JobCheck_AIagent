@@ -77,6 +77,26 @@ namespace JobCheck.Persistence.Tests
         }
 
         [Test]
+        public void Build_WaitingResponseStartedAlone_DoesNotInventCompanyResponse()
+        {
+            JobPosting job = CreateJob("job_1", "104");
+            Application application = CreateApplication(
+                "app_1", job.Id, ApplicationStage.WaitingResponse);
+            ApplicationAnalyticsReport report = Build(
+                new[] { job },
+                new[] { application },
+                new[]
+                {
+                    CreateEvent(application.Id, "1", ApplicationEventType.Applied),
+                    CreateEvent(application.Id, "2", ApplicationEventType.WaitingResponseStarted)
+                });
+
+            AssertFunnel(report, AnalyticsFunnelStage.Applied, 1);
+            AssertFunnel(report, AnalyticsFunnelStage.CompanyResponded, 0);
+            AssertFunnel(report, AnalyticsFunnelStage.WaitingResponse, 1);
+        }
+
+        [Test]
         public void Build_LaterCurrentStageWithoutAppliedEvent_DoesNotInventFunnelHistory()
         {
             JobPosting job = CreateJob("job_1", "104");

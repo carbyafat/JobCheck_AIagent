@@ -116,6 +116,24 @@ public static class BuildAnalyticsPrefab
             PrefabUtility.UnloadPrefabContents(host);
         }
 
+        GameObject runtime = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(HostPath));
+        try
+        {
+            runtime.GetComponent<AllJobPage>().ShowAnalytics();
+            Panel_Analytics opened = runtime.GetComponentInChildren<Panel_Analytics>(true);
+            Transform reportText = opened.transform.Find("Card/Viewport/Text_Report");
+            if (!opened.gameObject.activeSelf || reportText == null
+                || string.IsNullOrWhiteSpace(reportText.GetComponent<TMP_Text>().text))
+                throw new InvalidOperationException("Analytics panel did not open with report text.");
+            opened.Close();
+            if (opened.gameObject.activeSelf)
+                throw new InvalidOperationException("Analytics panel did not close.");
+        }
+        finally
+        {
+            Object.DestroyImmediate(runtime);
+        }
+
         string empty = Panel_Analytics.FormatReport(new ApplicationAnalyticsReport(
             null, null, null, null, null, null));
         if (!empty.Contains("目前沒有職缺") || !empty.Contains("—"))

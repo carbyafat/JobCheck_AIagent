@@ -267,7 +267,6 @@ namespace JobCheck.Persistence
                 || eventType == ApplicationEventType.Contacted
                 || eventType == ApplicationEventType.InterviewScheduled
                 || eventType == ApplicationEventType.InterviewCompleted
-                || eventType == ApplicationEventType.WaitingResponseStarted
                 || eventType == ApplicationEventType.RejectedByCompany
                 || eventType == ApplicationEventType.OfferReceived;
         }
