@@ -52,6 +52,10 @@ public class AllJobPage : MonoBehaviour
     [SerializeField] private Button buttonSwitchDataProfile;
     [Tooltip("顯示目前正在讀寫哪一個資料區。")]
     [SerializeField] private TMP_Text textDataProfile;
+    [Tooltip("開啟 V0.2.2 應徵分析頁。")]
+    [SerializeField] private Button buttonShowAnalytics;
+    [Tooltip("唯讀的應徵分析頁 Prefab 實例。")]
+    [SerializeField] private Panel_Analytics analyticsPanel;
 
     private readonly List<JobSummaryData> loadedJobs = new List<JobSummaryData>();
     private readonly List<JobSummaryData> displayJobs = new List<JobSummaryData>();
@@ -820,6 +824,14 @@ public class AllJobPage : MonoBehaviour
         Load();
     }
 
+    public void ShowAnalytics()
+    {
+        if (analyticsPanel == null) return;
+        analyticsPanel.Open(
+            ResolveProjectRelativePath(ActiveDataRootPath),
+            currentDataProfile == JobCheckDataProfile.Personal ? "個人" : "Demo");
+    }
+
     private void LoadSelectedDataProfile()
     {
         int saved = PlayerPrefs.GetInt(DataProfilePreferenceKey, (int)JobCheckDataProfile.Demo);
@@ -912,6 +924,11 @@ public class AllJobPage : MonoBehaviour
             textDataProfile = profile != null ? profile.GetComponent<TMP_Text>() : null;
         }
 
+        if (buttonShowAnalytics == null)
+            buttonShowAnalytics = FindChildButton("Button_ShowAnalytics");
+        if (analyticsPanel == null)
+            analyticsPanel = GetComponentInChildren<Panel_Analytics>(true);
+
         if (filterPanel == null)
         {
             filterPanel = FindObjectOfType<FilterPanel>(true);
@@ -993,6 +1010,11 @@ public class AllJobPage : MonoBehaviour
         {
             buttonSwitchDataProfile.onClick.RemoveListener(SwitchDataProfile);
             buttonSwitchDataProfile.onClick.AddListener(SwitchDataProfile);
+        }
+        if (buttonShowAnalytics != null)
+        {
+            buttonShowAnalytics.onClick.RemoveListener(ShowAnalytics);
+            buttonShowAnalytics.onClick.AddListener(ShowAnalytics);
         }
     }
 
