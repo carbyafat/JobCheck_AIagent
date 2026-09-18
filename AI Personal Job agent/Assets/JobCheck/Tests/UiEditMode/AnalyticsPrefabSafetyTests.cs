@@ -36,7 +36,7 @@ namespace JobCheck.Ui.Editor.Tests
             Assert.That(entry.GetComponent("Button"), Is.Not.Null);
             Assert.That(panel, Is.Not.Null);
             Assert.That(panel.gameObject.activeSelf, Is.False);
-            Assert.That(panel.GetSiblingIndex(), Is.EqualTo(host.transform.childCount - 1));
+            Assert.That(panel.GetSiblingIndex(), Is.GreaterThan(entry.GetSiblingIndex()));
         }
 
         [Test]

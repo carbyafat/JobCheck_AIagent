@@ -56,6 +56,9 @@ public class AllJobPage : MonoBehaviour
     [SerializeField] private Button buttonShowAnalytics;
     [Tooltip("唯讀的應徵分析頁 Prefab 實例。")]
     [SerializeField] private Panel_Analytics analyticsPanel;
+    [Tooltip("開啟個人資料搬運面板。")]
+    [SerializeField] private Button buttonPortableTransfer;
+    [SerializeField] private Panel_PortableTransfer portableTransferPanel;
 
     private readonly List<JobSummaryData> loadedJobs = new List<JobSummaryData>();
     private readonly List<JobSummaryData> displayJobs = new List<JobSummaryData>();
@@ -832,6 +835,14 @@ public class AllJobPage : MonoBehaviour
             currentDataProfile == JobCheckDataProfile.Personal ? "個人" : "Demo");
     }
 
+    public void ShowPortableTransfer()
+    {
+        if (portableTransferPanel == null) return;
+        portableTransferPanel.OpenExport(
+            ResolveProjectRelativePath(personalDataRootPath),
+            currentDataProfile == JobCheckDataProfile.Personal);
+    }
+
     private void LoadSelectedDataProfile()
     {
         int saved = PlayerPrefs.GetInt(DataProfilePreferenceKey, (int)JobCheckDataProfile.Demo);
@@ -928,6 +939,10 @@ public class AllJobPage : MonoBehaviour
             buttonShowAnalytics = FindChildButton("Button_ShowAnalytics");
         if (analyticsPanel == null)
             analyticsPanel = GetComponentInChildren<Panel_Analytics>(true);
+        if (buttonPortableTransfer == null)
+            buttonPortableTransfer = FindChildButton("Button_PortableTransfer");
+        if (portableTransferPanel == null)
+            portableTransferPanel = GetComponentInChildren<Panel_PortableTransfer>(true);
 
         if (filterPanel == null)
         {
@@ -1015,6 +1030,11 @@ public class AllJobPage : MonoBehaviour
         {
             buttonShowAnalytics.onClick.RemoveListener(ShowAnalytics);
             buttonShowAnalytics.onClick.AddListener(ShowAnalytics);
+        }
+        if (buttonPortableTransfer != null)
+        {
+            buttonPortableTransfer.onClick.RemoveListener(ShowPortableTransfer);
+            buttonPortableTransfer.onClick.AddListener(ShowPortableTransfer);
         }
     }
 
