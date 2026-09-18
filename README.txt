@@ -1,13 +1,21 @@
 JobCheck
 ========
 
-JobCheck 是以 Unity 製作的個人求職紀錄與應徵流程管理工具。V0.2.0 建立了 Domain、DTO、Mapper、Repository 與 ApplicationEvent 架構；V0.2.1 則讓這套架構能安全地承載個人真實求職資料。
+JobCheck 是以 Unity 製作的個人求職紀錄與應徵流程管理工具。V0.2.0 建立了 Domain、DTO、Mapper、Repository 與 ApplicationEvent 架構；V0.2.1 讓它能安全承載個人真實求職資料；V0.2.2 則加入既有資料的唯讀應徵分析。
 
 
 目前版本
 --------
 
-V0.2.1 功能已完成：
+V0.2.2 功能已完成，沿用 V0.2.1 的資料輸入與追蹤流程，並新增：
+
+- 「分析」頁顯示應徵概況、曾到達的漏斗階段、來源平台成效、目前結果及我方結束原因。
+- 漏斗只依已記錄的有效事件計算；缺少投遞事件時不從目前狀態倒推歷史。
+- 只統計可確認的本人應徵輪次，對排除資料與僅有遷移快照的資料顯示提醒。
+- 無分母時比率顯示「—」；平台投遞樣本少於 5 輪時提醒僅供參考。
+- 分析只讀取目前選擇的 Demo 或個人資料區，不修改 JSON。
+
+V0.2.1 已完成的基礎功能包括：
 
 - Demo 與個人資料使用不同資料目錄，可在 UI 中切換。
 - `personal_data/` 完全排除於 Git，不會將真實求職資料混入正式 demo。
@@ -20,9 +28,9 @@ V0.2.1 功能已完成：
 - Domain 驗證錯誤集中翻譯為繁體中文，不直接向使用者顯示 enum 名稱。
 - 已使用真實求職資料持續驗證新增、編輯、狀態、事件與刪除流程。
 
-V0.2.1 的「真實資料導入」是人工整理與輸入流程，不包含平台爬取或自動匯入。分析頁、新版匯入／匯出及 AI 功能仍屬於後續版本。
+真實資料仍由使用者人工整理與輸入，不包含平台爬取或自動匯入。新版匯入／匯出及 AI 功能屬於後續版本；V0.2.2 分析頁目前以可捲動文字呈現，沒有圖表。
 
-完整紀錄請見 `docs/v0.2/v0.2.1_real_data_onboarding_report.md`。
+完整紀錄請見 `docs/v0.2/v0.2.2_analytics_completion_report.md`；V0.2.1 的資料導入紀錄見 `docs/v0.2/v0.2.1_real_data_onboarding_report.md`。
 
 
 開啟方式
@@ -46,6 +54,7 @@ Unity 專案：
 4. 按 Load 載入目前選取的資料區。
 5. 可瀏覽、篩選、新增、編輯或刪除個人職缺。
 6. 點擊職缺可查看詳細內容、補登應徵事件、設定追蹤日期與查看事件歷程。
+7. 從總攬頁點「分析」，查看目前資料區的唯讀統計；可捲動內容並按「關閉」回到列表。
 
 
 V0.2 資料結構
@@ -71,7 +80,7 @@ V0.2 資料結構
 ------------
 
 - `Assets/JobCheck/Runtime/`：Domain 模型、enum、ID、驗證與事件狀態推導。
-- `Assets/JobCheck/Persistence/`：DTO、Mapper、Repository、migration、query 與寫入服務。
+- `Assets/JobCheck/Persistence/`：DTO、Mapper、Repository、migration、唯讀分析 query 與寫入服務。
 - `Assets/JobCheck/Tests/`：Domain 與 Persistence EditMode tests。
 - `Assets/Scripts/`：Unity UI 與 V0.2 顯示／操作接軌。
 - `docs/v0.2/`：V0.2 規則、migration 與完成紀錄。
@@ -84,12 +93,11 @@ V0.2 資料結構
 
     Window > General > Test Runner
 
-選擇 EditMode 後執行 Run All。V0.2.0 的完整封版基準為 265 passed、0 failed；V0.2.1 增加了個人資料、歷史事件、完整職缺輸入、可恢復刪除與錯誤翻譯測試。V0.2.1 已完成持續人工驗收與最新程式編譯，但封版時沒有另記一次完整 Run All 的新總數。
+選擇 EditMode 後執行 Run All。V0.2.0 的封版基準為 265 passed、0 failed；V0.2.2 加入分析查詢與 UI Prefab 安全測試。先前安全清理批次回報 296 passed、0 failed（未保留機器可讀結果檔）；本次文件收尾沒有重新執行。分析頁的 Play Mode 操作也已由使用者人工驗收。
 
 
 後續方向
 --------
 
-- V0.2.2：漏斗、平台成效與結案原因分析
 - V0.2.3：新版匯入／匯出
 - V0.2.4：AI Fit Score、摘要與面試準備
