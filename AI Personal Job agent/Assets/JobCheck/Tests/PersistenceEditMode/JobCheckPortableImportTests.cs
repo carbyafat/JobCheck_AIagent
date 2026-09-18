@@ -16,6 +16,7 @@ namespace JobCheck.Persistence.Tests
             {
                 string packagePath = CreatePackage(root);
                 string target = Path.Combine(root, "personal");
+                Assert.That(JobCheckPortableImportService.CanImportIntoEmptyRoot(target), Is.True);
                 if (targetAlreadyExists)
                     Assert.That(JobCheckDataRepository.WriteSnapshot(target,
                         new JobCheck.Domain.JobCheckDataSet(null, null, null, null)).IsSuccess,
@@ -54,6 +55,7 @@ namespace JobCheck.Persistence.Tests
                 string existingFile = Path.Combine(target, "companies",
                     "cmp_0123456789abcdef0123456789abcdef.json");
                 string before = File.ReadAllText(existingFile);
+                Assert.That(JobCheckPortableImportService.CanImportIntoEmptyRoot(target), Is.False);
 
                 PersistenceStorageResult<JobCheckPortableImportSummary> result =
                     JobCheckPortableImportService.Import(packagePath, target);

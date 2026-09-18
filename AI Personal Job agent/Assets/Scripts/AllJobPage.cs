@@ -840,7 +840,8 @@ public class AllJobPage : MonoBehaviour
         if (portableTransferPanel == null) return;
         portableTransferPanel.OpenExport(
             ResolveProjectRelativePath(personalDataRootPath),
-            currentDataProfile == JobCheckDataProfile.Personal);
+            currentDataProfile == JobCheckDataProfile.Personal,
+            Load);
     }
 
     private void LoadSelectedDataProfile()

@@ -32,7 +32,9 @@ namespace JobCheck.Ui.Editor.Tests
             MonoBehaviour controller = panel.GetComponents<MonoBehaviour>()
                 .First(component => component != null && component.GetType().Name == "Panel_PortableTransfer");
             var panelData = new SerializedObject(controller);
-            foreach (string field in new[] { "textMessage", "buttonExport", "buttonClose" })
+            foreach (string field in new[] {
+                "textMessage", "inputPackagePath", "buttonExport", "buttonPreview",
+                "buttonImport", "buttonClose" })
                 Assert.That(panelData.FindProperty(field).objectReferenceValue, Is.Not.Null, field);
         }
     }

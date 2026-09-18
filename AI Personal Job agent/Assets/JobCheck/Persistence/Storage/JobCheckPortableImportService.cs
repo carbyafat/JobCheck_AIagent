@@ -54,6 +54,26 @@ namespace JobCheck.Persistence
     {
         private const long MaximumPackageBytes = 64L * 1024 * 1024;
 
+        /// <summary>供 UI 唯讀判斷目前個人資料目錄能否接收搬運檔。</summary>
+        public static bool CanImportIntoEmptyRoot(string destinationRoot)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(destinationRoot)) return false;
+                string fullTarget = Path.GetFullPath(destinationRoot);
+                if (string.Equals(fullTarget, Path.GetPathRoot(fullTarget),
+                    StringComparison.OrdinalIgnoreCase)) return false;
+                return CanReplaceEmptyRoot(fullTarget);
+            }
+            catch (Exception exception) when (
+                exception is ArgumentException || exception is NotSupportedException
+                || exception is PathTooLongException || exception is IOException
+                || exception is UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+
         public static PersistenceStorageResult<JobCheckPortableImportPreview> Preview(string packagePath)
         {
             var issues = new List<PersistenceStorageIssue>();
@@ -63,7 +83,7 @@ namespace JobCheck.Persistence
                 if (string.IsNullOrWhiteSpace(packagePath)
                     || !packagePath.EndsWith(JobCheckPortablePackageDto.FileExtension,
                         StringComparison.OrdinalIgnoreCase))
-                    throw new ArgumentException("請選擇 .jobcheck.json 搬運檔。");
+                    throw new ArgumentException("請貼上以 .jobcheck.json 結尾的完整檔案路徑。");
                 fullPath = System.IO.Path.GetFullPath(packagePath);
                 var info = new FileInfo(fullPath);
                 if (!info.Exists || info.Length == 0 || info.Length > MaximumPackageBytes)
@@ -198,7 +218,11 @@ namespace JobCheck.Persistence
             {
                 if (string.IsNullOrWhiteSpace(destinationRoot))
                     throw new ArgumentException("個人資料目錄不可為空白。");
-                target = Path.GetFullPath(destinationRoot).TrimEnd(
+                string fullTarget = Path.GetFullPath(destinationRoot);
+                if (string.Equals(fullTarget, Path.GetPathRoot(fullTarget),
+                    StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("不可將磁碟根目錄當作個人資料區。");
+                target = fullTarget.TrimEnd(
                     Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 string source = Path.GetFullPath(packagePath);
                 if (source.StartsWith(target + Path.DirectorySeparatorChar,
@@ -321,6 +345,7 @@ namespace JobCheck.Persistence
         private static bool CanReplaceEmptyRoot(string root)
         {
             if (!Directory.Exists(root)) return !File.Exists(root);
+            if ((File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0) return false;
             string[] expected = {
                 JobCheckDataRepository.CompaniesDirectoryName,
                 JobCheckDataRepository.JobsDirectoryName,
