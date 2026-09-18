@@ -500,6 +500,24 @@ namespace JobCheck.Persistence
                 issues);
         }
 
+        /// <summary>唯讀驗證一份資料是否可安全地寫成 V0.2 快照。</summary>
+        public static IReadOnlyList<PersistenceStorageIssue> ValidateSnapshot(JobCheckDataSet dataSet)
+        {
+            var issues = new List<PersistenceStorageIssue>();
+            if (dataSet == null)
+            {
+                issues.Add(new PersistenceStorageIssue(
+                    PersistenceStorageError.EntityValidationFailed, null, null,
+                    "不可驗證 null 資料集。"));
+                return issues.AsReadOnly();
+            }
+
+            AddContentValidationIssues(dataSet, issues);
+            if (issues.Count == 0)
+                BuildSerializedFiles("validation-only", dataSet, issues);
+            return issues.AsReadOnly();
+        }
+
         /// <summary>
         /// 先完成所有轉換與序列化，確定沒有錯誤後才建立任何輸出檔案。
         /// </summary>

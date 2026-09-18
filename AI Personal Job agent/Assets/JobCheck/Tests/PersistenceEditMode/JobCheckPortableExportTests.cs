@@ -117,7 +117,7 @@ namespace JobCheck.Persistence.Tests
             }
         }
 
-        private static JobCheckDataSet CompleteDataSet()
+        internal static JobCheckDataSet CompleteDataSet()
         {
             var time = new DateTimeOffset(2026, 9, 19, 10, 0, 0, TimeSpan.FromHours(8));
             var company = new Company
