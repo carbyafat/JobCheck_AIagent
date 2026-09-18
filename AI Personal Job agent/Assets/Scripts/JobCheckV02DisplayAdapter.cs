@@ -4,9 +4,10 @@ using Domain = JobCheck.Domain;
 using JobCheck.Persistence;
 
 /// <summary>
-/// V0.2 Domain 與現有畫面資料形狀之間的暫時轉接器。
+/// V0.2 Domain 與現有畫面資料形狀之間的相容轉接器，目前仍由列表與詳情頁使用。
 /// 它只複製顯示欄位，不讀檔、不寫檔，也不改動 Domain 物件。
-/// 等 UI 全面改用 V0.2 ViewModel 後即可移除這個相容層。
+/// 待清理：等 UI 全面改用 V0.2 ViewModel、且 Prefab 綁定驗證通過後，
+/// 才能移除此相容層；目前不是死碼。
 /// </summary>
 public static class JobCheckV02DisplayAdapter
 {

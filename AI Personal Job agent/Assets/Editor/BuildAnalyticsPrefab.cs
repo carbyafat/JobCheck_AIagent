@@ -7,15 +7,40 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>一次性建置 V0.2.2 分析頁 Prefab 與 AllJobPage 入口。</summary>
+/// <summary>
+/// 一次性建置 V0.2.2 分析頁 Prefab 與 AllJobPage 入口。
+/// 待清理：正式 Prefab 已提交，建置功能不再用於日常開發；先保留程式供追溯，
+/// 但必須禁止重建時覆寫設計師在 Prefab 上的後續修改。
+/// </summary>
 public static class BuildAnalyticsPrefab
 {
     private const string PanelPath = "Assets/Prefab/Panel_Analytics.prefab";
     private const string HostPath = "Assets/Prefab/AllJobPage.prefab";
 
+    /// <summary>只有首次建立、兩個目標物件都不存在時，才允許執行建置。</summary>
+    public static bool CanBuild()
+    {
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(PanelPath) != null)
+            return false;
+
+        GameObject host = AssetDatabase.LoadAssetAtPath<GameObject>(HostPath);
+        return host != null
+            && host.transform.Find("Panel_Analytics") == null
+            && host.transform.Find("Button_ShowAnalytics") == null;
+    }
+
+    [MenuItem("JobCheck/Build Analytics Prefab", true)]
+    private static bool CanShowBuildMenu() => CanBuild();
+
     [MenuItem("JobCheck/Build Analytics Prefab")]
     public static void Build()
     {
+        if (!CanBuild())
+        {
+            Debug.LogWarning("分析頁 Prefab 或入口已存在；為避免覆寫人工調整，已取消一次性建置。");
+            return;
+        }
+
         TMP_FontAsset font = FindFont();
         GameObject overlay = Ui("Panel_Analytics", null, new Color(0f, 0f, 0f, .73f));
         Stretch(overlay.GetComponent<RectTransform>());
@@ -63,10 +88,12 @@ public static class BuildAnalyticsPrefab
         GameObject host = PrefabUtility.LoadPrefabContents(HostPath);
         try
         {
-            Transform oldPanel = host.transform.Find("Panel_Analytics");
-            if (oldPanel != null) Object.DestroyImmediate(oldPanel.gameObject);
-            Transform oldButton = host.transform.Find("Button_ShowAnalytics");
-            if (oldButton != null) Object.DestroyImmediate(oldButton.gameObject);
+            // 待清理：以下是舊版重建時的覆寫處理。現在 CanBuild 會拒絕既有物件，
+            // 因此不執行；先保留原碼供確認一次性建置器退休範圍。
+            // Transform oldPanel = host.transform.Find("Panel_Analytics");
+            // if (oldPanel != null) Object.DestroyImmediate(oldPanel.gameObject);
+            // Transform oldButton = host.transform.Find("Button_ShowAnalytics");
+            // if (oldButton != null) Object.DestroyImmediate(oldButton.gameObject);
 
             Button entry = CreateButton("Button_ShowAnalytics", host.transform, font, "分析", 32);
             Place(entry.gameObject, -410, -472, 200, 70);
@@ -116,23 +143,26 @@ public static class BuildAnalyticsPrefab
             PrefabUtility.UnloadPrefabContents(host);
         }
 
-        GameObject runtime = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(HostPath));
-        try
-        {
-            runtime.GetComponent<AllJobPage>().ShowAnalytics();
-            Panel_Analytics opened = runtime.GetComponentInChildren<Panel_Analytics>(true);
-            Transform reportText = opened.transform.Find("Card/Viewport/Text_Report");
-            if (!opened.gameObject.activeSelf || reportText == null
-                || string.IsNullOrWhiteSpace(reportText.GetComponent<TMP_Text>().text))
-                throw new InvalidOperationException("Analytics panel did not open with report text.");
-            opened.Close();
-            if (opened.gameObject.activeSelf)
-                throw new InvalidOperationException("Analytics panel did not close.");
-        }
-        finally
-        {
-            Object.DestroyImmediate(runtime);
-        }
+        // 待清理：舊版在 Editor 直接實例化並開啟 UI，會觸發動態 Yozai 字型
+        // Atlas 寫入。開關操作改由人工 Play Mode 驗證，保留此段供後續決定是否
+        // 以不修改資產的測試取代。
+        // GameObject runtime = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(HostPath));
+        // try
+        // {
+        //     runtime.GetComponent<AllJobPage>().ShowAnalytics();
+        //     Panel_Analytics opened = runtime.GetComponentInChildren<Panel_Analytics>(true);
+        //     Transform reportText = opened.transform.Find("Card/Viewport/Text_Report");
+        //     if (!opened.gameObject.activeSelf || reportText == null
+        //         || string.IsNullOrWhiteSpace(reportText.GetComponent<TMP_Text>().text))
+        //         throw new InvalidOperationException("Analytics panel did not open with report text.");
+        //     opened.Close();
+        //     if (opened.gameObject.activeSelf)
+        //         throw new InvalidOperationException("Analytics panel did not close.");
+        // }
+        // finally
+        // {
+        //     Object.DestroyImmediate(runtime);
+        // }
 
         string empty = Panel_Analytics.FormatReport(new ApplicationAnalyticsReport(
             null, null, null, null, null, null));

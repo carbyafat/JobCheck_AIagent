@@ -142,7 +142,7 @@ public class AllJobPage : MonoBehaviour
     }
 
     /// <summary>
-    /// 篩選入口，目前尚未實作。
+    /// 開啟既有的篩選面板；條件的讀取與套用由 FilterPanel 負責。
     /// </summary>
     public void ShowFilter()
     {

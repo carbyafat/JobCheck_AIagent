@@ -1055,7 +1055,7 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 4279900698
   m_fontColor: {r: 0.1, g: 0.1, b: 0.1, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -1068,7 +1068,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -19722,11 +19722,11 @@ RectTransform:
   - {fileID: 1101638040815491943}
   - {fileID: 2385199805633720915}
   - {fileID: 5014135994858361911}
-  - {fileID: 7545224854000918843}
   - {fileID: 2344787039834325875}
   - {fileID: 6820918952376456605}
   - {fileID: 4065098340042280087}
   - {fileID: 6692940980818915522}
+  - {fileID: 7545224854000918843}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
