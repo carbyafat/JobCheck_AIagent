@@ -136,6 +136,23 @@ namespace JobCheck.Ui.Editor.Tests
             Assert.That(scrollView.sizeDelta.x, Is.LessThanOrEqualTo(1600f));
         }
 
+        [Test]
+        public void ResumePage_HasBoundProfileDisplayController()
+        {
+            WithScene(scene =>
+            {
+                Transform appShell = RequireChild(FindRoot(scene, "Canvas").transform, "AppShell");
+                Transform resume = RequireChild(RequireChild(appShell, "ContentRoot"), "Page_Resume");
+                Transform display = RequireChild(resume, "ResumeProfileDisplay");
+                MonoBehaviour controller = FindComponent(resume, "CareerProfilePage");
+                var data = new SerializedObject(controller);
+
+                Assert.That(data.FindProperty("displayText").objectReferenceValue, Is.Not.Null);
+                Assert.That(data.FindProperty("displayText").objectReferenceValue, Is.EqualTo(
+                    display.GetComponent<UnityEngine.UI.Text>()));
+            });
+        }
+
         private static void WithScene(Action<Scene> assertion)
         {
             Scene scene = SceneManager.GetSceneByPath(ScenePath);

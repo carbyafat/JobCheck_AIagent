@@ -563,6 +563,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 900000052}
+  - component: {fileID: 900000053}
   m_Layer: 5
   m_Name: Page_Resume
   m_TagString: Untagged
@@ -591,6 +592,20 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &900000053
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 900000051}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4121b12e81354cb6ac253ba1f83daf7a, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  personalDataRootPath: ../personal_data
+  displayText: {fileID: 900003005}
 --- !u!1 &900001001
 GameObject:
   m_ObjectHideFlags: 0
@@ -1481,7 +1496,7 @@ GameObject:
   - component: {fileID: 900003004}
   - component: {fileID: 900003005}
   m_Layer: 5
-  m_Name: Placeholder_Resume
+  m_Name: ResumeProfileDisplay
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1502,10 +1517,10 @@ RectTransform:
   m_Father: {fileID: 900000052}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 1050, y: 620}
+  m_SizeDelta: {x: -100, y: -80}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &900003003
 CanvasRenderer:
@@ -1567,18 +1582,18 @@ MonoBehaviour:
       m_Calls: []
   m_FontData:
     m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
-    m_FontSize: 38
-    m_FontStyle: 1
+    m_FontSize: 28
+    m_FontStyle: 0
     m_BestFit: 0
     m_MinSize: 16
     m_MaxSize: 52
-    m_Alignment: 4
+    m_Alignment: 0
     m_AlignByGeometry: 0
     m_RichText: 1
     m_HorizontalOverflow: 0
-    m_VerticalOverflow: 0
+    m_VerticalOverflow: 1
     m_LineSpacing: 1.2
-  m_Text: "[ RESUME PAGE PLACEHOLDER ]\n\nAvailable content width: 1680 px\nResume form will be placed here."
+  m_Text: "個人履歷\n\n載入中..."
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
