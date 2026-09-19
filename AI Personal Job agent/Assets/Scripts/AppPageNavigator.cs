@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// 應用程式最外層的頁面導覽。只負責切換主要頁面，不介入各頁面內部流程。
@@ -17,6 +18,11 @@ public sealed class AppPageNavigator : MonoBehaviour
     [SerializeField] private GameObject pageJobs;
     [SerializeField] private GameObject pageResume;
 
+    [Header("Navigation")]
+    [SerializeField] private Button buttonHome;
+    [SerializeField] private Button buttonJobs;
+    [SerializeField] private Button buttonResume;
+
     [Header("Startup")]
     [SerializeField] private AppPage initialPage = AppPage.Jobs;
 
@@ -24,6 +30,9 @@ public sealed class AppPageNavigator : MonoBehaviour
 
     private void Awake()
     {
+        BindButton(buttonHome, ShowHome);
+        BindButton(buttonJobs, ShowJobs);
+        BindButton(buttonResume, ShowResume);
         Show(initialPage);
     }
 
@@ -56,5 +65,16 @@ public sealed class AppPageNavigator : MonoBehaviour
         {
             page.SetActive(active);
         }
+    }
+
+    private static void BindButton(Button button, UnityEngine.Events.UnityAction action)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        button.onClick.RemoveListener(action);
+        button.onClick.AddListener(action);
     }
 }
