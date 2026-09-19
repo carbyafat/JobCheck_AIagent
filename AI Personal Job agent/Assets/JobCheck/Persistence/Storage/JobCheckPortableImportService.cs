@@ -49,6 +49,33 @@ namespace JobCheck.Persistence
         public string CleanupWarning { get; }
     }
 
+    /// <summary>同一份個人資料的增量匯入預覽；同 ID 內容不同時不產生可執行計畫。</summary>
+    public sealed class JobCheckPortableSyncPreview
+    {
+        internal JobCheckPortableSyncPreview(JobCheckPortableImportPreview source,
+            JobCheckDataSet candidate, IReadOnlyList<string> newCompanyIds,
+            IReadOnlyList<string> newJobIds, IReadOnlyList<string> newApplicationIds)
+        {
+            Source = source;
+            Candidate = candidate;
+            NewCompanyIds = newCompanyIds;
+            NewJobIds = newJobIds;
+            NewApplicationIds = newApplicationIds;
+        }
+
+        public JobCheckPortableImportPreview Source { get; }
+        public int NewCompanyCount => NewCompanyIds.Count;
+        public int NewJobCount => NewJobIds.Count;
+        public int NewApplicationCount => NewApplicationIds.Count;
+        public int NewEventCount => Source.DataSet.ApplicationEvents.Count(
+            item => NewApplicationIds.Contains(item.ApplicationId));
+        public string CleanupWarning { get; internal set; }
+        internal JobCheckDataSet Candidate { get; }
+        internal IReadOnlyList<string> NewCompanyIds { get; }
+        internal IReadOnlyList<string> NewJobIds { get; }
+        internal IReadOnlyList<string> NewApplicationIds { get; }
+    }
+
     /// <summary>只讀取、驗證搬運檔；預覽失敗時不提供部分資料。</summary>
     public static class JobCheckPortableImportService
     {
@@ -199,6 +226,249 @@ namespace JobCheck.Persistence
             return new PersistenceStorageResult<JobCheckPortableImportPreview>(
                 issues.Count == 0 ? new JobCheckPortableImportPreview(fullPath, exportedAt, dataSet) : null,
                 issues);
+        }
+
+        /// <summary>唯讀比對：相同 ID 且內容相同略過；不同 ID 新增；同 ID 內容不同拒絕。</summary>
+        public static PersistenceStorageResult<JobCheckPortableSyncPreview> PreviewSync(
+            string packagePath, string destinationRoot)
+        {
+            PersistenceStorageResult<JobCheckPortableImportPreview> source = Preview(packagePath);
+            if (!source.IsSuccess)
+                return new PersistenceStorageResult<JobCheckPortableSyncPreview>(null, source.Issues);
+
+            var issues = new List<PersistenceStorageIssue>();
+            string target;
+            try
+            {
+                if (string.IsNullOrWhiteSpace(destinationRoot))
+                    throw new ArgumentException("個人資料目錄不可為空白。");
+                target = Path.GetFullPath(destinationRoot);
+                if (string.Equals(target, Path.GetPathRoot(target), StringComparison.OrdinalIgnoreCase)
+                    || File.Exists(target)
+                    || (Directory.Exists(target) &&
+                        (File.GetAttributes(target) & FileAttributes.ReparsePoint) != 0))
+                    throw new ArgumentException("個人資料目錄不是安全的資料目錄。");
+                if (Directory.Exists(target))
+                {
+                    foreach (string directory in new[] {
+                        JobCheckDataRepository.CompaniesDirectoryName,
+                        JobCheckDataRepository.JobsDirectoryName,
+                        JobCheckDataRepository.ApplicationsDirectoryName })
+                    {
+                        string child = Path.Combine(target, directory);
+                        if (Directory.Exists(child) &&
+                            (File.GetAttributes(child) & FileAttributes.ReparsePoint) != 0)
+                            throw new ArgumentException("個人資料子目錄不可為連結：" + child);
+                    }
+                }
+                if (source.Value.Path.StartsWith(target.TrimEnd(
+                        Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                        + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("搬運檔不可放在個人資料目錄內。");
+            }
+            catch (Exception exception) when (
+                exception is ArgumentException || exception is NotSupportedException
+                || exception is PathTooLongException || exception is IOException
+                || exception is UnauthorizedAccessException)
+            {
+                AddIssue(issues, destinationRoot, null, exception.Message,
+                    PersistenceStorageError.IoFailure);
+                return new PersistenceStorageResult<JobCheckPortableSyncPreview>(null, issues);
+            }
+
+            JobCheckDataSet existing;
+            if (Directory.Exists(target))
+            {
+                PersistenceStorageResult<JobCheckDataSet> loaded = JobCheckDataRepository.Load(target);
+                if (!loaded.IsSuccess)
+                    return new PersistenceStorageResult<JobCheckPortableSyncPreview>(null, loaded.Issues);
+                existing = loaded.Value;
+            }
+            else existing = new JobCheckDataSet(null, null, null, null);
+
+            JobCheckPortablePackageDto oldPackage =
+                JobCheckPortableExportService.BuildPackage(existing, issues);
+            JobCheckPortablePackageDto newPackage =
+                JobCheckPortableExportService.BuildPackage(source.Value.DataSet, issues);
+            if (issues.Count > 0)
+                return new PersistenceStorageResult<JobCheckPortableSyncPreview>(null, issues);
+
+            var newCompanies = new List<string>();
+            var newJobs = new List<string>();
+            var newApplications = new List<string>();
+            CompareById(oldPackage.companies, newPackage.companies, item => item.id,
+                "公司", source.Value.Path, newCompanies, issues);
+            CompareById(oldPackage.jobs, newPackage.jobs, item => item.id,
+                "職缺", source.Value.Path, newJobs, issues);
+            // 應徵 DTO 包含完整事件歷程；新增事件或修改舊事件屬於同 ID 衝突。
+            CompareById(oldPackage.applications, newPackage.applications, item => item.id,
+                "應徵／事件", source.Value.Path, newApplications, issues);
+            if (issues.Count > 0)
+                return new PersistenceStorageResult<JobCheckPortableSyncPreview>(null, issues);
+
+            var merged = new JobCheckDataSet(
+                existing.Companies.Concat(source.Value.DataSet.Companies
+                    .Where(item => newCompanies.Contains(item.Id))).ToList(),
+                existing.JobPostings.Concat(source.Value.DataSet.JobPostings
+                    .Where(item => newJobs.Contains(item.Id))).ToList(),
+                existing.Applications.Concat(source.Value.DataSet.Applications
+                    .Where(item => newApplications.Contains(item.Id))).ToList(),
+                existing.ApplicationEvents.Concat(source.Value.DataSet.ApplicationEvents
+                    .Where(item => newApplications.Contains(item.ApplicationId))).ToList());
+            issues.AddRange(JobCheckDataRepository.ValidateSnapshot(merged));
+            return new PersistenceStorageResult<JobCheckPortableSyncPreview>(
+                issues.Count == 0 ? new JobCheckPortableSyncPreview(
+                    source.Value, merged, newCompanies, newJobs, newApplications) : null, issues);
+        }
+
+        /// <summary>只發布新增的實體檔；不覆寫、刪除既有紀錄或 trash。</summary>
+        public static PersistenceStorageResult<JobCheckPortableSyncPreview> Sync(
+            string packagePath, string destinationRoot)
+        {
+            PersistenceStorageResult<JobCheckPortableSyncPreview> planned =
+                PreviewSync(packagePath, destinationRoot);
+            if (!planned.IsSuccess) return planned;
+            JobCheckPortableSyncPreview plan = planned.Value;
+            if (plan.NewCompanyCount + plan.NewJobCount + plan.NewApplicationCount == 0)
+                return planned;
+
+            string target = Path.GetFullPath(destinationRoot);
+            if (CanReplaceEmptyRoot(target))
+            {
+                PersistenceStorageResult<JobCheckPortableImportSummary> restored =
+                    Import(packagePath, target);
+                if (restored.IsSuccess) plan.CleanupWarning = restored.Value.CleanupWarning;
+                return new PersistenceStorageResult<JobCheckPortableSyncPreview>(
+                    restored.IsSuccess ? plan : null, restored.Issues);
+            }
+
+            string staging = target + ".sync-staging-" + Guid.NewGuid().ToString("N");
+            var issues = new List<PersistenceStorageIssue>();
+            var moved = new List<string>();
+            bool committed = false;
+            try
+            {
+                PersistenceStorageResult<JobCheckDataSet> original =
+                    JobCheckDataRepository.Load(target);
+                if (!original.IsSuccess)
+                    return new PersistenceStorageResult<JobCheckPortableSyncPreview>(null,
+                        original.Issues);
+                PersistenceStorageResult<PersistenceWriteSummary> staged =
+                    JobCheckDataRepository.WriteSnapshot(staging, plan.Candidate);
+                if (!staged.IsSuccess)
+                    return new PersistenceStorageResult<JobCheckPortableSyncPreview>(null,
+                        staged.Issues);
+                PersistenceStorageResult<JobCheckDataSet> stagedLoad =
+                    JobCheckDataRepository.Load(staging);
+                if (!stagedLoad.IsSuccess || !SameContent(stagedLoad.Value, plan.Candidate))
+                    throw new IOException("暫存資料重新讀取驗證失敗。");
+                PersistenceStorageResult<JobCheckDataSet> current =
+                    JobCheckDataRepository.Load(target);
+                if (!current.IsSuccess || !SameContent(original.Value, current.Value))
+                    throw new IOException("同步期間個人資料已變更，請重新預覽後再試。");
+
+                MoveNewFiles(staging, target, JobCheckDataRepository.CompaniesDirectoryName,
+                    plan.NewCompanyIds, moved);
+                MoveNewFiles(staging, target, JobCheckDataRepository.JobsDirectoryName,
+                    plan.NewJobIds, moved);
+                MoveNewFiles(staging, target, JobCheckDataRepository.ApplicationsDirectoryName,
+                    plan.NewApplicationIds, moved);
+                PersistenceStorageResult<JobCheckDataSet> check =
+                    JobCheckDataRepository.Load(target);
+                if (!check.IsSuccess || !SameContent(check.Value, plan.Candidate))
+                    throw new IOException("新增資料重新讀取驗證失敗。");
+                committed = true;
+            }
+            catch (Exception exception) when (
+                exception is IOException || exception is UnauthorizedAccessException
+                || exception is ArgumentException || exception is NotSupportedException)
+            {
+                AddIssue(issues, target, null, exception.Message, PersistenceStorageError.IoFailure);
+            }
+            finally
+            {
+                if (!committed)
+                {
+                    for (int i = moved.Count - 1; i >= 0; i--)
+                    {
+                        try
+                        {
+                            string destination = moved[i];
+                            string relative = destination.Substring(target.Length + 1);
+                            string stagedPath = Path.Combine(staging, relative);
+                            File.Move(destination, stagedPath);
+                        }
+                        catch (Exception exception) when (
+                            exception is IOException || exception is UnauthorizedAccessException)
+                        {
+                            AddIssue(issues, moved[i], null,
+                                "新增檔案回復失敗，請保留並檢查：" + exception.Message,
+                                PersistenceStorageError.IoFailure);
+                        }
+                    }
+                }
+                if (Directory.Exists(staging) && (committed || moved.All(path => !File.Exists(path))))
+                {
+                    try { Directory.Delete(staging, true); }
+                    catch (Exception exception) when (
+                        exception is IOException || exception is UnauthorizedAccessException)
+                    {
+                        if (committed)
+                            plan.CleanupWarning = "暫存目錄未能清理：" + staging;
+                        else
+                            AddIssue(issues, staging, null,
+                                "暫存目錄未能清理：" + exception.Message,
+                                PersistenceStorageError.IoFailure);
+                    }
+                }
+            }
+            return new PersistenceStorageResult<JobCheckPortableSyncPreview>(
+                committed && issues.Count == 0 ? plan : null, issues);
+        }
+
+        private static void CompareById<T>(IEnumerable<T> existing, IEnumerable<T> incoming,
+            Func<T, string> getId, string kind, string sourcePath,
+            ICollection<string> additions, ICollection<PersistenceStorageIssue> issues)
+            where T : class
+        {
+            Dictionary<string, T> byId = existing.ToDictionary(getId, StringComparer.Ordinal);
+            foreach (T item in incoming)
+            {
+                string id = getId(item);
+                if (!byId.TryGetValue(id, out T old)) additions.Add(id);
+                else if (!string.Equals(PersistenceJsonSerializer.Serialize(old),
+                    PersistenceJsonSerializer.Serialize(item), StringComparison.Ordinal))
+                    AddIssue(issues, sourcePath, kind + "." + id,
+                        kind + " ID 相同但內容不同；未覆蓋，請先處理衝突。");
+            }
+        }
+
+        private static bool SameContent(JobCheckDataSet left, JobCheckDataSet right)
+        {
+            if (left == null || right == null) return false;
+            var issues = new List<PersistenceStorageIssue>();
+            JobCheckPortablePackageDto a = JobCheckPortableExportService.BuildPackage(left, issues);
+            JobCheckPortablePackageDto b = JobCheckPortableExportService.BuildPackage(right, issues);
+            if (issues.Count > 0) return false;
+            a.exported_at = b.exported_at = null;
+            return string.Equals(PersistenceJsonSerializer.Serialize(a),
+                PersistenceJsonSerializer.Serialize(b), StringComparison.Ordinal);
+        }
+
+        private static void MoveNewFiles(string staging, string target, string directory,
+            IEnumerable<string> ids, ICollection<string> moved)
+        {
+            string destination = Path.Combine(target, directory);
+            if (Directory.Exists(destination) &&
+                (File.GetAttributes(destination) & FileAttributes.ReparsePoint) != 0)
+                throw new IOException("個人資料子目錄不可為連結：" + destination);
+            Directory.CreateDirectory(destination);
+            foreach (string id in ids)
+            {
+                string path = Path.Combine(destination, id + ".json");
+                File.Move(Path.Combine(staging, directory, id + ".json"), path);
+                moved.Add(path);
+            }
         }
 
         /// <summary>

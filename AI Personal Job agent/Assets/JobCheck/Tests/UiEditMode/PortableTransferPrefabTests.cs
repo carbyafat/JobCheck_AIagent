@@ -1,5 +1,6 @@
 using System.Linq;
 using NUnit.Framework;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 
@@ -36,6 +37,14 @@ namespace JobCheck.Ui.Editor.Tests
                 "textMessage", "inputPackagePath", "buttonExport", "buttonPreview",
                 "buttonImport", "buttonClose" })
                 Assert.That(panelData.FindProperty(field).objectReferenceValue, Is.Not.Null, field);
+
+            var path = panel.Find("Card/Input_PackagePath").GetComponent<TMP_InputField>();
+            Assert.That(path.readOnly, Is.True);
+            Assert.That(panel.Find("Card/Button_Preview").GetComponentInChildren<TMP_Text>().text,
+                Is.EqualTo("選擇檔案"));
+            Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Plugins/SimpleFileBrowser/Resources/SimpleFileBrowserCanvas.prefab"),
+                Is.Not.Null);
         }
     }
 }

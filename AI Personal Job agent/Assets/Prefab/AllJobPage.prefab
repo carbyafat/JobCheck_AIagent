@@ -4538,7 +4538,7 @@ MonoBehaviour:
   m_Text: 
   m_CaretBlinkRate: 0.85
   m_CaretWidth: 1
-  m_ReadOnly: 0
+  m_ReadOnly: 1
   m_RichText: 1
   m_GlobalFontAsset: {fileID: 0}
   m_OnFocusSelectAll: 1
@@ -9230,7 +9230,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\u9810\u89BD"
+  m_text: "\u9078\u64C7\u6A94\u6848"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: c7fa66a4d8d347945a87bc0d8d8c63f4, type: 2}
   m_sharedMaterial: {fileID: 2944592694260422482, guid: c7fa66a4d8d347945a87bc0d8d8c63f4, type: 2}
@@ -14447,7 +14447,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\u8CBC\u4E0A\u642C\u904B\u6A94\u7684\u5B8C\u6574\u8DEF\u5F91"
+  m_text: "\u9078\u64C7\u6A94\u6848\u5F8C\u986F\u793A\u8DEF\u5F91"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: c7fa66a4d8d347945a87bc0d8d8c63f4, type: 2}
   m_sharedMaterial: {fileID: 2944592694260422482, guid: c7fa66a4d8d347945a87bc0d8d8c63f4, type: 2}
@@ -16701,8 +16701,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\u532F\u5165\uFF1A\u8CBC\u4E0A\u65B0\u88DD\u7F6E\u4E2D\u7684 .jobcheck.json
-    \u5B8C\u6574\u8DEF\u5F91"
+  m_text: "\u9078\u64C7 .jobcheck.json \u642C\u904B\u6A94\uFF0C\u9078\u53D6\u5F8C\u6703\u81EA\u52D5\u9810\u89BD"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: c7fa66a4d8d347945a87bc0d8d8c63f4, type: 2}
   m_sharedMaterial: {fileID: 2944592694260422482, guid: c7fa66a4d8d347945a87bc0d8d8c63f4, type: 2}

@@ -126,7 +126,7 @@ namespace JobCheck.Persistence
                 issues);
         }
 
-        private static JobCheckPortablePackageDto BuildPackage(
+        internal static JobCheckPortablePackageDto BuildPackage(
             JobCheckDataSet dataSet,
             ICollection<PersistenceStorageIssue> issues)
         {

@@ -122,10 +122,10 @@ public static class BuildPortableTransferPrefab
         TMP_InputField input = MakeInput("Input_PackagePath", card, font);
         Place(input.gameObject, 0, -115, 1250, 70);
         TMP_Text hint = MakeLabel("Text_InputHint", card, font,
-            "匯入：貼上新裝置中的 .jobcheck.json 完整路徑", 25,
+            "選擇 .jobcheck.json 搬運檔，選取後會自動預覽", 25,
             TextAlignmentOptions.Left);
         Place(hint.gameObject, 0, -190, 1250, 45);
-        Button preview = MakeButton("Button_Preview", card, font, "預覽", 30);
+        Button preview = MakeButton("Button_Preview", card, font, "選擇檔案", 30);
         Place(preview.gameObject, 125, -290, 180, 70);
         Button import = MakeButton("Button_Import", card, font, "匯入", 30);
         Place(import.gameObject, 375, -290, 180, 70);
@@ -186,7 +186,7 @@ public static class BuildPortableTransferPrefab
         viewportRect.offsetMin = new Vector2(20, 8);
         viewportRect.offsetMax = new Vector2(-20, -8);
         TMP_Text placeholder = MakeLabel("Placeholder", viewport.transform, font,
-            "貼上搬運檔的完整路徑", 27, TextAlignmentOptions.MidlineLeft);
+            "選擇檔案後顯示路徑", 27, TextAlignmentOptions.MidlineLeft);
         placeholder.color = new Color(.55f, .55f, .55f, 1f);
         Stretch(placeholder.rectTransform);
         TMP_Text text = MakeLabel("Text", viewport.transform, font, "", 28,
@@ -196,6 +196,7 @@ public static class BuildPortableTransferPrefab
         field.textComponent = (TextMeshProUGUI)text;
         field.placeholder = placeholder;
         field.lineType = TMP_InputField.LineType.SingleLine;
+        field.readOnly = true;
         field.characterLimit = 1024;
         return field;
     }
