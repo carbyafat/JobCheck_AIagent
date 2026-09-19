@@ -59,6 +59,9 @@ public class AllJobPage : MonoBehaviour
     [Tooltip("開啟個人資料搬運面板。")]
     [SerializeField] private Button buttonPortableTransfer;
     [SerializeField] private Panel_PortableTransfer portableTransferPanel;
+    [Tooltip("開啟個人資料垃圾桶管理。")]
+    [SerializeField] private Button buttonTrashManagement;
+    [SerializeField] private Panel_TrashManagement trashManagementPanel;
 
     private readonly List<JobSummaryData> loadedJobs = new List<JobSummaryData>();
     private readonly List<JobSummaryData> displayJobs = new List<JobSummaryData>();
@@ -844,6 +847,15 @@ public class AllJobPage : MonoBehaviour
             Load);
     }
 
+    public void ShowTrashManagement()
+    {
+        if (trashManagementPanel == null) return;
+        trashManagementPanel.Open(
+            ResolveProjectRelativePath(personalDataRootPath),
+            currentDataProfile == JobCheckDataProfile.Personal,
+            Load);
+    }
+
     private void LoadSelectedDataProfile()
     {
         int saved = PlayerPrefs.GetInt(DataProfilePreferenceKey, (int)JobCheckDataProfile.Demo);
@@ -944,6 +956,10 @@ public class AllJobPage : MonoBehaviour
             buttonPortableTransfer = FindChildButton("Button_PortableTransfer");
         if (portableTransferPanel == null)
             portableTransferPanel = GetComponentInChildren<Panel_PortableTransfer>(true);
+        if (buttonTrashManagement == null)
+            buttonTrashManagement = FindChildButton("Button_TrashManagement");
+        if (trashManagementPanel == null)
+            trashManagementPanel = GetComponentInChildren<Panel_TrashManagement>(true);
 
         if (filterPanel == null)
         {
@@ -1036,6 +1052,11 @@ public class AllJobPage : MonoBehaviour
         {
             buttonPortableTransfer.onClick.RemoveListener(ShowPortableTransfer);
             buttonPortableTransfer.onClick.AddListener(ShowPortableTransfer);
+        }
+        if (buttonTrashManagement != null)
+        {
+            buttonTrashManagement.onClick.RemoveListener(ShowTrashManagement);
+            buttonTrashManagement.onClick.AddListener(ShowTrashManagement);
         }
     }
 

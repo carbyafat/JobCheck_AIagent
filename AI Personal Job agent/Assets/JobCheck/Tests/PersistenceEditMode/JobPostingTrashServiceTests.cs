@@ -108,6 +108,79 @@ namespace JobCheck.Persistence.Tests
             }
         }
 
+        [Test]
+        public void ListAndRestore_ReturnsDeletedJobWithoutOverwritingOtherData()
+        {
+            string root = CreateUnusedPath();
+            try
+            {
+                WriteData(root);
+                PersistenceStorageResult<JobPostingTrashSummary> moved =
+                    JobPostingTrashService.MoveToTrash(root, TargetJobId);
+
+                PersistenceStorageResult<JobPostingTrashCatalog> catalog =
+                    JobPostingTrashService.List(root);
+                Assert.That(catalog.IsSuccess, Is.True, FormatIssues(catalog.Issues));
+                Assert.That(catalog.Value.Entries.Count, Is.EqualTo(1));
+                Assert.That(catalog.Value.Entries[0].JobPostingId, Is.EqualTo(TargetJobId));
+                Assert.That(catalog.Value.Entries[0].ApplicationCount, Is.EqualTo(1));
+
+                PersistenceStorageResult<JobPostingTrashSummary> restored =
+                    JobPostingTrashService.Restore(root, moved.Value.TrashDirectory);
+                Assert.That(restored.IsSuccess, Is.True, FormatIssues(restored.Issues));
+                PersistenceStorageResult<JobCheckDataSet> data = JobCheckDataRepository.Load(root);
+                Assert.That(data.Value.JobPostings.Select(item => item.Id),
+                    Is.EquivalentTo(new[] { TargetJobId, OtherJobId }));
+                Assert.That(data.Value.Applications.Select(item => item.Id),
+                    Is.EquivalentTo(new[] { TargetApplicationId, OtherApplicationId }));
+                Assert.That(Directory.Exists(moved.Value.TrashDirectory), Is.False);
+            }
+            finally { DeleteTestDirectory(root); }
+        }
+
+        [Test]
+        public void Restore_WhenSameIdExists_RefusesToOverwriteActiveFile()
+        {
+            string root = CreateUnusedPath();
+            try
+            {
+                WriteData(root);
+                PersistenceStorageResult<JobPostingTrashSummary> moved =
+                    JobPostingTrashService.MoveToTrash(root, TargetJobId);
+                string activePath = Path.Combine(root,
+                    JobCheckDataRepository.JobsDirectoryName, TargetJobId + ".json");
+                File.WriteAllText(activePath, "keep-active-file");
+
+                PersistenceStorageResult<JobPostingTrashSummary> restored =
+                    JobPostingTrashService.Restore(root, moved.Value.TrashDirectory);
+                Assert.That(restored.IsSuccess, Is.False);
+                Assert.That(File.ReadAllText(activePath), Is.EqualTo("keep-active-file"));
+                Assert.That(Directory.Exists(moved.Value.TrashDirectory), Is.True);
+            }
+            finally { DeleteTestDirectory(root); }
+        }
+
+        [Test]
+        public void DeletePermanently_RemovesOnlySelectedTrashEntry()
+        {
+            string root = CreateUnusedPath();
+            try
+            {
+                WriteData(root);
+                PersistenceStorageResult<JobPostingTrashSummary> moved =
+                    JobPostingTrashService.MoveToTrash(root, TargetJobId);
+
+                PersistenceStorageResult<JobPostingTrashDeleteSummary> deleted =
+                    JobPostingTrashService.DeletePermanently(root, moved.Value.TrashDirectory);
+                Assert.That(deleted.IsSuccess, Is.True, FormatIssues(deleted.Issues));
+                Assert.That(deleted.Value.DeletedCount, Is.EqualTo(1));
+                Assert.That(Directory.Exists(moved.Value.TrashDirectory), Is.False);
+                Assert.That(JobCheckDataRepository.Load(root).Value.JobPostings
+                    .Select(item => item.Id), Is.EquivalentTo(new[] { OtherJobId }));
+            }
+            finally { DeleteTestDirectory(root); }
+        }
+
         private static void WriteData(string root)
         {
             DateTimeOffset time = new DateTimeOffset(
