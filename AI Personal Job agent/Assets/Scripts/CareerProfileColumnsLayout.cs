@@ -7,12 +7,12 @@ using UnityEngine.UI;
 /// </summary>
 public sealed class CareerProfileColumnsLayout : LayoutGroup
 {
-    [SerializeField, Range(0.3f, 0.5f)] private float leftRatio = 0.4f;
+    [SerializeField, Range(0.3f, 0.7f)] private float leftRatio = 0.4f;
     [SerializeField, Min(0f)] private float spacing = 16f;
 
     public void Configure(float ratio, float columnSpacing)
     {
-        leftRatio = Mathf.Clamp(ratio, 0.3f, 0.5f);
+        leftRatio = Mathf.Clamp(ratio, 0.3f, 0.7f);
         spacing = Mathf.Max(0f, columnSpacing);
         SetDirty();
     }

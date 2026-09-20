@@ -349,6 +349,75 @@ namespace JobCheck.Ui.Editor.Tests
         }
 
         [Test]
+        public void HomePage_HasBoundDashboardController()
+        {
+            WithScene(scene =>
+            {
+                Transform appShell = RequireChild(FindRoot(scene, "Canvas").transform, "AppShell");
+                Transform home = RequireChild(RequireChild(appShell, "ContentRoot"), "Page_Home");
+                MonoBehaviour controller = FindComponent(home, "HomeDashboardPage");
+                var data = new SerializedObject(controller);
+
+                Assert.That(data.FindProperty("theme").objectReferenceValue, Is.Not.Null);
+                Assert.That(data.FindProperty("fontAsset").objectReferenceValue, Is.Not.Null);
+                Assert.That(data.FindProperty("placeholderRoot").objectReferenceValue,
+                    Is.EqualTo(home.Find("Placeholder_Home").gameObject));
+                Assert.That(controller.GetType().GetMethod("Refresh"), Is.Not.Null);
+            });
+        }
+
+        [Test]
+        public void HomeDashboard_BuildsMetricsStatusAndQuickActions()
+        {
+            Type controllerType = Type.GetType("HomeDashboardPage, Assembly-CSharp");
+            Assert.That(controllerType, Is.Not.Null);
+            var root = new GameObject("Page_Home", typeof(RectTransform));
+            root.SetActive(false);
+            try
+            {
+                root.GetComponent<RectTransform>().sizeDelta = new Vector2(1360f, 900f);
+                var placeholder = new GameObject(
+                    "Placeholder_Home", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                placeholder.transform.SetParent(root.transform, false);
+                var controller = (MonoBehaviour)root.AddComponent(controllerType);
+                var data = new SerializedObject(controller);
+                data.FindProperty("fontAsset").objectReferenceValue =
+                    AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>(
+                        "Assets/Font/Yozai-Light SDF.asset");
+                data.FindProperty("theme").objectReferenceValue =
+                    AssetDatabase.LoadAssetAtPath<ScriptableObject>(
+                        "Assets/JobCheckUiTheme.asset");
+                data.FindProperty("placeholderRoot").objectReferenceValue = placeholder;
+                data.ApplyModifiedPropertiesWithoutUndo();
+
+                MethodInfo ensure = controllerType.GetMethod("EnsureUi",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(ensure, Is.Not.Null);
+                ensure.Invoke(controller, null);
+
+                Transform dashboard = root.transform.Find("HomeDashboard");
+                Assert.That(dashboard, Is.Not.Null);
+                Assert.That(placeholder.activeSelf, Is.False);
+                Assert.That(FindDescendant(dashboard, "DashboardScroll")
+                    .GetComponent<ScrollRect>(), Is.Not.Null);
+                Assert.That(FindDescendant(dashboard, "MetricRow"), Is.Not.Null);
+                Assert.That(FindDescendant(dashboard, "Metric_Jobs"), Is.Not.Null);
+                Assert.That(FindDescendant(dashboard, "Metric_Active"), Is.Not.Null);
+                Assert.That(FindDescendant(dashboard, "Metric_Review"), Is.Not.Null);
+                Assert.That(FindDescendant(dashboard, "Metric_NoResponse"), Is.Not.Null);
+                Assert.That(FindDescendant(dashboard, "Card_Status"), Is.Not.Null);
+                Assert.That(FindDescendant(dashboard, "Card_Attention"), Is.Not.Null);
+                Assert.That(FindDescendant(dashboard, "Card_Profile"), Is.Not.Null);
+                Assert.That(FindDescendant(dashboard, "Button_AddJob"), Is.Not.Null);
+                Assert.That(FindDescendant(dashboard, "Button_EditResume"), Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void ResumeColumns_UseFortySixtySplitAndTallestColumnHeight()
         {
             Type layoutType = Type.GetType("CareerProfileColumnsLayout, Assembly-CSharp");

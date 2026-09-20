@@ -69,6 +69,11 @@ public class AllJobPage : MonoBehaviour
     private int currentPage;
     private JobCheckDataProfile currentDataProfile;
 
+    public JobCheckDataProfile CurrentDataProfile => currentDataProfile;
+    public string CurrentDataProfileLabel =>
+        currentDataProfile == JobCheckDataProfile.Personal ? "個人" : "Demo";
+    public string CurrentDataRoot => ResolveProjectRelativePath(ActiveDataRootPath);
+
     private string ActiveDataRootPath
     {
         get
