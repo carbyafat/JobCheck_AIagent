@@ -154,6 +154,10 @@ namespace JobCheck.Ui.Editor.Tests
                 Assert.That(controller.GetType().GetMethod("OpenEditor"), Is.Not.Null);
                 Assert.That(controller.GetType().GetMethod("SaveEditor"), Is.Not.Null);
                 Assert.That(controller.GetType().GetMethod("CancelEditor"), Is.Not.Null);
+                Assert.That(controller.GetType().GetMethod("OpenTransfer"), Is.Not.Null);
+                Assert.That(controller.GetType().GetMethod("CloseTransfer"), Is.Not.Null);
+                Assert.That(controller.GetType().GetMethod("ChooseExportPath"), Is.Not.Null);
+                Assert.That(controller.GetType().GetMethod("ChooseImportFile"), Is.Not.Null);
             });
         }
 

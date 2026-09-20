@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using JobCheck.Domain;
 using JobCheck.Persistence;
+using SimpleFileBrowser;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -22,15 +23,21 @@ public sealed class CareerProfilePage : MonoBehaviour
     public CareerProfile CurrentProfile { get; private set; }
 
     private Button editButton;
+    private Button transferButton;
     private GameObject editorRoot;
+    private GameObject transferRoot;
     private TMP_Text editorStatus;
+    private TMP_Text transferMessage;
+    private Button importButton;
+    private Button replaceButton;
+    private string previewedPackagePath;
     private readonly Dictionary<string, TMP_Text> displayFields =
         new Dictionary<string, TMP_Text>(StringComparer.Ordinal);
     private readonly Dictionary<string, TMP_InputField> editorFields =
         new Dictionary<string, TMP_InputField>(StringComparer.Ordinal);
 
     private const string ProfileUiCharacters =
-        "個人履歷最後更新自我介紹連結技能工作經歷專案學歷語言能力尚未填寫新增讀取失敗未知錯誤編輯儲存取消至今年月日時分公司職務開始結束內容名稱技術網址說明機構項目備註程度母語首頁職缺側欄寬度";
+        "個人履歷最後更新自我介紹連結技能工作經歷專案學歷語言能力尚未填寫新增讀取失敗未知錯誤編輯儲存取消至今年月日時分公司職務開始結束內容名稱技術網址說明機構項目備註程度母語首頁職缺側欄寬度搬遷匯出匯入選擇檔案取代本機關閉預覽成功檔案尚未加密請妥善保管";
 
     private static readonly Color PanelColor = new Color(0.94f, 0.94f, 0.94f, 1f);
     private static readonly Color FieldColor = new Color(1f, 1f, 1f, 1f);
@@ -40,6 +47,7 @@ public sealed class CareerProfilePage : MonoBehaviour
     {
         EnsureDisplayUi();
         EnsureEditorUi();
+        EnsureTransferUi();
         Refresh();
     }
 
@@ -94,6 +102,7 @@ public sealed class CareerProfilePage : MonoBehaviour
         SetEditorStatus("", false);
         displayText.gameObject.SetActive(false);
         editButton.gameObject.SetActive(false);
+        if (transferButton != null) transferButton.gameObject.SetActive(false);
         editorRoot.SetActive(true);
     }
 
@@ -112,6 +121,11 @@ public sealed class CareerProfilePage : MonoBehaviour
         if (editButton != null)
         {
             editButton.gameObject.SetActive(true);
+        }
+
+        if (transferButton != null)
+        {
+            transferButton.gameObject.SetActive(true);
         }
     }
 
@@ -572,6 +586,325 @@ public sealed class CareerProfilePage : MonoBehaviour
         valueLayout.minHeight = minimumValueHeight;
         valueLayout.flexibleHeight = 0f;
         displayFields.Add(key, value);
+    }
+
+    private void EnsureTransferUi()
+    {
+        if (transferRoot != null)
+        {
+            return;
+        }
+
+        TMP_FontAsset font = ResolveFontAsset();
+        if (font == null)
+        {
+            Debug.LogError("CareerProfilePage 缺少 TMP 字型資產。");
+            return;
+        }
+
+        transferButton = CreateButton(transform, "Button_ProfileTransfer", "履歷搬遷", font,
+            new Vector2(1f, 1f), new Vector2(-330f, -45f), new Vector2(200f, 56f));
+        transferButton.onClick.AddListener(OpenTransfer);
+
+        transferRoot = CreateUiObject("CareerProfileTransfer", transform, typeof(Image));
+        RectTransform panel = transferRoot.GetComponent<RectTransform>();
+        Stretch(panel, new Vector2(34f, 30f), new Vector2(-34f, -30f));
+        transferRoot.GetComponent<Image>().color = PanelColor;
+
+        CreateText(panel, "Title", "履歷資料搬遷", font, 34,
+            new Vector2(0.5f, 1f), new Vector2(0f, -28f), new Vector2(700f, 60f),
+            TextAlignmentOptions.Center);
+
+        GameObject messagePanel = CreateUiObject(
+            "MessagePanel", panel, typeof(Image), typeof(RectMask2D));
+        RectTransform messageRect = messagePanel.GetComponent<RectTransform>();
+        messageRect.anchorMin = new Vector2(0.5f, 0.5f);
+        messageRect.anchorMax = new Vector2(0.5f, 0.5f);
+        messageRect.pivot = new Vector2(0.5f, 0.5f);
+        messageRect.anchoredPosition = new Vector2(0f, 35f);
+        messageRect.sizeDelta = new Vector2(1260f, 560f);
+        messagePanel.GetComponent<Image>().color = FieldColor;
+        transferMessage = CreateText(messageRect, "Message", string.Empty, font, 24,
+            new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero,
+            TextAlignmentOptions.TopLeft);
+        Stretch(transferMessage.rectTransform,
+            new Vector2(28f, 24f), new Vector2(-28f, -24f));
+        transferMessage.overflowMode = TextOverflowModes.Ellipsis;
+
+        Button close = CreateButton(panel, "Button_Close", "關閉", font,
+            new Vector2(0.5f, 0f), new Vector2(-500f, 58f), new Vector2(180f, 56f));
+        Button export = CreateButton(panel, "Button_Export", "匯出履歷", font,
+            new Vector2(0.5f, 0f), new Vector2(-280f, 58f), new Vector2(200f, 56f));
+        Button choose = CreateButton(panel, "Button_ChooseImport", "選擇匯入檔", font,
+            new Vector2(0.5f, 0f), new Vector2(-40f, 58f), new Vector2(230f, 56f));
+        importButton = CreateButton(panel, "Button_Import", "匯入履歷", font,
+            new Vector2(0.5f, 0f), new Vector2(205f, 58f), new Vector2(200f, 56f));
+        replaceButton = CreateButton(panel, "Button_Replace", "取代本機履歷", font,
+            new Vector2(0.5f, 0f), new Vector2(455f, 58f), new Vector2(240f, 56f));
+
+        close.onClick.AddListener(CloseTransfer);
+        export.onClick.AddListener(ChooseExportPath);
+        choose.onClick.AddListener(ChooseImportFile);
+        importButton.onClick.AddListener(() => ApplyImport(false));
+        replaceButton.onClick.AddListener(() => ApplyImport(true));
+        InvalidateTransferPreview();
+        transferRoot.SetActive(false);
+    }
+
+    public void OpenTransfer()
+    {
+        EnsureTransferUi();
+        if (transferRoot == null)
+        {
+            return;
+        }
+
+        if (editorRoot != null) editorRoot.SetActive(false);
+        if (displayText != null) displayText.gameObject.SetActive(false);
+        if (editButton != null) editButton.gameObject.SetActive(false);
+        if (transferButton != null) transferButton.gameObject.SetActive(false);
+        InvalidateTransferPreview();
+        SetTransferMessage(
+            "履歷搬遷與職缺資料搬遷是兩種不同檔案。\n\n"
+            + "• 匯出會建立 .jobcheck-profile.json，不修改目前履歷。\n"
+            + "• 匯入前會先顯示來源時間與處理方式。\n"
+            + "• 本機已有不同履歷時，只有按下「取代本機履歷」才會套用，"
+            + "而且會先備份原始 profile.json。\n"
+            + "• 搬運檔尚未加密，請妥善保管。",
+            false);
+        transferRoot.SetActive(true);
+    }
+
+    public void CloseTransfer()
+    {
+        if (transferRoot != null) transferRoot.SetActive(false);
+        if (displayText != null) displayText.gameObject.SetActive(true);
+        if (editButton != null) editButton.gameObject.SetActive(true);
+        if (transferButton != null) transferButton.gameObject.SetActive(true);
+        InvalidateTransferPreview();
+        Refresh();
+    }
+
+    public void ChooseExportPath()
+    {
+        if (FileBrowser.IsOpen)
+        {
+            return;
+        }
+
+        string initialDirectory = GetProfileExportDirectory();
+        try
+        {
+            Directory.CreateDirectory(initialDirectory);
+        }
+        catch (Exception exception) when (
+            exception is IOException || exception is UnauthorizedAccessException
+            || exception is ArgumentException || exception is NotSupportedException)
+        {
+            SetTransferMessage("無法開啟履歷匯出資料夾：" + exception.Message, true);
+            return;
+        }
+        FileBrowser.SetFilters(false,
+            new FileBrowser.Filter("JobCheck profile",
+                CareerProfilePortablePackageDto.FileExtension));
+        FileBrowser.ShowSaveDialog(
+            paths =>
+            {
+                if (this == null || paths == null || paths.Length != 1)
+                {
+                    return;
+                }
+
+                ExportProfile(EnsureProfileExtension(paths[0]));
+            },
+            () => { },
+            FileBrowser.PickMode.Files,
+            false,
+            initialDirectory,
+            "JobCheck-Profile-" + DateTime.Now.ToString("yyyyMMdd-HHmmss")
+                + CareerProfilePortablePackageDto.FileExtension,
+            "選擇履歷匯出位置",
+            "匯出");
+    }
+
+    public void ChooseImportFile()
+    {
+        if (FileBrowser.IsOpen)
+        {
+            return;
+        }
+
+        string initialDirectory = GetProfileExportDirectory();
+        if (!Directory.Exists(initialDirectory))
+        {
+            string documents = Environment.GetFolderPath(
+                Environment.SpecialFolder.MyDocuments);
+            initialDirectory = Directory.Exists(documents)
+                ? documents
+                : UnityEngine.Application.persistentDataPath;
+        }
+
+        FileBrowser.SetFilters(false,
+            new FileBrowser.Filter("JobCheck profile",
+                CareerProfilePortablePackageDto.FileExtension));
+        FileBrowser.ShowLoadDialog(
+            paths =>
+            {
+                if (this == null || paths == null || paths.Length != 1)
+                {
+                    return;
+                }
+
+                PreviewImport(paths[0]);
+            },
+            () => { },
+            FileBrowser.PickMode.Files,
+            false,
+            initialDirectory,
+            null,
+            "選擇履歷搬運檔",
+            "預覽");
+    }
+
+    private void ExportProfile(string destinationPath)
+    {
+        PersistenceStorageResult<CareerProfilePortableExportSummary> result =
+            CareerProfilePortableExportService.Export(
+                ResolveProjectRelativePath(personalDataRootPath), destinationPath);
+        if (!result.IsSuccess)
+        {
+            SetTransferMessage("履歷匯出失敗，原始資料未變更。\n"
+                + FormatIssues(result.Issues), true);
+            return;
+        }
+
+        SetTransferMessage("履歷匯出完成：\n" + result.Value.Path + "\n\n"
+            + "匯出時間：" + result.Value.ExportedAt.ToLocalTime()
+                .ToString("yyyy/MM/dd HH:mm") + "\n"
+            + "檔案尚未加密；複製到其他裝置後，請從履歷頁選擇匯入。", false);
+    }
+
+    private void PreviewImport(string packagePath)
+    {
+        InvalidateTransferPreview();
+        PersistenceStorageResult<CareerProfilePortableImportPreview> result =
+            CareerProfilePortableImportService.Preview(
+                packagePath, ResolveProjectRelativePath(personalDataRootPath));
+        if (!result.IsSuccess)
+        {
+            SetTransferMessage("無法預覽這份履歷搬運檔。\n"
+                + FormatIssues(result.Issues), true);
+            return;
+        }
+
+        CareerProfilePortableImportPreview preview = result.Value;
+        previewedPackagePath = preview.Path;
+        string action;
+        switch (preview.Disposition)
+        {
+            case CareerProfileImportDisposition.Create:
+                action = "本機尚無履歷；可按「匯入履歷」建立。";
+                importButton.interactable = true;
+                break;
+            case CareerProfileImportDisposition.Identical:
+                action = "搬運檔與本機履歷相同，無須匯入。";
+                break;
+            default:
+                action = "本機已有不同履歷。普通匯入已停用；"
+                    + "若確認要使用搬運檔，請按「取代本機履歷」。原檔會先備份。";
+                replaceButton.interactable = true;
+                break;
+        }
+
+        SetTransferMessage("預覽成功：\n" + preview.Path + "\n\n"
+            + "匯出時間：" + preview.ExportedAt.ToLocalTime()
+                .ToString("yyyy/MM/dd HH:mm") + "\n"
+            + "履歷摘要：" + ProfileSummary(preview.Profile) + "\n\n" + action,
+            preview.Disposition == CareerProfileImportDisposition.ReplaceRequired);
+    }
+
+    private void ApplyImport(bool replaceExisting)
+    {
+        if (string.IsNullOrWhiteSpace(previewedPackagePath))
+        {
+            return;
+        }
+
+        PersistenceStorageResult<CareerProfilePortableImportSummary> result =
+            CareerProfilePortableImportService.Import(
+                previewedPackagePath,
+                ResolveProjectRelativePath(personalDataRootPath),
+                replaceExisting);
+        InvalidateTransferPreview();
+        if (!result.IsSuccess)
+        {
+            SetTransferMessage("履歷匯入未完成，本機資料未被靜默覆蓋。\n"
+                + FormatIssues(result.Issues), true);
+            return;
+        }
+
+        Refresh();
+        if (result.Value.Disposition == CareerProfileImportDisposition.Identical)
+        {
+            SetTransferMessage("搬運檔與本機履歷相同，沒有寫入任何資料。", false);
+            return;
+        }
+
+        string backup = string.IsNullOrWhiteSpace(result.Value.BackupPath)
+            ? string.Empty
+            : "\n原履歷備份：" + result.Value.BackupPath;
+        SetTransferMessage("履歷匯入完成並已重新載入核對。" + backup, false);
+    }
+
+    private void InvalidateTransferPreview()
+    {
+        previewedPackagePath = null;
+        if (importButton != null) importButton.interactable = false;
+        if (replaceButton != null) replaceButton.interactable = false;
+    }
+
+    private void SetTransferMessage(string message, bool error)
+    {
+        if (transferMessage == null)
+        {
+            return;
+        }
+
+        transferMessage.text = message ?? string.Empty;
+        transferMessage.color = error
+            ? new Color(0.7f, 0.12f, 0.12f, 1f)
+            : new Color(0.18f, 0.18f, 0.18f, 1f);
+    }
+
+    private static string ProfileSummary(CareerProfile profile)
+    {
+        if (profile == null)
+        {
+            return "無法讀取";
+        }
+
+        return "技能 " + profile.Skills.Count
+            + "、工作經歷 " + profile.Experiences.Count
+            + "、專案 " + profile.Projects.Count
+            + "、學歷 " + profile.Educations.Count
+            + "、語言 " + profile.Languages.Count;
+    }
+
+    private static string EnsureProfileExtension(string path)
+    {
+        return path.EndsWith(CareerProfilePortablePackageDto.FileExtension,
+            StringComparison.OrdinalIgnoreCase)
+            ? path
+            : path + CareerProfilePortablePackageDto.FileExtension;
+    }
+
+    private static string GetProfileExportDirectory()
+    {
+        string documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        string root = string.IsNullOrWhiteSpace(documents)
+            ? UnityEngine.Application.persistentDataPath
+            : documents;
+        return Path.Combine(root, "JobCheck", "ProfileExports");
     }
 
     private void EnsureEditorUi()
