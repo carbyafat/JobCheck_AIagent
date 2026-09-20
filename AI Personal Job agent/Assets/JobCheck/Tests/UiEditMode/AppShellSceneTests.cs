@@ -348,6 +348,42 @@ namespace JobCheck.Ui.Editor.Tests
             });
         }
 
+        [Test]
+        public void ResumeColumns_UseFortySixtySplitAndTallestColumnHeight()
+        {
+            Type layoutType = Type.GetType("CareerProfileColumnsLayout, Assembly-CSharp");
+            Assert.That(layoutType, Is.Not.Null);
+            var root = new GameObject("ResumeColumns", typeof(RectTransform), layoutType);
+            var left = new GameObject("Left", typeof(RectTransform), typeof(LayoutElement));
+            var right = new GameObject("Right", typeof(RectTransform), typeof(LayoutElement));
+            try
+            {
+                RectTransform rootRect = root.GetComponent<RectTransform>();
+                rootRect.sizeDelta = new Vector2(1200f, 0f);
+                left.transform.SetParent(root.transform, false);
+                right.transform.SetParent(root.transform, false);
+                left.GetComponent<LayoutElement>().preferredHeight = 240f;
+                right.GetComponent<LayoutElement>().preferredHeight = 420f;
+
+                var layout = (LayoutGroup)root.GetComponent(layoutType);
+                layoutType.GetMethod("Configure").Invoke(layout, new object[] { 0.4f, 20f });
+                layout.CalculateLayoutInputHorizontal();
+                layout.SetLayoutHorizontal();
+                layout.CalculateLayoutInputVertical();
+                layout.SetLayoutVertical();
+
+                Assert.That(left.GetComponent<RectTransform>().rect.width,
+                    Is.EqualTo(472f).Within(0.1f));
+                Assert.That(right.GetComponent<RectTransform>().rect.width,
+                    Is.EqualTo(708f).Within(0.1f));
+                Assert.That(layout.preferredHeight, Is.EqualTo(420f).Within(0.1f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
         private static void WithScene(Action<Scene> assertion)
         {
             Scene scene = SceneManager.GetSceneByPath(ScenePath);

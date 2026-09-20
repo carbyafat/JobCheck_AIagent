@@ -49,11 +49,17 @@ public sealed class CareerProfilePage : MonoBehaviour
     private Color SurfaceMuted => theme != null
         ? theme.SurfaceMuted
         : new Color(0.92f, 0.9f, 0.9f, 1f);
+    private Color Border => theme != null
+        ? theme.Border
+        : new Color(0.82f, 0.8f, 0.8f, 1f);
     private Color Primary => theme != null
         ? theme.Primary
         : new Color(0.55f, 0.32f, 0.34f, 1f);
     private Color PrimaryHover => theme != null ? theme.PrimaryHover : Primary * 1.08f;
     private Color PrimaryPressed => theme != null ? theme.PrimaryPressed : Primary * 0.82f;
+    private Color Danger => theme != null
+        ? theme.Danger
+        : new Color(0.66f, 0.27f, 0.26f, 1f);
     private Color TextPrimary => theme != null
         ? theme.TextPrimary
         : new Color(0.18f, 0.18f, 0.18f, 1f);
@@ -61,6 +67,13 @@ public sealed class CareerProfilePage : MonoBehaviour
         ? theme.TextSecondary
         : new Color(0.4f, 0.4f, 0.4f, 1f);
     private Color TextOnPrimary => theme != null ? theme.TextOnPrimary : Color.white;
+
+    private enum ButtonTone
+    {
+        Primary,
+        Secondary,
+        Danger
+    }
 
     private void OnEnable()
     {
@@ -530,12 +543,24 @@ public sealed class CareerProfilePage : MonoBehaviour
         PrepareGlyphs(null);
         displayText.enabled = false;
         RectTransform panel = displayText.rectTransform;
-        displayFields.Add("title", CreateText(panel, "Title", "個人履歷", font, 36,
-            new Vector2(0f, 1f), new Vector2(24f, -18f), new Vector2(560f, 56f),
+        Image pageBackground = displayText.GetComponent<Image>();
+        if (pageBackground != null)
+        {
+            pageBackground.color = AppBackground;
+        }
+
+        float pageTitleSize = theme != null ? theme.PageTitleSize : 48f;
+        float supportingSize = theme != null ? theme.SupportingTextSize : 20f;
+        displayFields.Add("title", CreateText(panel, "Title", "個人履歷", font,
+            Mathf.RoundToInt(pageTitleSize), new Vector2(0f, 1f),
+            new Vector2(0f, -4f), new Vector2(560f, 62f),
             TextAlignmentOptions.MidlineLeft));
-        displayFields.Add("updated", CreateText(panel, "UpdatedAt", "最後更新：—", font, 22,
-            new Vector2(1f, 1f), new Vector2(-24f, -18f), new Vector2(620f, 56f),
-            TextAlignmentOptions.MidlineRight));
+        displayFields["title"].fontStyle = FontStyles.Bold;
+        displayFields.Add("updated", CreateText(panel, "UpdatedAt", "最後更新：—", font,
+            Mathf.RoundToInt(supportingSize), new Vector2(0f, 1f),
+            new Vector2(0f, -64f), new Vector2(620f, 34f),
+            TextAlignmentOptions.MidlineLeft));
+        displayFields["updated"].color = TextSecondary;
 
         GameObject scrollObject = CreateUiObject(
             "DisplayScroll",
@@ -544,8 +569,8 @@ public sealed class CareerProfilePage : MonoBehaviour
             typeof(RectMask2D),
             typeof(ScrollRect));
         RectTransform viewport = scrollObject.GetComponent<RectTransform>();
-        Stretch(viewport, new Vector2(20f, 20f), new Vector2(-20f, -82f));
-        scrollObject.GetComponent<Image>().color = Surface;
+        Stretch(viewport, new Vector2(0f, 0f), new Vector2(0f, -116f));
+        scrollObject.GetComponent<Image>().color = AppBackground;
 
         GameObject contentObject = CreateUiObject(
             "Content",
@@ -560,8 +585,9 @@ public sealed class CareerProfilePage : MonoBehaviour
         content.sizeDelta = Vector2.zero;
 
         VerticalLayoutGroup layout = contentObject.GetComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(20, 32, 18, 24);
-        layout.spacing = 10f;
+        int contentPadding = Mathf.RoundToInt(theme != null ? theme.SpaceXs : 8f);
+        layout.padding = new RectOffset(contentPadding, contentPadding, contentPadding, 24);
+        layout.spacing = theme != null ? theme.SpaceMd : 16f;
         layout.childAlignment = TextAnchor.UpperLeft;
         layout.childControlWidth = true;
         layout.childControlHeight = true;
@@ -579,36 +605,98 @@ public sealed class CareerProfilePage : MonoBehaviour
         scroll.movementType = ScrollRect.MovementType.Clamped;
         scroll.scrollSensitivity = 45f;
 
-        CreateDisplaySection("summary", "自我介紹", font, content, 100f);
-        CreateDisplaySection("links", "連結", font, content, 70f);
-        CreateDisplaySection("skills", "技能", font, content, 70f);
-        CreateDisplaySection("experiences", "工作經歷", font, content, 90f);
-        CreateDisplaySection("projects", "專案經歷", font, content, 90f);
-        CreateDisplaySection("educations", "學歷", font, content, 80f);
-        CreateDisplaySection("languages", "語言能力", font, content, 70f);
+        CreateDisplayCard("summary", "自我介紹", font, content, 84f);
+
+        GameObject columnsObject = CreateUiObject(
+            "DisplayColumns", content, typeof(CareerProfileColumnsLayout));
+        CareerProfileColumnsLayout columns =
+            columnsObject.GetComponent<CareerProfileColumnsLayout>();
+        columns.Configure(0.4f, theme != null ? theme.SpaceMd : 16f);
+
+        RectTransform leftColumn = CreateDisplayColumn(columnsObject.transform, "Column_Profile", 0.4f);
+        RectTransform rightColumn = CreateDisplayColumn(columnsObject.transform, "Column_History", 0.6f);
+        CreateDisplayCard("skills", "技能", font, leftColumn, 72f);
+        CreateDisplayCard("links", "連結", font, leftColumn, 64f);
+        CreateDisplayCard("languages", "語言能力", font, leftColumn, 64f);
+        CreateDisplayCard("experiences", "工作經歷", font, rightColumn, 118f);
+        CreateDisplayCard("projects", "專案經歷", font, rightColumn, 104f);
+        CreateDisplayCard("educations", "學歷", font, rightColumn, 82f);
     }
 
-    private void CreateDisplaySection(
+    private RectTransform CreateDisplayColumn(Transform parent, string name, float widthRatio)
+    {
+        GameObject columnObject = CreateUiObject(
+            name, parent, typeof(VerticalLayoutGroup));
+        VerticalLayoutGroup column = columnObject.GetComponent<VerticalLayoutGroup>();
+        column.spacing = theme != null ? theme.SpaceMd : 16f;
+        column.childAlignment = TextAnchor.UpperLeft;
+        column.childControlWidth = true;
+        column.childControlHeight = true;
+        column.childForceExpandWidth = true;
+        column.childForceExpandHeight = false;
+        ContentSizeFitter fitter = columnObject.AddComponent<ContentSizeFitter>();
+        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        LayoutElement layout = columnObject.AddComponent<LayoutElement>();
+        layout.flexibleWidth = widthRatio;
+        return columnObject.GetComponent<RectTransform>();
+    }
+
+    private void CreateDisplayCard(
         string key,
         string title,
         TMP_FontAsset font,
-        RectTransform content,
+        Transform parent,
         float minimumValueHeight)
     {
-        TMP_Text heading = CreateText(content, "Title_" + key, title, font, 26,
-            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 38f),
-            TextAlignmentOptions.MidlineLeft);
-        LayoutElement headingLayout = heading.gameObject.AddComponent<LayoutElement>();
-        headingLayout.minHeight = 38f;
-        headingLayout.preferredHeight = 38f;
+        GameObject cardObject = CreateUiObject(
+            "Card_" + key,
+            parent,
+            typeof(Image),
+            typeof(VerticalLayoutGroup),
+            typeof(ContentSizeFitter),
+            typeof(Outline));
+        Image card = cardObject.GetComponent<Image>();
+        card.color = Surface;
+        ApplySlicedSprite(card);
+        Outline outline = cardObject.GetComponent<Outline>();
+        outline.effectColor = Border;
+        outline.effectDistance = new Vector2(1f, -1f);
+        outline.useGraphicAlpha = true;
 
-        TMP_Text value = CreateText(content, "Value_" + key, string.Empty, font, 22,
+        VerticalLayoutGroup cardLayout = cardObject.GetComponent<VerticalLayoutGroup>();
+        int horizontalPadding = Mathf.RoundToInt(theme != null ? theme.SpaceLg : 24f);
+        int verticalPadding = Mathf.RoundToInt(theme != null ? theme.SpaceMd : 16f);
+        cardLayout.padding = new RectOffset(
+            horizontalPadding, horizontalPadding, verticalPadding, verticalPadding);
+        cardLayout.spacing = theme != null ? theme.SpaceSm : 12f;
+        cardLayout.childAlignment = TextAnchor.UpperLeft;
+        cardLayout.childControlWidth = true;
+        cardLayout.childControlHeight = true;
+        cardLayout.childForceExpandWidth = true;
+        cardLayout.childForceExpandHeight = false;
+        ContentSizeFitter cardFitter = cardObject.GetComponent<ContentSizeFitter>();
+        cardFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        cardFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        TMP_Text heading = CreateText(cardObject.transform, "Title_" + key, title, font,
+            Mathf.RoundToInt(theme != null ? theme.SectionTitleSize : 28f),
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 40f),
+            TextAlignmentOptions.MidlineLeft);
+        heading.fontStyle = FontStyles.Bold;
+        LayoutElement headingLayout = heading.gameObject.AddComponent<LayoutElement>();
+        headingLayout.minHeight = 40f;
+        headingLayout.preferredHeight = 40f;
+
+        TMP_Text value = CreateText(cardObject.transform, "Value_" + key, string.Empty, font,
+            Mathf.RoundToInt(theme != null ? theme.BodySize : 22f),
             new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, minimumValueHeight),
             TextAlignmentOptions.TopLeft);
+        value.color = TextSecondary;
         value.enableWordWrapping = true;
         LayoutElement valueLayout = value.gameObject.AddComponent<LayoutElement>();
         valueLayout.minHeight = minimumValueHeight;
-        valueLayout.flexibleHeight = 0f;
+        valueLayout.preferredHeight = -1f;
         displayFields.Add(key, value);
     }
 
@@ -627,7 +715,8 @@ public sealed class CareerProfilePage : MonoBehaviour
         }
 
         transferButton = CreateButton(transform, "Button_ProfileTransfer", "履歷搬遷", font,
-            new Vector2(1f, 1f), new Vector2(-330f, -45f), new Vector2(200f, 56f));
+            new Vector2(1f, 1f), new Vector2(-360f, -58f), new Vector2(200f, 56f),
+            ButtonTone.Secondary);
         transferButton.onClick.AddListener(OpenTransfer);
 
         transferRoot = CreateUiObject("CareerProfileTransfer", transform, typeof(Image));
@@ -945,7 +1034,7 @@ public sealed class CareerProfilePage : MonoBehaviour
             return;
         }
         editButton = CreateButton(transform, "Button_EditProfile", "編輯履歷", font,
-            new Vector2(1f, 1f), new Vector2(-120f, -45f), new Vector2(180f, 56f));
+            new Vector2(1f, 1f), new Vector2(-140f, -58f), new Vector2(180f, 56f));
         editButton.onClick.AddListener(OpenEditor);
 
         editorRoot = CreateUiObject("CareerProfileEditor", transform, typeof(Image));
@@ -1045,7 +1134,8 @@ public sealed class CareerProfilePage : MonoBehaviour
         TMP_FontAsset font,
         Vector2 anchor,
         Vector2 position,
-        Vector2 size)
+        Vector2 size,
+        ButtonTone tone = ButtonTone.Primary)
     {
         GameObject root = CreateUiObject(name, parent, typeof(Image), typeof(Button));
         RectTransform rect = root.GetComponent<RectTransform>();
@@ -1055,15 +1145,33 @@ public sealed class CareerProfilePage : MonoBehaviour
         rect.anchoredPosition = position;
         rect.sizeDelta = size;
         Image image = root.GetComponent<Image>();
-        image.color = Primary;
+        Color normal = tone == ButtonTone.Secondary
+            ? Surface
+            : tone == ButtonTone.Danger ? Danger : Primary;
+        Color highlighted = tone == ButtonTone.Secondary
+            ? SurfaceMuted
+            : tone == ButtonTone.Danger ? new Color(
+                Mathf.Min(1f, Danger.r * 1.12f),
+                Mathf.Min(1f, Danger.g * 1.12f),
+                Mathf.Min(1f, Danger.b * 1.12f), 1f) : PrimaryHover;
+        Color pressed = tone == ButtonTone.Secondary
+            ? Border
+            : tone == ButtonTone.Danger ? Danger * 0.82f : PrimaryPressed;
+        image.color = normal;
         ApplySlicedSprite(image);
+        if (tone == ButtonTone.Secondary)
+        {
+            Outline outline = root.AddComponent<Outline>();
+            outline.effectColor = Border;
+            outline.effectDistance = new Vector2(1f, -1f);
+        }
         Button button = root.GetComponent<Button>();
         button.targetGraphic = image;
         ColorBlock colors = button.colors;
-        colors.normalColor = Primary;
-        colors.highlightedColor = PrimaryHover;
-        colors.pressedColor = PrimaryPressed;
-        colors.selectedColor = Primary;
+        colors.normalColor = normal;
+        colors.highlightedColor = highlighted;
+        colors.pressedColor = pressed;
+        colors.selectedColor = normal;
         colors.disabledColor = new Color(
             SurfaceMuted.r, SurfaceMuted.g, SurfaceMuted.b, 0.65f);
         colors.colorMultiplier = 1f;
@@ -1071,7 +1179,7 @@ public sealed class CareerProfilePage : MonoBehaviour
         button.colors = colors;
         TMP_Text text = CreateText(root.transform, "Text", label, font, 24,
             new Vector2(0.5f, 0.5f), Vector2.zero, size - new Vector2(20f, 12f), TextAlignmentOptions.Center);
-        text.color = TextOnPrimary;
+        text.color = tone == ButtonTone.Secondary ? TextPrimary : TextOnPrimary;
         return button;
     }
 
