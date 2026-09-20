@@ -29,6 +29,7 @@ public sealed class CareerProfilePage : MonoBehaviour
     private Button transferButton;
     private GameObject editorRoot;
     private GameObject transferRoot;
+    private ScrollRect editorScroll;
     private TMP_Text editorStatus;
     private TMP_Text transferMessage;
     private Button importButton;
@@ -132,6 +133,11 @@ public sealed class CareerProfilePage : MonoBehaviour
             item => Join(" | ", item.Name, item.Level, OneLine(item.Notes)));
 
         SetEditorStatus("", false);
+        if (editorScroll != null)
+        {
+            Canvas.ForceUpdateCanvases();
+            editorScroll.verticalNormalizedPosition = 1f;
+        }
         displayText.gameObject.SetActive(false);
         editButton.gameObject.SetActive(false);
         if (transferButton != null) transferButton.gameObject.SetActive(false);
@@ -1042,34 +1048,92 @@ public sealed class CareerProfilePage : MonoBehaviour
         Stretch(panel, new Vector2(34f, 30f), new Vector2(-34f, -30f));
         editorRoot.GetComponent<Image>().color = AppBackground;
 
-        CreateText(editorRoot.transform, "Title", "編輯個人履歷", font, 34,
-            new Vector2(0.5f, 1f), new Vector2(0f, -24f), new Vector2(600f, 52f), TextAlignmentOptions.Center);
+        TMP_Text title = CreateText(editorRoot.transform, "Title", "編輯個人履歷", font,
+            Mathf.RoundToInt(theme != null ? theme.PageTitleSize : 48f),
+            new Vector2(0f, 1f), new Vector2(24f, -16f), new Vector2(720f, 64f),
+            TextAlignmentOptions.MidlineLeft);
+        title.fontStyle = FontStyles.Bold;
 
-        CreateEditorField("summary", "自我介紹（可多行）", "介紹背景、能力與職涯方向", font,
-            panel, new Vector2(24f, -82f), new Vector2(750f, 180f));
-        CreateEditorField("links", "連結（每行：名稱 | URL）", "GitHub | https://github.com/...", font,
-            panel, new Vector2(24f, -300f), new Vector2(750f, 130f));
-        CreateEditorField("skills", "技能（每行：技能 | 備註）", "Unity | 主要開發工具", font,
-            panel, new Vector2(24f, -468f), new Vector2(750f, 130f));
-        CreateEditorField("languages", "語言（每行：語言 | 程度 | 備註）", "中文 | 母語 |", font,
-            panel, new Vector2(24f, -636f), new Vector2(750f, 130f));
+        GameObject scrollObject = CreateUiObject(
+            "EditorScroll", panel, typeof(Image), typeof(RectMask2D), typeof(ScrollRect));
+        RectTransform viewport = scrollObject.GetComponent<RectTransform>();
+        Stretch(viewport, new Vector2(24f, 104f), new Vector2(-24f, -96f));
+        scrollObject.GetComponent<Image>().color = AppBackground;
 
-        CreateEditorField("experiences", "工作經歷（公司 | 職務 | 開始 | 結束／至今 | 內容）",
-            "公司 | 工程師 | 2024/01 | 至今 | 工作內容", font,
-            panel, new Vector2(806f, -82f), new Vector2(750f, 180f));
-        CreateEditorField("projects", "專案（名稱 | 技術逗號分隔 | URL | 說明）",
-            "JobCheck | Unity, C# | https://... | 專案說明", font,
-            panel, new Vector2(806f, -300f), new Vector2(750f, 180f));
-        CreateEditorField("educations", "學歷（機構 | 項目 | 開始 | 結束 | 備註）",
-            "學校 | 科系 | 2020 | 2024 |", font,
-            panel, new Vector2(806f, -518f), new Vector2(750f, 180f));
+        GameObject contentObject = CreateUiObject(
+            "Content", viewport, typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        RectTransform content = contentObject.GetComponent<RectTransform>();
+        content.anchorMin = new Vector2(0f, 1f);
+        content.anchorMax = new Vector2(1f, 1f);
+        content.pivot = new Vector2(0.5f, 1f);
+        content.anchoredPosition = Vector2.zero;
+        content.sizeDelta = Vector2.zero;
+        VerticalLayoutGroup contentLayout = contentObject.GetComponent<VerticalLayoutGroup>();
+        contentLayout.padding = new RectOffset(4, 4, 4, 24);
+        contentLayout.spacing = theme != null ? theme.SpaceMd : 16f;
+        contentLayout.childAlignment = TextAnchor.UpperLeft;
+        contentLayout.childControlWidth = true;
+        contentLayout.childControlHeight = true;
+        contentLayout.childForceExpandWidth = true;
+        contentLayout.childForceExpandHeight = false;
+        ContentSizeFitter contentFitter = contentObject.GetComponent<ContentSizeFitter>();
+        contentFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        editorStatus = CreateText(editorRoot.transform, "Status", "", font, 22,
-            new Vector2(0.5f, 0f), new Vector2(0f, 82f), new Vector2(900f, 54f), TextAlignmentOptions.Center);
-        Button cancel = CreateButton(editorRoot.transform, "Button_Cancel", "取消", font,
-            new Vector2(0.5f, 0f), new Vector2(-110f, 36f), new Vector2(180f, 56f));
-        Button save = CreateButton(editorRoot.transform, "Button_Save", "儲存", font,
-            new Vector2(0.5f, 0f), new Vector2(110f, 36f), new Vector2(180f, 56f));
+        editorScroll = scrollObject.GetComponent<ScrollRect>();
+        editorScroll.viewport = viewport;
+        editorScroll.content = content;
+        editorScroll.horizontal = false;
+        editorScroll.vertical = true;
+        editorScroll.movementType = ScrollRect.MovementType.Clamped;
+        editorScroll.scrollSensitivity = 45f;
+
+        GameObject columnsObject = CreateUiObject(
+            "EditorColumns", content, typeof(CareerProfileColumnsLayout));
+        columnsObject.GetComponent<CareerProfileColumnsLayout>().Configure(
+            0.5f, theme != null ? theme.SpaceMd : 16f);
+        RectTransform leftColumn = CreateDisplayColumn(
+            columnsObject.transform, "Column_Profile", 0.5f);
+        RectTransform rightColumn = CreateDisplayColumn(
+            columnsObject.transform, "Column_History", 0.5f);
+
+        CreateEditorField("summary", "自我介紹", "可多行，說明背景、能力與職涯方向。",
+            "介紹背景、能力與職涯方向", font, leftColumn, 180f);
+        CreateEditorField("links", "連結", "每行：名稱 | URL",
+            "GitHub | https://github.com/...", font, leftColumn, 130f);
+        CreateEditorField("skills", "技能", "每行：技能 | 備註",
+            "Unity | 主要開發工具", font, leftColumn, 130f);
+        CreateEditorField("languages", "語言能力", "每行：語言 | 程度 | 備註",
+            "中文 | 母語 |", font, leftColumn, 130f);
+
+        CreateEditorField("experiences", "工作經歷",
+            "每行：公司 | 職務 | 開始 | 結束／至今 | 內容",
+            "公司 | 工程師 | 2024/01 | 至今 | 工作內容", font, rightColumn, 180f);
+        CreateEditorField("projects", "專案經歷",
+            "每行：名稱 | 技術（逗號分隔）| URL | 說明",
+            "JobCheck | Unity, C# | https://... | 專案說明", font, rightColumn, 180f);
+        CreateEditorField("educations", "學歷",
+            "每行：機構 | 項目 | 開始 | 結束 | 備註",
+            "學校 | 科系 | 2020 | 2024 |", font, rightColumn, 180f);
+
+        GameObject footer = CreateUiObject("Footer", editorRoot.transform, typeof(Image));
+        RectTransform footerRect = footer.GetComponent<RectTransform>();
+        footerRect.anchorMin = new Vector2(0f, 0f);
+        footerRect.anchorMax = new Vector2(1f, 0f);
+        footerRect.pivot = new Vector2(0.5f, 0f);
+        footerRect.anchoredPosition = Vector2.zero;
+        footerRect.sizeDelta = new Vector2(0f, 88f);
+        footer.GetComponent<Image>().color = Surface;
+
+        editorStatus = CreateText(footer.transform, "Status", "", font,
+            Mathf.RoundToInt(theme != null ? theme.SupportingTextSize : 20f),
+            new Vector2(0f, 0.5f), new Vector2(24f, 0f), new Vector2(720f, 52f),
+            TextAlignmentOptions.MidlineLeft);
+        Button cancel = CreateButton(footer.transform, "Button_Cancel", "取消", font,
+            new Vector2(1f, 0.5f), new Vector2(-300f, 0f), new Vector2(180f, 56f),
+            ButtonTone.Secondary);
+        Button save = CreateButton(footer.transform, "Button_Save", "儲存", font,
+            new Vector2(1f, 0.5f), new Vector2(-96f, 0f), new Vector2(180f, 56f));
         cancel.onClick.AddListener(CancelEditor);
         save.onClick.AddListener(SaveEditor);
         editorRoot.SetActive(false);
@@ -1078,16 +1142,56 @@ public sealed class CareerProfilePage : MonoBehaviour
     private void CreateEditorField(
         string key,
         string title,
+        string help,
         string placeholder,
         TMP_FontAsset font,
-        RectTransform panel,
-        Vector2 topLeft,
-        Vector2 size)
+        Transform parent,
+        float inputHeight)
     {
-        CreateText(panel, "Label_" + key, title, font, 22,
-            new Vector2(0f, 1f), topLeft, new Vector2(size.x, 34f), TextAlignmentOptions.MidlineLeft);
-        TMP_InputField input = CreateInput(panel, "Input_" + key, placeholder, font,
-            new Vector2(topLeft.x, topLeft.y - 38f), size);
+        GameObject cardObject = CreateUiObject(
+            "Field_" + key,
+            parent,
+            typeof(Image),
+            typeof(VerticalLayoutGroup),
+            typeof(ContentSizeFitter),
+            typeof(Outline));
+        Image card = cardObject.GetComponent<Image>();
+        card.color = SurfaceMuted;
+        ApplySlicedSprite(card);
+        Outline outline = cardObject.GetComponent<Outline>();
+        outline.effectColor = Border;
+        outline.effectDistance = new Vector2(1f, -1f);
+        VerticalLayoutGroup layout = cardObject.GetComponent<VerticalLayoutGroup>();
+        int padding = Mathf.RoundToInt(theme != null ? theme.SpaceMd : 16f);
+        layout.padding = new RectOffset(padding, padding, padding, padding);
+        layout.spacing = theme != null ? theme.SpaceXs : 8f;
+        layout.childAlignment = TextAnchor.UpperLeft;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+        ContentSizeFitter fitter = cardObject.GetComponent<ContentSizeFitter>();
+        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        TMP_Text label = CreateText(cardObject.transform, "Label_" + key, title, font,
+            Mathf.RoundToInt(theme != null ? theme.SectionTitleSize : 28f),
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 38f),
+            TextAlignmentOptions.MidlineLeft);
+        label.fontStyle = FontStyles.Bold;
+        label.gameObject.AddComponent<LayoutElement>().preferredHeight = 38f;
+        TMP_Text helper = CreateText(cardObject.transform, "Help_" + key, help, font,
+            Mathf.RoundToInt(theme != null ? theme.SupportingTextSize : 20f),
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 30f),
+            TextAlignmentOptions.MidlineLeft);
+        helper.color = TextSecondary;
+        helper.gameObject.AddComponent<LayoutElement>().preferredHeight = 30f;
+
+        TMP_InputField input = CreateInput(cardObject.transform, "Input_" + key,
+            placeholder, font, Vector2.zero, new Vector2(0f, inputHeight));
+        LayoutElement inputLayout = input.gameObject.AddComponent<LayoutElement>();
+        inputLayout.minHeight = inputHeight;
+        inputLayout.preferredHeight = inputHeight;
         editorFields.Add(key, input);
     }
 
