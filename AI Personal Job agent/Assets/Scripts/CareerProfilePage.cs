@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using JobCheck.Domain;
 using JobCheck.Persistence;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,15 +16,21 @@ public sealed class CareerProfilePage : MonoBehaviour
     [SerializeField] private string personalDataRootPath = "../personal_data";
 
     [Header("Display")]
-    [SerializeField] private Text displayText;
+    [SerializeField] private TMP_FontAsset fontAsset;
+    [SerializeField] private TMP_Text displayText;
 
     public CareerProfile CurrentProfile { get; private set; }
 
     private Button editButton;
     private GameObject editorRoot;
-    private Text editorStatus;
-    private readonly Dictionary<string, InputField> editorFields =
-        new Dictionary<string, InputField>(StringComparer.Ordinal);
+    private TMP_Text editorStatus;
+    private readonly Dictionary<string, TMP_Text> displayFields =
+        new Dictionary<string, TMP_Text>(StringComparer.Ordinal);
+    private readonly Dictionary<string, TMP_InputField> editorFields =
+        new Dictionary<string, TMP_InputField>(StringComparer.Ordinal);
+
+    private const string ProfileUiCharacters =
+        "個人履歷最後更新自我介紹連結技能工作經歷專案學歷語言能力尚未填寫新增讀取失敗未知錯誤編輯儲存取消至今年月日時分公司職務開始結束內容名稱技術網址說明機構項目備註程度母語首頁職缺側欄寬度";
 
     private static readonly Color PanelColor = new Color(0.94f, 0.94f, 0.94f, 1f);
     private static readonly Color FieldColor = new Color(1f, 1f, 1f, 1f);
@@ -31,6 +38,7 @@ public sealed class CareerProfilePage : MonoBehaviour
 
     private void OnEnable()
     {
+        EnsureDisplayUi();
         EnsureEditorUi();
         Refresh();
     }
@@ -42,12 +50,13 @@ public sealed class CareerProfilePage : MonoBehaviour
         if (!result.IsSuccess)
         {
             CurrentProfile = null;
-            SetDisplay("個人履歷\n\n讀取失敗\n" + FormatIssues(result.Issues));
+            ShowDisplayError("讀取失敗\n" + FormatIssues(result.Issues));
             return;
         }
 
         CurrentProfile = result.Value;
-        SetDisplay(FormatProfile(CurrentProfile));
+        PrepareGlyphs(CurrentProfile);
+        RenderProfile(CurrentProfile);
     }
 
     public void OpenEditor()
@@ -192,7 +201,8 @@ public sealed class CareerProfilePage : MonoBehaviour
         }
 
         CurrentProfile = result.Value;
-        SetDisplay(FormatProfile(CurrentProfile));
+        PrepareGlyphs(CurrentProfile);
+        RenderProfile(CurrentProfile);
         CancelEditor();
     }
 
@@ -373,12 +383,195 @@ public sealed class CareerProfilePage : MonoBehaviour
             : string.Join("\n", issues.Select(item => item.Message));
     }
 
-    private void SetDisplay(string value)
+    private void RenderProfile(CareerProfile profile)
     {
-        if (displayText != null)
+        EnsureDisplayUi();
+        if (profile == null || displayFields.Count == 0)
         {
-            displayText.text = value;
+            ShowDisplayError("尚未建立履歷資料。");
+            return;
         }
+
+        displayFields["title"].text = "個人履歷";
+        displayFields["updated"].text = profile.UpdatedAt.HasValue
+            ? "最後更新：" + profile.UpdatedAt.Value.ToLocalTime().ToString("yyyy/MM/dd HH:mm")
+            : "最後更新：—";
+        displayFields["summary"].text = ValueOrEmpty(profile.Summary, "尚未填寫自我介紹");
+        displayFields["links"].text = ListDisplay(profile.Links,
+            item => Join("｜", item.Label, item.Url), "尚未新增連結");
+        displayFields["skills"].text = ListDisplay(profile.Skills,
+            item => Join("｜", item.Name, item.Notes), "尚未新增技能");
+        displayFields["experiences"].text = ListDisplay(profile.Experiences,
+            item => Join("｜", Join(" / ", item.Organization, item.Role),
+                FormatPeriod(item.StartDate, item.EndDate, item.IsCurrent), item.Description),
+            "尚未新增工作經歷");
+        displayFields["projects"].text = ListDisplay(profile.Projects,
+            item => Join("｜", item.Name,
+                item.Technologies == null ? null : string.Join("、", item.Technologies),
+                item.Url, item.Description), "尚未新增專案經歷");
+        displayFields["educations"].text = ListDisplay(profile.Educations,
+            item => Join("｜", Join(" / ", item.Institution, item.Program),
+                FormatPeriod(item.StartDate, item.EndDate, false), item.Notes),
+            "尚未新增學歷");
+        displayFields["languages"].text = ListDisplay(profile.Languages,
+            item => Join("｜", item.Name, item.Level, item.Notes), "尚未新增語言能力");
+    }
+
+    private void ShowDisplayError(string message)
+    {
+        EnsureDisplayUi();
+        if (displayFields.Count == 0)
+        {
+            return;
+        }
+
+        displayFields["title"].text = "個人履歷";
+        displayFields["updated"].text = string.Empty;
+        foreach (string key in new[]
+                 { "summary", "links", "skills", "experiences", "projects", "educations", "languages" })
+        {
+            displayFields[key].text = key == "summary" ? message : string.Empty;
+        }
+    }
+
+    private static string ValueOrEmpty(string value, string empty)
+    {
+        return string.IsNullOrWhiteSpace(value) ? empty : value.Trim();
+    }
+
+    private static string ListDisplay<T>(
+        IEnumerable<T> items,
+        Func<T, string> format,
+        string empty)
+        where T : class
+    {
+        string[] rows = items == null
+            ? Array.Empty<string>()
+            : items.Where(item => item != null)
+                .Select(format)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .ToArray();
+        return rows.Length == 0 ? empty : string.Join("\n", rows.Select(row => "• " + row));
+    }
+
+    private void PrepareGlyphs(CareerProfile profile)
+    {
+        TMP_FontAsset font = ResolveFontAsset();
+        if (font == null)
+        {
+            return;
+        }
+
+        string source = ProfileUiCharacters + (profile == null ? string.Empty : FormatProfile(profile));
+        if (!font.TryAddCharacters(source, out string missingCharacters)
+            && !string.IsNullOrEmpty(missingCharacters))
+        {
+            Debug.LogWarning("Yozai-Light SDF 缺少下列字元：" + missingCharacters);
+        }
+    }
+
+    private TMP_FontAsset ResolveFontAsset()
+    {
+        return fontAsset != null ? fontAsset : displayText?.font;
+    }
+
+    private void EnsureDisplayUi()
+    {
+        if (displayFields.Count > 0 || displayText == null)
+        {
+            return;
+        }
+
+        TMP_FontAsset font = ResolveFontAsset();
+        if (font == null)
+        {
+            Debug.LogError("CareerProfilePage 缺少 TMP 字型資產。");
+            return;
+        }
+
+        PrepareGlyphs(null);
+        displayText.enabled = false;
+        RectTransform panel = displayText.rectTransform;
+        displayFields.Add("title", CreateText(panel, "Title", "個人履歷", font, 36,
+            new Vector2(0f, 1f), new Vector2(24f, -18f), new Vector2(560f, 56f),
+            TextAlignmentOptions.MidlineLeft));
+        displayFields.Add("updated", CreateText(panel, "UpdatedAt", "最後更新：—", font, 22,
+            new Vector2(1f, 1f), new Vector2(-24f, -18f), new Vector2(620f, 56f),
+            TextAlignmentOptions.MidlineRight));
+
+        GameObject scrollObject = CreateUiObject(
+            "DisplayScroll",
+            panel,
+            typeof(Image),
+            typeof(RectMask2D),
+            typeof(ScrollRect));
+        RectTransform viewport = scrollObject.GetComponent<RectTransform>();
+        Stretch(viewport, new Vector2(20f, 20f), new Vector2(-20f, -82f));
+        scrollObject.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.035f);
+
+        GameObject contentObject = CreateUiObject(
+            "Content",
+            viewport,
+            typeof(VerticalLayoutGroup),
+            typeof(ContentSizeFitter));
+        RectTransform content = contentObject.GetComponent<RectTransform>();
+        content.anchorMin = new Vector2(0f, 1f);
+        content.anchorMax = new Vector2(1f, 1f);
+        content.pivot = new Vector2(0.5f, 1f);
+        content.anchoredPosition = Vector2.zero;
+        content.sizeDelta = Vector2.zero;
+
+        VerticalLayoutGroup layout = contentObject.GetComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(20, 32, 18, 24);
+        layout.spacing = 10f;
+        layout.childAlignment = TextAnchor.UpperLeft;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+        ContentSizeFitter fitter = contentObject.GetComponent<ContentSizeFitter>();
+        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        ScrollRect scroll = scrollObject.GetComponent<ScrollRect>();
+        scroll.viewport = viewport;
+        scroll.content = content;
+        scroll.horizontal = false;
+        scroll.vertical = true;
+        scroll.movementType = ScrollRect.MovementType.Clamped;
+        scroll.scrollSensitivity = 45f;
+
+        CreateDisplaySection("summary", "自我介紹", font, content, 100f);
+        CreateDisplaySection("links", "連結", font, content, 70f);
+        CreateDisplaySection("skills", "技能", font, content, 70f);
+        CreateDisplaySection("experiences", "工作經歷", font, content, 90f);
+        CreateDisplaySection("projects", "專案經歷", font, content, 90f);
+        CreateDisplaySection("educations", "學歷", font, content, 80f);
+        CreateDisplaySection("languages", "語言能力", font, content, 70f);
+    }
+
+    private void CreateDisplaySection(
+        string key,
+        string title,
+        TMP_FontAsset font,
+        RectTransform content,
+        float minimumValueHeight)
+    {
+        TMP_Text heading = CreateText(content, "Title_" + key, title, font, 26,
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 38f),
+            TextAlignmentOptions.MidlineLeft);
+        LayoutElement headingLayout = heading.gameObject.AddComponent<LayoutElement>();
+        headingLayout.minHeight = 38f;
+        headingLayout.preferredHeight = 38f;
+
+        TMP_Text value = CreateText(content, "Value_" + key, string.Empty, font, 22,
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, minimumValueHeight),
+            TextAlignmentOptions.TopLeft);
+        value.enableWordWrapping = true;
+        LayoutElement valueLayout = value.gameObject.AddComponent<LayoutElement>();
+        valueLayout.minHeight = minimumValueHeight;
+        valueLayout.flexibleHeight = 0f;
+        displayFields.Add(key, value);
     }
 
     private void EnsureEditorUi()
@@ -388,7 +581,12 @@ public sealed class CareerProfilePage : MonoBehaviour
             return;
         }
 
-        Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        TMP_FontAsset font = ResolveFontAsset();
+        if (font == null)
+        {
+            Debug.LogError("CareerProfilePage 缺少 TMP 字型資產。");
+            return;
+        }
         editButton = CreateButton(transform, "Button_EditProfile", "編輯履歷", font,
             new Vector2(1f, 1f), new Vector2(-120f, -45f), new Vector2(180f, 56f));
         editButton.onClick.AddListener(OpenEditor);
@@ -399,7 +597,7 @@ public sealed class CareerProfilePage : MonoBehaviour
         editorRoot.GetComponent<Image>().color = PanelColor;
 
         CreateText(editorRoot.transform, "Title", "編輯個人履歷", font, 34,
-            new Vector2(0.5f, 1f), new Vector2(0f, -24f), new Vector2(600f, 52f), TextAnchor.MiddleCenter);
+            new Vector2(0.5f, 1f), new Vector2(0f, -24f), new Vector2(600f, 52f), TextAlignmentOptions.Center);
 
         CreateEditorField("summary", "自我介紹（可多行）", "介紹背景、能力與職涯方向", font,
             panel, new Vector2(24f, -82f), new Vector2(750f, 180f));
@@ -421,7 +619,7 @@ public sealed class CareerProfilePage : MonoBehaviour
             panel, new Vector2(806f, -518f), new Vector2(750f, 180f));
 
         editorStatus = CreateText(editorRoot.transform, "Status", "", font, 22,
-            new Vector2(0.5f, 0f), new Vector2(0f, 82f), new Vector2(900f, 54f), TextAnchor.MiddleCenter);
+            new Vector2(0.5f, 0f), new Vector2(0f, 82f), new Vector2(900f, 54f), TextAlignmentOptions.Center);
         Button cancel = CreateButton(editorRoot.transform, "Button_Cancel", "取消", font,
             new Vector2(0.5f, 0f), new Vector2(-110f, 36f), new Vector2(180f, 56f));
         Button save = CreateButton(editorRoot.transform, "Button_Save", "儲存", font,
@@ -435,44 +633,48 @@ public sealed class CareerProfilePage : MonoBehaviour
         string key,
         string title,
         string placeholder,
-        Font font,
+        TMP_FontAsset font,
         RectTransform panel,
         Vector2 topLeft,
         Vector2 size)
     {
         CreateText(panel, "Label_" + key, title, font, 22,
-            new Vector2(0f, 1f), topLeft, new Vector2(size.x, 34f), TextAnchor.MiddleLeft);
-        InputField input = CreateInput(panel, "Input_" + key, placeholder, font,
+            new Vector2(0f, 1f), topLeft, new Vector2(size.x, 34f), TextAlignmentOptions.MidlineLeft);
+        TMP_InputField input = CreateInput(panel, "Input_" + key, placeholder, font,
             new Vector2(topLeft.x, topLeft.y - 38f), size);
         editorFields.Add(key, input);
     }
 
-    private static InputField CreateInput(
+    private static TMP_InputField CreateInput(
         Transform parent,
         string name,
         string placeholder,
-        Font font,
+        TMP_FontAsset font,
         Vector2 topLeft,
         Vector2 size)
     {
-        GameObject root = CreateUiObject(name, parent, typeof(Image), typeof(InputField));
+        GameObject root = CreateUiObject(name, parent, typeof(Image), typeof(TMP_InputField));
         RectTransform rect = root.GetComponent<RectTransform>();
         TopLeft(rect, topLeft, size);
         root.GetComponent<Image>().color = FieldColor;
+        root.AddComponent<RectMask2D>();
 
-        Text placeholderText = CreateText(root.transform, "Placeholder", placeholder, font, 20,
-            new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero, TextAnchor.UpperLeft);
+        TMP_Text placeholderText = CreateText(root.transform, "Placeholder", placeholder, font, 20,
+            new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero, TextAlignmentOptions.TopLeft);
         Stretch(placeholderText.rectTransform, new Vector2(10f, 7f), new Vector2(-10f, -7f));
         placeholderText.color = new Color(0.55f, 0.55f, 0.55f, 1f);
-        Text valueText = CreateText(root.transform, "Text", "", font, 22,
-            new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero, TextAnchor.UpperLeft);
+        TMP_Text valueText = CreateText(root.transform, "Text", "", font, 22,
+            new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero, TextAlignmentOptions.TopLeft);
         Stretch(valueText.rectTransform, new Vector2(10f, 7f), new Vector2(-10f, -7f));
-        valueText.supportRichText = false;
+        valueText.richText = true;
 
-        InputField input = root.GetComponent<InputField>();
+        TMP_InputField input = root.GetComponent<TMP_InputField>();
+        input.textViewport = rect;
         input.textComponent = valueText;
         input.placeholder = placeholderText;
-        input.lineType = InputField.LineType.MultiLineNewline;
+        input.lineType = TMP_InputField.LineType.MultiLineNewline;
+        input.richText = true;
+        input.isRichTextEditingAllowed = false;
         input.targetGraphic = root.GetComponent<Image>();
         return input;
     }
@@ -481,7 +683,7 @@ public sealed class CareerProfilePage : MonoBehaviour
         Transform parent,
         string name,
         string label,
-        Font font,
+        TMP_FontAsset font,
         Vector2 anchor,
         Vector2 position,
         Vector2 size)
@@ -497,38 +699,40 @@ public sealed class CareerProfilePage : MonoBehaviour
         image.color = ButtonColor;
         Button button = root.GetComponent<Button>();
         button.targetGraphic = image;
-        Text text = CreateText(root.transform, "Text", label, font, 24,
-            new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero, TextAnchor.MiddleCenter);
+        TMP_Text text = CreateText(root.transform, "Text", label, font, 24,
+            new Vector2(0.5f, 0.5f), Vector2.zero, size - new Vector2(20f, 12f), TextAlignmentOptions.Center);
         text.color = Color.white;
         return button;
     }
 
-    private static Text CreateText(
+    private static TMP_Text CreateText(
         Transform parent,
         string name,
         string value,
-        Font font,
+        TMP_FontAsset font,
         int fontSize,
         Vector2 anchor,
         Vector2 position,
         Vector2 size,
-        TextAnchor alignment)
+        TextAlignmentOptions alignment)
     {
-        GameObject root = CreateUiObject(name, parent, typeof(Text));
+        GameObject root = CreateUiObject(name, parent, typeof(TextMeshProUGUI));
         RectTransform rect = root.GetComponent<RectTransform>();
         rect.anchorMin = anchor;
         rect.anchorMax = anchor;
-        rect.pivot = anchor.y > 0.99f ? new Vector2(0f, 1f) : new Vector2(0.5f, 0.5f);
+        rect.pivot = anchor.y > 0.99f
+            ? new Vector2(anchor.x, 1f)
+            : new Vector2(0.5f, 0.5f);
         rect.anchoredPosition = position;
         rect.sizeDelta = size;
-        Text text = root.GetComponent<Text>();
+        TMP_Text text = root.GetComponent<TMP_Text>();
         text.font = font;
         text.fontSize = fontSize;
         text.alignment = alignment;
         text.color = new Color(0.18f, 0.18f, 0.18f, 1f);
         text.text = value;
-        text.horizontalOverflow = HorizontalWrapMode.Wrap;
-        text.verticalOverflow = VerticalWrapMode.Overflow;
+        text.enableWordWrapping = true;
+        text.overflowMode = TextOverflowModes.Overflow;
         return text;
     }
 
