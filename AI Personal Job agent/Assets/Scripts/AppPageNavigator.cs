@@ -28,8 +28,11 @@ public sealed class AppPageNavigator : MonoBehaviour
 
     public AppPage CurrentPage { get; private set; }
 
+    private AppShellThemePresenter themePresenter;
+
     private void Awake()
     {
+        themePresenter = GetComponent<AppShellThemePresenter>();
         BindButton(buttonHome, ShowHome);
         BindButton(buttonJobs, ShowJobs);
         BindButton(buttonResume, ShowResume);
@@ -57,6 +60,16 @@ public sealed class AppPageNavigator : MonoBehaviour
         SetPageActive(pageHome, page == AppPage.Home);
         SetPageActive(pageJobs, page == AppPage.Jobs);
         SetPageActive(pageResume, page == AppPage.Resume);
+
+        if (themePresenter == null)
+        {
+            themePresenter = GetComponent<AppShellThemePresenter>();
+        }
+
+        if (themePresenter != null)
+        {
+            themePresenter.ApplyNavigation(GetButton(page));
+        }
     }
 
     private static void SetPageActive(GameObject page, bool active)
@@ -76,5 +89,18 @@ public sealed class AppPageNavigator : MonoBehaviour
 
         button.onClick.RemoveListener(action);
         button.onClick.AddListener(action);
+    }
+
+    private Button GetButton(AppPage page)
+    {
+        switch (page)
+        {
+            case AppPage.Home:
+                return buttonHome;
+            case AppPage.Resume:
+                return buttonResume;
+            default:
+                return buttonJobs;
+        }
     }
 }

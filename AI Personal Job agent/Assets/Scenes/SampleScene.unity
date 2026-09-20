@@ -311,6 +311,7 @@ GameObject:
   m_Component:
   - component: {fileID: 900000002}
   - component: {fileID: 900000003}
+  - component: {fileID: 900000004}
   m_Layer: 5
   m_Name: AppShell
   m_TagString: Untagged
@@ -359,6 +360,26 @@ MonoBehaviour:
   buttonJobs: {fileID: 900001205}
   buttonResume: {fileID: 900001305}
   initialPage: 0
+--- !u!114 &900000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 900000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a68ad3f844cb49d894a0bf15acb69a58, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  theme: {fileID: 11400000, guid: d4a2718cc0bf44c3ba8e2f70ca19ad52, type: 2}
+  appBackground: {fileID: 1743198}
+  sidebarBackground: {fileID: 900000024}
+  appNameText: {fileID: 900001004}
+  prototypeNote: {fileID: 900001401}
+  buttonHome: {fileID: 900001105}
+  buttonJobs: {fileID: 900001205}
+  buttonResume: {fileID: 900001305}
 --- !u!1 &900000011
 GameObject:
   m_ObjectHideFlags: 0
@@ -1310,7 +1331,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &900001402
 RectTransform:
   m_ObjectHideFlags: 0

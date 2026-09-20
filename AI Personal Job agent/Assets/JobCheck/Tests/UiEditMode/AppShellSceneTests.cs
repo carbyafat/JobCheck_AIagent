@@ -119,6 +119,27 @@ namespace JobCheck.Ui.Editor.Tests
         }
 
         [Test]
+        public void AppShell_HasBoundThemeAndNoPrototypeNote()
+        {
+            WithScene(scene =>
+            {
+                Transform appShell = RequireChild(FindRoot(scene, "Canvas").transform, "AppShell");
+                MonoBehaviour presenter = FindComponent(appShell, "AppShellThemePresenter");
+                var data = new SerializedObject(presenter);
+
+                Assert.That(data.FindProperty("theme").objectReferenceValue, Is.Not.Null);
+                Assert.That(data.FindProperty("appBackground").objectReferenceValue, Is.Not.Null);
+                Assert.That(data.FindProperty("sidebarBackground").objectReferenceValue, Is.Not.Null);
+                Assert.That(data.FindProperty("buttonHome").objectReferenceValue, Is.Not.Null);
+                Assert.That(data.FindProperty("buttonJobs").objectReferenceValue, Is.Not.Null);
+                Assert.That(data.FindProperty("buttonResume").objectReferenceValue, Is.Not.Null);
+
+                Transform note = RequireChild(RequireChild(appShell, "Sidebar"), "Text_PrototypeNote");
+                Assert.That(note.gameObject.activeSelf, Is.False);
+            });
+        }
+
+        [Test]
         public void Scene_ReservesTwoHundredFortyPixelsForSidebar()
         {
             WithScene(scene =>

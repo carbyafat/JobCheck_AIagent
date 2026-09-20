@@ -86,6 +86,7 @@ V0.2 資料結構
 - `Assets/JobCheck/Persistence/`：DTO、Mapper、Repository、migration、唯讀分析 query 與寫入服務。
 - `Assets/JobCheck/Tests/`：Domain 與 Persistence EditMode tests。
 - `Assets/Scripts/`：Unity UI 與 V0.2 顯示／操作接軌。
+- `Assets/JobCheckUiTheme.asset`：UI 共用色票、字體角色、間距與元件尺寸規格。
 - `docs/v0.2/`：V0.2 規則、migration 與完成紀錄。
 
 
