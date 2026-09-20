@@ -363,6 +363,10 @@ namespace JobCheck.Ui.Editor.Tests
                 Assert.That(data.FindProperty("placeholderRoot").objectReferenceValue,
                     Is.EqualTo(home.Find("Placeholder_Home").gameObject));
                 Assert.That(controller.GetType().GetMethod("Refresh"), Is.Not.Null);
+                Assert.That(controller.GetType().GetMethod("OpenAddJob"), Is.Not.Null);
+                Assert.That(controller.GetType().GetMethod("OpenJobs"), Is.Not.Null);
+                Assert.That(controller.GetType().GetMethod("OpenAnalytics"), Is.Not.Null);
+                Assert.That(controller.GetType().GetMethod("OpenResumeEditor"), Is.Not.Null);
             });
         }
 
@@ -409,6 +413,8 @@ namespace JobCheck.Ui.Editor.Tests
                 Assert.That(FindDescendant(dashboard, "Card_Attention"), Is.Not.Null);
                 Assert.That(FindDescendant(dashboard, "Card_Profile"), Is.Not.Null);
                 Assert.That(FindDescendant(dashboard, "Button_AddJob"), Is.Not.Null);
+                Assert.That(FindDescendant(dashboard, "Button_ViewJobs"), Is.Not.Null);
+                Assert.That(FindDescendant(dashboard, "Button_Analytics"), Is.Not.Null);
                 Assert.That(FindDescendant(dashboard, "Button_EditResume"), Is.Not.Null);
             }
             finally

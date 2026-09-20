@@ -23,6 +23,7 @@ public sealed class HomeDashboardPage : MonoBehaviour
     public HomeDashboardSnapshot CurrentSnapshot { get; private set; }
 
     private AllJobPage allJobPage;
+    private AppPageNavigator navigator;
     private GameObject dashboardRoot;
     private TMP_Text textDataProfile;
     private TMP_Text textRefreshedAt;
@@ -65,7 +66,48 @@ public sealed class HomeDashboardPage : MonoBehaviour
     private void OnEnable()
     {
         EnsureUi();
+        BindActions();
         Refresh();
+    }
+
+    public void OpenAddJob()
+    {
+        ShowJobsPage();
+        ResolveAllJobPage();
+        if (allJobPage != null)
+        {
+            allJobPage.ShowAddJobPosting();
+        }
+    }
+
+    public void OpenJobs()
+    {
+        ShowJobsPage();
+    }
+
+    public void OpenAnalytics()
+    {
+        ShowJobsPage();
+        ResolveAllJobPage();
+        if (allJobPage != null)
+        {
+            allJobPage.ShowAnalytics();
+        }
+    }
+
+    public void OpenResumeEditor()
+    {
+        ResolveNavigator();
+        if (navigator != null)
+        {
+            navigator.ShowResume();
+        }
+
+        CareerProfilePage profilePage = FindObjectOfType<CareerProfilePage>(true);
+        if (profilePage != null)
+        {
+            profilePage.OpenEditor();
+        }
     }
 
     public void Refresh()
@@ -76,10 +118,7 @@ public sealed class HomeDashboardPage : MonoBehaviour
             return;
         }
 
-        if (allJobPage == null)
-        {
-            allJobPage = FindObjectOfType<AllJobPage>(true);
-        }
+        ResolveAllJobPage();
 
         string dataRoot = allJobPage != null
             ? allJobPage.CurrentDataRoot
@@ -249,6 +288,51 @@ public sealed class HomeDashboardPage : MonoBehaviour
 
         CreateMetricRow(content);
         CreateDashboardColumns(content);
+        BindActions();
+    }
+
+    private void BindActions()
+    {
+        BindButton(buttonAddJob, OpenAddJob);
+        BindButton(buttonViewJobs, OpenJobs);
+        BindButton(buttonAnalytics, OpenAnalytics);
+        BindButton(buttonEditResume, OpenResumeEditor);
+    }
+
+    private static void BindButton(Button button, UnityEngine.Events.UnityAction action)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        button.onClick.RemoveListener(action);
+        button.onClick.AddListener(action);
+    }
+
+    private void ShowJobsPage()
+    {
+        ResolveNavigator();
+        if (navigator != null)
+        {
+            navigator.ShowJobs();
+        }
+    }
+
+    private void ResolveNavigator()
+    {
+        if (navigator == null)
+        {
+            navigator = FindObjectOfType<AppPageNavigator>(true);
+        }
+    }
+
+    private void ResolveAllJobPage()
+    {
+        if (allJobPage == null)
+        {
+            allJobPage = FindObjectOfType<AllJobPage>(true);
+        }
     }
 
     private void CreateMetricRow(RectTransform parent)
