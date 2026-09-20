@@ -337,6 +337,7 @@ namespace JobCheck.Ui.Editor.Tests
                 Assert.That(data.FindProperty("displayText").objectReferenceValue, Is.EqualTo(
                     display.GetComponent<TMPro.TMP_Text>()));
                 Assert.That(data.FindProperty("fontAsset").objectReferenceValue, Is.Not.Null);
+                Assert.That(data.FindProperty("theme").objectReferenceValue, Is.Not.Null);
                 Assert.That(controller.GetType().GetMethod("OpenEditor"), Is.Not.Null);
                 Assert.That(controller.GetType().GetMethod("SaveEditor"), Is.Not.Null);
                 Assert.That(controller.GetType().GetMethod("CancelEditor"), Is.Not.Null);

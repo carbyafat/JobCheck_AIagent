@@ -630,6 +630,7 @@ MonoBehaviour:
   personalDataRootPath: ../personal_data
   fontAsset: {fileID: 11400000, guid: c7fa66a4d8d347945a87bc0d8d8c63f4, type: 2}
   displayText: {fileID: 900003005}
+  theme: {fileID: 11400000, guid: d4a2718cc0bf44c3ba8e2f70ca19ad52, type: 2}
 --- !u!1 &900001001
 GameObject:
   m_ObjectHideFlags: 0

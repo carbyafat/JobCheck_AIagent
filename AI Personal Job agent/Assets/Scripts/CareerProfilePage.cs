@@ -20,6 +20,9 @@ public sealed class CareerProfilePage : MonoBehaviour
     [SerializeField] private TMP_FontAsset fontAsset;
     [SerializeField] private TMP_Text displayText;
 
+    [Header("Theme")]
+    [SerializeField] private JobCheckUiTheme theme;
+
     public CareerProfile CurrentProfile { get; private set; }
 
     private Button editButton;
@@ -39,9 +42,25 @@ public sealed class CareerProfilePage : MonoBehaviour
     private const string ProfileUiCharacters =
         "個人履歷最後更新自我介紹連結技能工作經歷專案學歷語言能力尚未填寫新增讀取失敗未知錯誤編輯儲存取消至今年月日時分公司職務開始結束內容名稱技術網址說明機構項目備註程度母語首頁職缺側欄寬度搬遷匯出匯入選擇檔案取代本機關閉預覽成功檔案尚未加密請妥善保管";
 
-    private static readonly Color PanelColor = new Color(0.94f, 0.94f, 0.94f, 1f);
-    private static readonly Color FieldColor = new Color(1f, 1f, 1f, 1f);
-    private static readonly Color ButtonColor = new Color(0.55f, 0.32f, 0.34f, 1f);
+    private Color AppBackground => theme != null
+        ? theme.AppBackground
+        : new Color(0.94f, 0.94f, 0.94f, 1f);
+    private Color Surface => theme != null ? theme.Surface : Color.white;
+    private Color SurfaceMuted => theme != null
+        ? theme.SurfaceMuted
+        : new Color(0.92f, 0.9f, 0.9f, 1f);
+    private Color Primary => theme != null
+        ? theme.Primary
+        : new Color(0.55f, 0.32f, 0.34f, 1f);
+    private Color PrimaryHover => theme != null ? theme.PrimaryHover : Primary * 1.08f;
+    private Color PrimaryPressed => theme != null ? theme.PrimaryPressed : Primary * 0.82f;
+    private Color TextPrimary => theme != null
+        ? theme.TextPrimary
+        : new Color(0.18f, 0.18f, 0.18f, 1f);
+    private Color TextSecondary => theme != null
+        ? theme.TextSecondary
+        : new Color(0.4f, 0.4f, 0.4f, 1f);
+    private Color TextOnPrimary => theme != null ? theme.TextOnPrimary : Color.white;
 
     private void OnEnable()
     {
@@ -486,6 +505,11 @@ public sealed class CareerProfilePage : MonoBehaviour
 
     private TMP_FontAsset ResolveFontAsset()
     {
+        if (theme != null && theme.BodyFont != null)
+        {
+            return theme.BodyFont;
+        }
+
         return fontAsset != null ? fontAsset : displayText?.font;
     }
 
@@ -521,7 +545,7 @@ public sealed class CareerProfilePage : MonoBehaviour
             typeof(ScrollRect));
         RectTransform viewport = scrollObject.GetComponent<RectTransform>();
         Stretch(viewport, new Vector2(20f, 20f), new Vector2(-20f, -82f));
-        scrollObject.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.035f);
+        scrollObject.GetComponent<Image>().color = Surface;
 
         GameObject contentObject = CreateUiObject(
             "Content",
@@ -609,7 +633,7 @@ public sealed class CareerProfilePage : MonoBehaviour
         transferRoot = CreateUiObject("CareerProfileTransfer", transform, typeof(Image));
         RectTransform panel = transferRoot.GetComponent<RectTransform>();
         Stretch(panel, new Vector2(34f, 30f), new Vector2(-34f, -30f));
-        transferRoot.GetComponent<Image>().color = PanelColor;
+        transferRoot.GetComponent<Image>().color = AppBackground;
 
         CreateText(panel, "Title", "履歷資料搬遷", font, 34,
             new Vector2(0.5f, 1f), new Vector2(0f, -28f), new Vector2(700f, 60f),
@@ -623,7 +647,7 @@ public sealed class CareerProfilePage : MonoBehaviour
         messageRect.pivot = new Vector2(0.5f, 0.5f);
         messageRect.anchoredPosition = new Vector2(0f, 35f);
         messageRect.sizeDelta = new Vector2(1260f, 560f);
-        messagePanel.GetComponent<Image>().color = FieldColor;
+        messagePanel.GetComponent<Image>().color = Surface;
         transferMessage = CreateText(messageRect, "Message", string.Empty, font, 24,
             new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero,
             TextAlignmentOptions.TopLeft);
@@ -872,8 +896,8 @@ public sealed class CareerProfilePage : MonoBehaviour
 
         transferMessage.text = message ?? string.Empty;
         transferMessage.color = error
-            ? new Color(0.7f, 0.12f, 0.12f, 1f)
-            : new Color(0.18f, 0.18f, 0.18f, 1f);
+            ? (theme != null ? theme.Danger : new Color(0.7f, 0.12f, 0.12f, 1f))
+            : TextPrimary;
     }
 
     private static string ProfileSummary(CareerProfile profile)
@@ -927,7 +951,7 @@ public sealed class CareerProfilePage : MonoBehaviour
         editorRoot = CreateUiObject("CareerProfileEditor", transform, typeof(Image));
         RectTransform panel = editorRoot.GetComponent<RectTransform>();
         Stretch(panel, new Vector2(34f, 30f), new Vector2(-34f, -30f));
-        editorRoot.GetComponent<Image>().color = PanelColor;
+        editorRoot.GetComponent<Image>().color = AppBackground;
 
         CreateText(editorRoot.transform, "Title", "編輯個人履歷", font, 34,
             new Vector2(0.5f, 1f), new Vector2(0f, -24f), new Vector2(600f, 52f), TextAlignmentOptions.Center);
@@ -978,7 +1002,7 @@ public sealed class CareerProfilePage : MonoBehaviour
         editorFields.Add(key, input);
     }
 
-    private static TMP_InputField CreateInput(
+    private TMP_InputField CreateInput(
         Transform parent,
         string name,
         string placeholder,
@@ -989,13 +1013,15 @@ public sealed class CareerProfilePage : MonoBehaviour
         GameObject root = CreateUiObject(name, parent, typeof(Image), typeof(TMP_InputField));
         RectTransform rect = root.GetComponent<RectTransform>();
         TopLeft(rect, topLeft, size);
-        root.GetComponent<Image>().color = FieldColor;
+        Image background = root.GetComponent<Image>();
+        background.color = Surface;
+        ApplySlicedSprite(background);
         root.AddComponent<RectMask2D>();
 
         TMP_Text placeholderText = CreateText(root.transform, "Placeholder", placeholder, font, 20,
             new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero, TextAlignmentOptions.TopLeft);
         Stretch(placeholderText.rectTransform, new Vector2(10f, 7f), new Vector2(-10f, -7f));
-        placeholderText.color = new Color(0.55f, 0.55f, 0.55f, 1f);
+        placeholderText.color = TextSecondary;
         TMP_Text valueText = CreateText(root.transform, "Text", "", font, 22,
             new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero, TextAlignmentOptions.TopLeft);
         Stretch(valueText.rectTransform, new Vector2(10f, 7f), new Vector2(-10f, -7f));
@@ -1012,7 +1038,7 @@ public sealed class CareerProfilePage : MonoBehaviour
         return input;
     }
 
-    private static Button CreateButton(
+    private Button CreateButton(
         Transform parent,
         string name,
         string label,
@@ -1029,16 +1055,27 @@ public sealed class CareerProfilePage : MonoBehaviour
         rect.anchoredPosition = position;
         rect.sizeDelta = size;
         Image image = root.GetComponent<Image>();
-        image.color = ButtonColor;
+        image.color = Primary;
+        ApplySlicedSprite(image);
         Button button = root.GetComponent<Button>();
         button.targetGraphic = image;
+        ColorBlock colors = button.colors;
+        colors.normalColor = Primary;
+        colors.highlightedColor = PrimaryHover;
+        colors.pressedColor = PrimaryPressed;
+        colors.selectedColor = Primary;
+        colors.disabledColor = new Color(
+            SurfaceMuted.r, SurfaceMuted.g, SurfaceMuted.b, 0.65f);
+        colors.colorMultiplier = 1f;
+        colors.fadeDuration = 0.12f;
+        button.colors = colors;
         TMP_Text text = CreateText(root.transform, "Text", label, font, 24,
             new Vector2(0.5f, 0.5f), Vector2.zero, size - new Vector2(20f, 12f), TextAlignmentOptions.Center);
-        text.color = Color.white;
+        text.color = TextOnPrimary;
         return button;
     }
 
-    private static TMP_Text CreateText(
+    private TMP_Text CreateText(
         Transform parent,
         string name,
         string value,
@@ -1062,11 +1099,22 @@ public sealed class CareerProfilePage : MonoBehaviour
         text.font = font;
         text.fontSize = fontSize;
         text.alignment = alignment;
-        text.color = new Color(0.18f, 0.18f, 0.18f, 1f);
+        text.color = TextPrimary;
         text.text = value;
         text.enableWordWrapping = true;
         text.overflowMode = TextOverflowModes.Overflow;
         return text;
+    }
+
+    private void ApplySlicedSprite(Image image)
+    {
+        if (image == null || theme == null || theme.ButtonBackgroundSprite == null)
+        {
+            return;
+        }
+
+        image.sprite = theme.ButtonBackgroundSprite;
+        image.type = Image.Type.Sliced;
     }
 
     private static GameObject CreateUiObject(string name, Transform parent, params Type[] components)
@@ -1101,8 +1149,8 @@ public sealed class CareerProfilePage : MonoBehaviour
         EnsureEditorUi();
         editorStatus.text = message ?? string.Empty;
         editorStatus.color = error
-            ? new Color(0.75f, 0.12f, 0.12f, 1f)
-            : new Color(0.18f, 0.18f, 0.18f, 1f);
+            ? (theme != null ? theme.Danger : new Color(0.75f, 0.12f, 0.12f, 1f))
+            : TextPrimary;
     }
 
     private static string ResolveProjectRelativePath(string path)
