@@ -162,7 +162,14 @@ namespace JobCheck.Persistence
                 File.WriteAllText(temporaryPath, json, new UTF8Encoding(false));
                 if (File.Exists(path))
                 {
-                    File.Replace(temporaryPath, path, null);
+                    try
+                    {
+                        File.Replace(temporaryPath, path, null);
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                        ReplaceWithRollback(temporaryPath, path);
+                    }
                 }
                 else
                 {
@@ -174,6 +181,42 @@ namespace JobCheck.Persistence
                 if (File.Exists(temporaryPath))
                 {
                     File.Delete(temporaryPath);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 部分 Unity Mono／Windows 組合不允許 File.Replace；改用同目錄重新命名，
+        /// 發布失敗時把舊檔移回，避免留下半套資料。
+        /// </summary>
+        private static void ReplaceWithRollback(string temporaryPath, string path)
+        {
+            string rollbackPath = path + ".rollback-" + Guid.NewGuid().ToString("N");
+            File.Move(path, rollbackPath);
+            bool published = false;
+            try
+            {
+                File.Move(temporaryPath, path);
+                published = true;
+            }
+            finally
+            {
+                if (!published && !File.Exists(path) && File.Exists(rollbackPath))
+                {
+                    File.Move(rollbackPath, path);
+                }
+
+                if (published && File.Exists(rollbackPath))
+                {
+                    try
+                    {
+                        File.Delete(rollbackPath);
+                    }
+                    catch (Exception exception) when (
+                        exception is IOException || exception is UnauthorizedAccessException)
+                    {
+                        // 新檔已發布且舊檔仍完整保留；清理可在後續人工處理。
+                    }
                 }
             }
         }

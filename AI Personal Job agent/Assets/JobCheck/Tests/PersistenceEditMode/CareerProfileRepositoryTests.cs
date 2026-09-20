@@ -86,6 +86,31 @@ namespace JobCheck.Persistence.Tests
             Assert.That(File.Exists(CareerProfileRepository.GetProfilePath(root)), Is.False);
         }
 
+        [Test]
+        public void Save_ExistingProfile_ReplacesAndReloadsContent()
+        {
+            string root = NewRoot();
+            try
+            {
+                CareerProfile first = CompleteProfile();
+                Assert.That(CareerProfileRepository.Save(root, first).IsSuccess, Is.True);
+                first.Summary = "第二版內容";
+                first.UpdatedAt = first.UpdatedAt.Value.AddMinutes(1);
+
+                PersistenceStorageResult<CareerProfile> saved =
+                    CareerProfileRepository.Save(root, first);
+
+                Assert.That(saved.IsSuccess, Is.True, Issues(saved));
+                Assert.That(saved.Value.Summary, Is.EqualTo("第二版內容"));
+                Assert.That(Directory.GetFiles(root, "*.rollback-*", SearchOption.AllDirectories),
+                    Is.Empty);
+            }
+            finally
+            {
+                Delete(root);
+            }
+        }
+
         private static CareerProfile CompleteProfile()
         {
             DateTimeOffset time = new DateTimeOffset(2026, 9, 19, 12, 0, 0, TimeSpan.FromHours(8));
