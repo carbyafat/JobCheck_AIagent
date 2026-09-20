@@ -201,6 +201,21 @@ namespace JobCheck.Ui.Editor.Tests
         }
 
         [Test]
+        public void JobsPageAndCards_HaveBoundThemeAssets()
+        {
+            GameObject page = AssetDatabase.LoadAssetAtPath<GameObject>(AllJobsPrefabPath);
+            Assert.That(page, Is.Not.Null);
+            MonoBehaviour pagePresenter = FindComponent(page.transform, "JobsPageThemePresenter");
+            Assert.That(new SerializedObject(pagePresenter).FindProperty("theme").objectReferenceValue, Is.Not.Null);
+
+            const string cardPath = "Assets/Prefab/Panel_SingleJob.prefab";
+            GameObject card = AssetDatabase.LoadAssetAtPath<GameObject>(cardPath);
+            Assert.That(card, Is.Not.Null);
+            MonoBehaviour cardController = FindComponent(card.transform, "Panel_SingleJob");
+            Assert.That(new SerializedObject(cardController).FindProperty("theme").objectReferenceValue, Is.Not.Null);
+        }
+
+        [Test]
         public void FilterPanel_StretchesToJobsPageAndKeepsActionsInsideContent()
         {
             GameObject panel = AssetDatabase.LoadAssetAtPath<GameObject>(FilterPanelPrefabPath);

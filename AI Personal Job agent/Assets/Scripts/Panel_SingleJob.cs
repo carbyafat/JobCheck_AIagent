@@ -18,6 +18,8 @@ public class Panel_SingleJob : MonoBehaviour
     [SerializeField] private TMP_Text textStatus;
     [Tooltip("點擊開啟詳細頁的按鈕。")]
     [SerializeField] private Button buttonOpenDetail;
+    [Tooltip("職缺卡片使用的共用視覺規格。")]
+    [SerializeField] private JobCheckUiTheme theme;
     [Tooltip("公司名稱與職缺名稱的文字大小。小於等於 0 時不主動調整。")]
     [FormerlySerializedAs("displayFontSize")]
     [SerializeField] private float size1 = 45f;
@@ -34,8 +36,17 @@ public class Panel_SingleJob : MonoBehaviour
     private void Awake()
     {
         AutoBindReferences();
+        ApplyTheme();
         BindButton();
     }
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        AutoBindReferences();
+        ApplyTheme();
+    }
+#endif
 
     /// <summary>
     /// 填入職缺摘要資料並刷新顯示。
@@ -49,7 +60,7 @@ public class Panel_SingleJob : MonoBehaviour
         SetText(textJobName, data != null ? data.title : string.Empty);
         SetText(textSalary, data != null ? data.salary : string.Empty);
         SetText(textStatus, data != null ? ConvertStatusToDisplayText(data.status, data.is_expired) : string.Empty);
-        SetStatusColor(data != null && data.is_expired);
+        SetStatusColor(data != null ? data.status : string.Empty, data != null && data.is_expired);
         ApplyDisplayFontSize();
     }
 
@@ -72,7 +83,7 @@ public class Panel_SingleJob : MonoBehaviour
         SetText(textJobName, string.Empty);
         SetText(textSalary, string.Empty);
         SetText(textStatus, string.Empty);
-        SetStatusColor(false);
+        SetStatusColor(string.Empty, false);
     }
 
     /// <summary>
@@ -174,6 +185,15 @@ public class Panel_SingleJob : MonoBehaviour
     /// </summary>
     private void ApplyDisplayFontSize()
     {
+        if (theme != null)
+        {
+            SetFontSize(textCompany, theme.BodySize);
+            SetFontSize(textJobName, theme.SectionTitleSize);
+            SetFontSize(textSalary, theme.SupportingTextSize);
+            SetFontSize(textStatus, theme.SupportingTextSize);
+            return;
+        }
+
         SetFontSize(textCompany, size1);
         SetFontSize(textJobName, size1);
         SetFontSize(textSalary, size2);
@@ -197,12 +217,99 @@ public class Panel_SingleJob : MonoBehaviour
     /// 設定狀態文字顏色。
     /// </summary>
     /// <param name="isExpired">是否逾期。</param>
-    private void SetStatusColor(bool isExpired)
+    private void SetStatusColor(string status, bool isExpired)
     {
-        if (textStatus != null)
+        if (textStatus == null)
+        {
+            return;
+        }
+
+        if (theme == null)
         {
             textStatus.color = isExpired ? expiredStatusTextColor : normalStatusTextColor;
+            return;
         }
+
+        if (isExpired || status == "rejected" || status == "closed")
+        {
+            textStatus.color = theme.Danger;
+        }
+        else if (status == "offer")
+        {
+            textStatus.color = theme.Success;
+        }
+        else if (status == "waiting_reply" || status == "unknown")
+        {
+            textStatus.color = theme.Warning;
+        }
+        else if (status == "applied" || status == "viewed" || status == "contacted" ||
+                 status == "interview_scheduled" || status == "interviewing")
+        {
+            textStatus.color = theme.Primary;
+        }
+        else
+        {
+            textStatus.color = theme.TextSecondary;
+        }
+    }
+
+    private void ApplyTheme()
+    {
+        if (theme == null)
+        {
+            return;
+        }
+
+        Image card = GetComponent<Image>();
+        if (card != null)
+        {
+            card.color = theme.Surface;
+            if (card.sprite != null)
+            {
+                card.type = Image.Type.Sliced;
+            }
+        }
+
+        if (buttonOpenDetail != null)
+        {
+            ColorBlock colors = buttonOpenDetail.colors;
+            colors.normalColor = theme.Surface;
+            colors.highlightedColor = theme.SurfaceMuted;
+            colors.pressedColor = theme.Border;
+            colors.selectedColor = theme.SurfaceMuted;
+            colors.disabledColor = WithAlpha(theme.SurfaceMuted, 0.5f);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.12f;
+            buttonOpenDetail.colors = colors;
+        }
+
+        StyleText(textCompany, theme.BodyFont, theme.TextSecondary, FontStyles.Normal);
+        StyleText(textJobName, theme.BodyFont, theme.TextPrimary, FontStyles.Bold);
+        StyleText(textSalary, theme.BodyFont, theme.TextSecondary, FontStyles.Normal);
+        StyleText(textStatus, theme.BodyFont, theme.TextSecondary, FontStyles.Bold);
+        ApplyDisplayFontSize();
+    }
+
+    private static void StyleText(TMP_Text text, TMP_FontAsset font, Color color, FontStyles style)
+    {
+        if (text == null)
+        {
+            return;
+        }
+
+        if (font != null)
+        {
+            text.font = font;
+        }
+
+        text.color = color;
+        text.fontStyle = style;
+    }
+
+    private static Color WithAlpha(Color color, float alpha)
+    {
+        color.a = alpha;
+        return color;
     }
 
     /// <summary>

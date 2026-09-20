@@ -24040,6 +24040,7 @@ GameObject:
   - component: {fileID: 3874303759790010658}
   - component: {fileID: 8986182119269701126}
   - component: {fileID: 3128869540035441867}
+  - component: {fileID: 912340000000000001}
   m_Layer: 5
   m_Name: AllJobPage
   m_TagString: Untagged
@@ -24120,6 +24121,19 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &912340000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6118556053104203868}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e23f4a196ebc4af0bcd1d60c12db57a1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  theme: {fileID: 11400000, guid: d4a2718cc0bf44c3ba8e2f70ca19ad52, type: 2}
 --- !u!114 &3128869540035441867
 MonoBehaviour:
   m_ObjectHideFlags: 0
