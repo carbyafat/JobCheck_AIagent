@@ -431,6 +431,58 @@ namespace JobCheck.Ui.Editor.Tests
             }
         }
 
+        [Test]
+        public void ResumeTransfer_BuildsStandardScrollableModalWithDangerousReplaceAction()
+        {
+            Type controllerType = Type.GetType("CareerProfilePage, Assembly-CSharp");
+            Assert.That(controllerType, Is.Not.Null);
+            var root = new GameObject("Page_Resume", typeof(RectTransform));
+            root.SetActive(false);
+            try
+            {
+                root.GetComponent<RectTransform>().sizeDelta = new Vector2(1360f, 900f);
+                var display = new GameObject("ResumeProfileDisplay", typeof(RectTransform),
+                    typeof(CanvasRenderer), typeof(Image), typeof(TMPro.TextMeshProUGUI));
+                display.transform.SetParent(root.transform, false);
+                var controller = (MonoBehaviour)root.AddComponent(controllerType);
+                var data = new SerializedObject(controller);
+                data.FindProperty("fontAsset").objectReferenceValue =
+                    AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>(
+                        "Assets/Font/Yozai-Light SDF.asset");
+                data.FindProperty("displayText").objectReferenceValue =
+                    display.GetComponent<TMPro.TMP_Text>();
+                ScriptableObject theme = AssetDatabase.LoadAssetAtPath<ScriptableObject>(
+                    "Assets/JobCheckUiTheme.asset");
+                data.FindProperty("theme").objectReferenceValue = theme;
+                data.ApplyModifiedPropertiesWithoutUndo();
+
+                MethodInfo ensure = controllerType.GetMethod("EnsureTransferUi",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(ensure, Is.Not.Null);
+                ensure.Invoke(controller, null);
+
+                Transform modal = root.transform.Find("CareerProfileTransfer");
+                Assert.That(modal, Is.Not.Null);
+                Transform card = modal.Find("Card");
+                Assert.That(card, Is.Not.Null);
+                Assert.That(card.GetComponent(Type.GetType(
+                    "JobCheckModalCardSizer, Assembly-CSharp")), Is.Not.Null);
+                Assert.That(FindDescendant(card, "Button_CloseTop"), Is.Not.Null);
+                Assert.That(FindDescendant(card, "MessageViewport").GetComponent<ScrollRect>(),
+                    Is.Not.Null);
+                Assert.That(card.Find("Footer"), Is.Not.Null);
+                Assert.That(FindDescendant(card, "Button_Import"), Is.Not.Null);
+                Button replace = FindDescendant(card, "Button_Replace").GetComponent<Button>();
+                var themeData = new SerializedObject(theme);
+                Assert.That(replace.colors.normalColor,
+                    Is.EqualTo(themeData.FindProperty("danger").colorValue));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
         private static void WithScene(Action<Scene> assertion)
         {
             Scene scene = SceneManager.GetSceneByPath(ScenePath);

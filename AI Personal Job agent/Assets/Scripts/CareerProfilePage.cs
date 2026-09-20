@@ -30,6 +30,7 @@ public sealed class CareerProfilePage : MonoBehaviour
     private GameObject editorRoot;
     private GameObject transferRoot;
     private ScrollRect editorScroll;
+    private ScrollRect transferScroll;
     private TMP_Text editorStatus;
     private TMP_Text transferMessage;
     private Button importButton;
@@ -726,40 +727,100 @@ public sealed class CareerProfilePage : MonoBehaviour
         transferButton.onClick.AddListener(OpenTransfer);
 
         transferRoot = CreateUiObject("CareerProfileTransfer", transform, typeof(Image));
-        RectTransform panel = transferRoot.GetComponent<RectTransform>();
-        Stretch(panel, new Vector2(34f, 30f), new Vector2(-34f, -30f));
-        transferRoot.GetComponent<Image>().color = AppBackground;
+        RectTransform overlay = transferRoot.GetComponent<RectTransform>();
+        Stretch(overlay, Vector2.zero, Vector2.zero);
+        Image overlayImage = transferRoot.GetComponent<Image>();
+        overlayImage.color = theme != null ? theme.Overlay : new Color(0f, 0f, 0f, 0.65f);
+        overlayImage.raycastTarget = true;
 
-        CreateText(panel, "Title", "履歷資料搬遷", font, 34,
-            new Vector2(0.5f, 1f), new Vector2(0f, -28f), new Vector2(700f, 60f),
-            TextAlignmentOptions.Center);
+        GameObject cardObject = CreateUiObject(
+            "Card", overlay, typeof(Image), typeof(JobCheckModalCardSizer));
+        RectTransform card = cardObject.GetComponent<RectTransform>();
+        Image cardImage = cardObject.GetComponent<Image>();
+        cardImage.color = Surface;
+        ApplySlicedSprite(cardImage);
+        JobCheckModalCardSizer sizer = cardObject.GetComponent<JobCheckModalCardSizer>();
+        sizer.Configure(
+            1400f,
+            740f,
+            theme != null ? theme.ModalMaxWidth : 1400f,
+            theme != null ? theme.ModalMaxHeight : 900f,
+            theme != null ? theme.ModalViewportRatio : 0.85f);
+
+        TMP_Text title = CreateText(card, "Title", "履歷資料搬遷", font,
+            Mathf.RoundToInt(theme != null ? theme.ModalTitleSize : 36f),
+            new Vector2(0f, 1f), new Vector2(32f, -18f), new Vector2(720f, 64f),
+            TextAlignmentOptions.MidlineLeft);
+        title.fontStyle = FontStyles.Bold;
+        Button close = CreateButton(card, "Button_CloseTop", "關閉", font,
+            new Vector2(1f, 1f), new Vector2(-72f, -44f), new Vector2(112f, 48f),
+            ButtonTone.Secondary);
 
         GameObject messagePanel = CreateUiObject(
-            "MessagePanel", panel, typeof(Image), typeof(RectMask2D));
+            "MessageViewport", card, typeof(Image), typeof(RectMask2D), typeof(ScrollRect));
         RectTransform messageRect = messagePanel.GetComponent<RectTransform>();
-        messageRect.anchorMin = new Vector2(0.5f, 0.5f);
-        messageRect.anchorMax = new Vector2(0.5f, 0.5f);
-        messageRect.pivot = new Vector2(0.5f, 0.5f);
-        messageRect.anchoredPosition = new Vector2(0f, 35f);
-        messageRect.sizeDelta = new Vector2(1260f, 560f);
-        messagePanel.GetComponent<Image>().color = Surface;
-        transferMessage = CreateText(messageRect, "Message", string.Empty, font, 24,
-            new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero,
-            TextAlignmentOptions.TopLeft);
-        Stretch(transferMessage.rectTransform,
-            new Vector2(28f, 24f), new Vector2(-28f, -24f));
-        transferMessage.overflowMode = TextOverflowModes.Ellipsis;
+        Stretch(messageRect, new Vector2(32f, 104f), new Vector2(-32f, -98f));
+        messagePanel.GetComponent<Image>().color = SurfaceMuted;
+        ApplySlicedSprite(messagePanel.GetComponent<Image>());
 
-        Button close = CreateButton(panel, "Button_Close", "關閉", font,
-            new Vector2(0.5f, 0f), new Vector2(-500f, 58f), new Vector2(180f, 56f));
-        Button export = CreateButton(panel, "Button_Export", "匯出履歷", font,
-            new Vector2(0.5f, 0f), new Vector2(-280f, 58f), new Vector2(200f, 56f));
-        Button choose = CreateButton(panel, "Button_ChooseImport", "選擇匯入檔", font,
-            new Vector2(0.5f, 0f), new Vector2(-40f, 58f), new Vector2(230f, 56f));
-        importButton = CreateButton(panel, "Button_Import", "匯入履歷", font,
-            new Vector2(0.5f, 0f), new Vector2(205f, 58f), new Vector2(200f, 56f));
-        replaceButton = CreateButton(panel, "Button_Replace", "取代本機履歷", font,
-            new Vector2(0.5f, 0f), new Vector2(455f, 58f), new Vector2(240f, 56f));
+        transferMessage = CreateText(messageRect, "Message", string.Empty, font,
+            Mathf.RoundToInt(theme != null ? theme.BodySize : 22f),
+            new Vector2(0f, 1f), Vector2.zero, Vector2.zero,
+            TextAlignmentOptions.TopLeft);
+        RectTransform messageContent = transferMessage.rectTransform;
+        messageContent.anchorMin = new Vector2(0f, 1f);
+        messageContent.anchorMax = new Vector2(1f, 1f);
+        messageContent.pivot = new Vector2(0.5f, 1f);
+        messageContent.anchoredPosition = new Vector2(0f, -24f);
+        messageContent.sizeDelta = new Vector2(-48f, 0f);
+        transferMessage.margin = new Vector4(8f, 0f, 8f, 24f);
+        transferMessage.enableWordWrapping = true;
+        transferMessage.overflowMode = TextOverflowModes.Overflow;
+        ContentSizeFitter messageFitter =
+            transferMessage.gameObject.AddComponent<ContentSizeFitter>();
+        messageFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        messageFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        transferScroll = messagePanel.GetComponent<ScrollRect>();
+        transferScroll.viewport = messageRect;
+        transferScroll.content = messageContent;
+        transferScroll.horizontal = false;
+        transferScroll.vertical = true;
+        transferScroll.movementType = ScrollRect.MovementType.Clamped;
+        transferScroll.scrollSensitivity = 45f;
+
+        GameObject footer = CreateUiObject("Footer", card, typeof(Image));
+        RectTransform footerRect = footer.GetComponent<RectTransform>();
+        footerRect.anchorMin = new Vector2(0f, 0f);
+        footerRect.anchorMax = new Vector2(1f, 0f);
+        footerRect.pivot = new Vector2(0.5f, 0f);
+        footerRect.anchoredPosition = Vector2.zero;
+        footerRect.sizeDelta = new Vector2(0f, 88f);
+        footer.GetComponent<Image>().color = Surface;
+
+        GameObject actions = CreateUiObject(
+            "Actions", footer.transform, typeof(HorizontalLayoutGroup));
+        RectTransform actionsRect = actions.GetComponent<RectTransform>();
+        Stretch(actionsRect, new Vector2(24f, 16f), new Vector2(-24f, -16f));
+        HorizontalLayoutGroup actionsLayout = actions.GetComponent<HorizontalLayoutGroup>();
+        actionsLayout.padding = new RectOffset(0, 0, 0, 0);
+        actionsLayout.spacing = theme != null ? theme.SpaceSm : 12f;
+        actionsLayout.childAlignment = TextAnchor.MiddleRight;
+        actionsLayout.childControlWidth = true;
+        actionsLayout.childControlHeight = true;
+        actionsLayout.childForceExpandWidth = false;
+        actionsLayout.childForceExpandHeight = true;
+
+        Button export = CreateLayoutButton(
+            actions.transform, "Button_Export", "匯出履歷", font, 170f, ButtonTone.Secondary);
+        Button choose = CreateLayoutButton(
+            actions.transform, "Button_ChooseImport", "選擇匯入檔", font, 200f,
+            ButtonTone.Secondary);
+        importButton = CreateLayoutButton(
+            actions.transform, "Button_Import", "匯入履歷", font, 170f,
+            ButtonTone.Primary);
+        replaceButton = CreateLayoutButton(
+            actions.transform, "Button_Replace", "取代本機履歷", font, 220f,
+            ButtonTone.Danger);
 
         close.onClick.AddListener(CloseTransfer);
         export.onClick.AddListener(ChooseExportPath);
@@ -993,6 +1054,11 @@ public sealed class CareerProfilePage : MonoBehaviour
         transferMessage.color = error
             ? (theme != null ? theme.Danger : new Color(0.7f, 0.12f, 0.12f, 1f))
             : TextPrimary;
+        if (transferScroll != null)
+        {
+            Canvas.ForceUpdateCanvases();
+            transferScroll.verticalNormalizedPosition = 1f;
+        }
     }
 
     private static string ProfileSummary(CareerProfile profile)
@@ -1284,6 +1350,24 @@ public sealed class CareerProfilePage : MonoBehaviour
         TMP_Text text = CreateText(root.transform, "Text", label, font, 24,
             new Vector2(0.5f, 0.5f), Vector2.zero, size - new Vector2(20f, 12f), TextAlignmentOptions.Center);
         text.color = tone == ButtonTone.Secondary ? TextPrimary : TextOnPrimary;
+        return button;
+    }
+
+    private Button CreateLayoutButton(
+        Transform parent,
+        string name,
+        string label,
+        TMP_FontAsset font,
+        float width,
+        ButtonTone tone)
+    {
+        Button button = CreateButton(parent, name, label, font,
+            new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(width, 56f), tone);
+        LayoutElement layout = button.gameObject.AddComponent<LayoutElement>();
+        layout.minWidth = width;
+        layout.preferredWidth = width;
+        layout.minHeight = 56f;
+        layout.preferredHeight = 56f;
         return button;
     }
 
