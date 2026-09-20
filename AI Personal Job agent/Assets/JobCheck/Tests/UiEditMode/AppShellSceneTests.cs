@@ -15,6 +15,7 @@ namespace JobCheck.Ui.Editor.Tests
         private const string ScenePath = "Assets/Scenes/SampleScene.unity";
         private const string AllJobsPrefabPath = "Assets/Prefab/AllJobPage.prefab";
         private const string JobDetailPrefabPath = "Assets/Prefab/SinglePanel_Detail.prefab";
+        private const string FilterPanelPrefabPath = "Assets/Prefab/FilterPanels.prefab";
         private const float ReferenceWidth = 1920f;
         private const float ReferenceHeight = 1080f;
         private const float TargetWindowWidth = 1600f;
@@ -176,6 +177,30 @@ namespace JobCheck.Ui.Editor.Tests
             RectTransform scrollView = detail.transform.Find("Scroll View") as RectTransform;
             Assert.That(scrollView, Is.Not.Null);
             Assert.That(scrollView.sizeDelta.x, Is.LessThanOrEqualTo(1600f));
+        }
+
+        [Test]
+        public void FilterPanel_StretchesToJobsPageAndKeepsActionsInsideContent()
+        {
+            GameObject panel = AssetDatabase.LoadAssetAtPath<GameObject>(FilterPanelPrefabPath);
+            Assert.That(panel, Is.Not.Null);
+
+            RectTransform root = panel.transform as RectTransform;
+            Assert.That(root, Is.Not.Null);
+            Assert.That(root.anchorMin, Is.EqualTo(Vector2.zero));
+            Assert.That(root.anchorMax, Is.EqualTo(Vector2.one));
+            Assert.That(root.anchoredPosition, Is.EqualTo(Vector2.zero));
+            Assert.That(root.sizeDelta, Is.EqualTo(Vector2.zero));
+
+            foreach (string name in new[] { "Button_ClearAll", "Button_AppliedFilter" })
+            {
+                RectTransform button = panel.transform.Find(name) as RectTransform;
+                Assert.That(button, Is.Not.Null, name);
+                float left = button.anchoredPosition.x - button.sizeDelta.x * button.pivot.x;
+                float right = button.anchoredPosition.x + button.sizeDelta.x * (1f - button.pivot.x);
+                Assert.That(left, Is.GreaterThanOrEqualTo(-840f), name + " left");
+                Assert.That(right, Is.LessThanOrEqualTo(840f), name + " right");
+            }
         }
 
         [Test]
