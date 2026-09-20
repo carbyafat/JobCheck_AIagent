@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace JobCheck.Ui.Editor.Tests
 {
@@ -14,6 +15,38 @@ namespace JobCheck.Ui.Editor.Tests
         private const string ScenePath = "Assets/Scenes/SampleScene.unity";
         private const string AllJobsPrefabPath = "Assets/Prefab/AllJobPage.prefab";
         private const string JobDetailPrefabPath = "Assets/Prefab/SinglePanel_Detail.prefab";
+        private const float ReferenceWidth = 1920f;
+        private const float ReferenceHeight = 1080f;
+        private const float TargetWindowWidth = 1600f;
+        private const float TargetWindowHeight = 900f;
+
+        [Test]
+        public void Player_DefaultsToFixedSixteenHundredByNineHundredWindow()
+        {
+            Assert.That(PlayerSettings.defaultScreenWidth, Is.EqualTo((int)TargetWindowWidth));
+            Assert.That(PlayerSettings.defaultScreenHeight, Is.EqualTo((int)TargetWindowHeight));
+            Assert.That(PlayerSettings.fullScreenMode, Is.EqualTo(FullScreenMode.Windowed));
+            Assert.That(PlayerSettings.resizableWindow, Is.False);
+        }
+
+        [Test]
+        public void Canvas_ScalesUniformlyFromReferenceToTargetWindow()
+        {
+            WithScene(scene =>
+            {
+                CanvasScaler scaler = FindRoot(scene, "Canvas").GetComponent<CanvasScaler>();
+                Assert.That(scaler, Is.Not.Null);
+                Assert.That(scaler.uiScaleMode, Is.EqualTo(CanvasScaler.ScaleMode.ScaleWithScreenSize));
+                Assert.That(scaler.referenceResolution, Is.EqualTo(new Vector2(ReferenceWidth, ReferenceHeight)));
+                Assert.That(scaler.screenMatchMode, Is.EqualTo(CanvasScaler.ScreenMatchMode.MatchWidthOrHeight));
+                Assert.That(scaler.matchWidthOrHeight, Is.EqualTo(0f));
+
+                float widthScale = TargetWindowWidth / ReferenceWidth;
+                float heightScale = TargetWindowHeight / ReferenceHeight;
+                Assert.That(widthScale, Is.EqualTo(heightScale).Within(0.0001f));
+                Assert.That(ReferenceHeight * widthScale, Is.EqualTo(TargetWindowHeight).Within(0.01f));
+            });
+        }
 
         [Test]
         public void JobsPage_ContainsExistingListAndDetailPrefabs()
@@ -107,6 +140,10 @@ namespace JobCheck.Ui.Editor.Tests
             GameObject page = AssetDatabase.LoadAssetAtPath<GameObject>(AllJobsPrefabPath);
             Assert.That(page, Is.Not.Null);
 
+            float scale = TargetWindowWidth / ReferenceWidth;
+            float sidebarWidth = 240f * scale;
+            float contentCenter = sidebarWidth + (TargetWindowWidth - sidebarWidth) * 0.5f;
+
             foreach (string name in new[]
                      {
                          "Button_TrashManagement",
@@ -127,6 +164,11 @@ namespace JobCheck.Ui.Editor.Tests
                 float right = item.anchoredPosition.x + item.sizeDelta.x * (1f - item.pivot.x);
                 Assert.That(left, Is.GreaterThanOrEqualTo(-840f), name + " left");
                 Assert.That(right, Is.LessThanOrEqualTo(840f), name + " right");
+
+                float screenLeft = contentCenter + left * scale;
+                float screenRight = contentCenter + right * scale;
+                Assert.That(screenLeft, Is.GreaterThanOrEqualTo(sidebarWidth - 0.01f), name + " 1600x900 left");
+                Assert.That(screenRight, Is.LessThanOrEqualTo(TargetWindowWidth + 0.01f), name + " 1600x900 right");
             }
 
             GameObject detail = AssetDatabase.LoadAssetAtPath<GameObject>(JobDetailPrefabPath);
