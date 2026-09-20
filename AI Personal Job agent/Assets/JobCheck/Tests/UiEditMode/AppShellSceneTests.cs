@@ -16,6 +16,7 @@ namespace JobCheck.Ui.Editor.Tests
         private const string AllJobsPrefabPath = "Assets/Prefab/AllJobPage.prefab";
         private const string JobDetailPrefabPath = "Assets/Prefab/SinglePanel_Detail.prefab";
         private const string FilterPanelPrefabPath = "Assets/Prefab/FilterPanels.prefab";
+        private const string AnalyticsPanelPrefabPath = "Assets/Prefab/Panel_Analytics.prefab";
         private const float ReferenceWidth = 1920f;
         private const float ReferenceHeight = 1080f;
         private const float TargetWindowWidth = 1600f;
@@ -119,7 +120,7 @@ namespace JobCheck.Ui.Editor.Tests
         }
 
         [Test]
-        public void AppShell_HasBoundThemeAndNoPrototypeNote()
+        public void AppShell_HasFinishedSidebarNavigation()
         {
             WithScene(scene =>
             {
@@ -130,12 +131,27 @@ namespace JobCheck.Ui.Editor.Tests
                 Assert.That(data.FindProperty("theme").objectReferenceValue, Is.Not.Null);
                 Assert.That(data.FindProperty("appBackground").objectReferenceValue, Is.Not.Null);
                 Assert.That(data.FindProperty("sidebarBackground").objectReferenceValue, Is.Not.Null);
+                Assert.That(data.FindProperty("versionText").objectReferenceValue, Is.Not.Null);
+                Assert.That(data.FindProperty("activeNavigationIndicator").objectReferenceValue, Is.Not.Null);
                 Assert.That(data.FindProperty("buttonHome").objectReferenceValue, Is.Not.Null);
                 Assert.That(data.FindProperty("buttonJobs").objectReferenceValue, Is.Not.Null);
                 Assert.That(data.FindProperty("buttonResume").objectReferenceValue, Is.Not.Null);
 
-                Transform note = RequireChild(RequireChild(appShell, "Sidebar"), "Text_PrototypeNote");
-                Assert.That(note.gameObject.activeSelf, Is.False);
+                Transform sidebar = RequireChild(appShell, "Sidebar");
+                Assert.That(sidebar.Find("Text_PrototypeNote"), Is.Null);
+                Text version = RequireChild(sidebar, "Text_Version").GetComponent<Text>();
+                Assert.That(version, Is.Not.Null);
+                Assert.That(version.text, Is.EqualTo("v0.2.6"));
+                Assert.That(version.gameObject.activeSelf, Is.True);
+                Assert.That(RequireChild(sidebar, "Navigation_ActiveIndicator").GetComponent<Image>(),
+                    Is.Not.Null);
+
+                Assert.That(RequireChild(RequireChild(sidebar, "Button_Home"), "Text").GetComponent<Text>().text,
+                    Does.StartWith("⌂"));
+                Assert.That(RequireChild(RequireChild(sidebar, "Button_Jobs"), "Text").GetComponent<Text>().text,
+                    Does.StartWith("▤"));
+                Assert.That(RequireChild(RequireChild(sidebar, "Button_Resume"), "Text").GetComponent<Text>().text,
+                    Does.StartWith("▣"));
             });
         }
 
@@ -168,19 +184,17 @@ namespace JobCheck.Ui.Editor.Tests
 
             foreach (string name in new[]
                      {
-                         "Button_TrashManagement",
-                         "Button_PortableTransfer",
-                         "Button_ShowAnalytics",
                          "Button_AddJobPosting",
                          "Button_ShowFilter",
                          "Button_Load",
+                         "Button_MoreActions",
                          "Button_LastPage",
                          "Button_NextPage",
                          "TMP_Date",
                          "JobPanels"
                      })
             {
-                RectTransform item = page.transform.Find(name) as RectTransform;
+                RectTransform item = FindDescendant(page.transform, name) as RectTransform;
                 Assert.That(item, Is.Not.Null, name);
                 float left = item.anchoredPosition.x - item.sizeDelta.x * item.pivot.x;
                 float right = item.anchoredPosition.x + item.sizeDelta.x * (1f - item.pivot.x);
@@ -191,6 +205,20 @@ namespace JobCheck.Ui.Editor.Tests
                 float screenRight = contentCenter + right * scale;
                 Assert.That(screenLeft, Is.GreaterThanOrEqualTo(sidebarWidth - 0.01f), name + " 1600x900 left");
                 Assert.That(screenRight, Is.LessThanOrEqualTo(TargetWindowWidth + 0.01f), name + " 1600x900 right");
+            }
+
+            Transform morePanel = FindDescendant(page.transform, "Panel_MoreActions");
+            Assert.That(morePanel, Is.Not.Null);
+            Assert.That(morePanel.gameObject.activeSelf, Is.False,
+                "Low-frequency actions should be hidden until requested.");
+            foreach (string name in new[]
+                     {
+                         "Button_ShowAnalytics",
+                         "Button_PortableTransfer",
+                         "Button_TrashManagement"
+                     })
+            {
+                Assert.That(FindDescendant(morePanel, name), Is.Not.Null, name);
             }
 
             GameObject detail = AssetDatabase.LoadAssetAtPath<GameObject>(JobDetailPrefabPath);
@@ -207,6 +235,12 @@ namespace JobCheck.Ui.Editor.Tests
             Assert.That(page, Is.Not.Null);
             MonoBehaviour pagePresenter = FindComponent(page.transform, "JobsPageThemePresenter");
             Assert.That(new SerializedObject(pagePresenter).FindProperty("theme").objectReferenceValue, Is.Not.Null);
+
+            MonoBehaviour moreActions = FindComponent(page.transform, "MoreActionsMenu");
+            var moreActionsData = new SerializedObject(moreActions);
+            Assert.That(moreActionsData.FindProperty("buttonMoreActions").objectReferenceValue, Is.Not.Null);
+            Assert.That(moreActionsData.FindProperty("panelMoreActions").objectReferenceValue, Is.Not.Null);
+            Assert.That(moreActionsData.FindProperty("menuActionButtons").arraySize, Is.EqualTo(3));
 
             const string cardPath = "Assets/Prefab/Panel_SingleJob.prefab";
             GameObject card = AssetDatabase.LoadAssetAtPath<GameObject>(cardPath);
@@ -237,6 +271,55 @@ namespace JobCheck.Ui.Editor.Tests
                 Assert.That(left, Is.GreaterThanOrEqualTo(-840f), name + " left");
                 Assert.That(right, Is.LessThanOrEqualTo(840f), name + " right");
             }
+        }
+
+        [Test]
+        public void JobModals_UseOneOverlayCardAndFixedChromePattern()
+        {
+            GameObject jobsPage = AssetDatabase.LoadAssetAtPath<GameObject>(AllJobsPrefabPath);
+            GameObject filterPanel = AssetDatabase.LoadAssetAtPath<GameObject>(FilterPanelPrefabPath);
+            GameObject analyticsPanel = AssetDatabase.LoadAssetAtPath<GameObject>(AnalyticsPanelPrefabPath);
+            Assert.That(jobsPage, Is.Not.Null);
+            Assert.That(filterPanel, Is.Not.Null);
+            Assert.That(analyticsPanel, Is.Not.Null);
+
+            Transform[] modalRoots =
+            {
+                filterPanel.transform,
+                FindDescendant(jobsPage.transform, "Panel_TrashManagement"),
+                FindDescendant(jobsPage.transform, "Panel_PortableTransfer"),
+                analyticsPanel.transform,
+                FindDescendant(jobsPage.transform, "Panel_JobPostingCreate")
+            };
+
+            foreach (Transform modal in modalRoots)
+            {
+                Assert.That(modal, Is.Not.Null);
+                Image overlay = modal.GetComponent<Image>();
+                Assert.That(overlay, Is.Not.Null, modal.name + " overlay");
+                Assert.That(overlay.color.a, Is.EqualTo(0.65f).Within(0.001f), modal.name + " overlay alpha");
+
+                RectTransform card = FindDescendant(modal, "Card") as RectTransform;
+                Assert.That(card, Is.Not.Null, modal.name + " card");
+                Assert.That(card.sizeDelta.x, Is.LessThanOrEqualTo(1400f), modal.name + " width");
+                Assert.That(card.sizeDelta.y, Is.LessThanOrEqualTo(900f), modal.name + " height");
+                Assert.That(FindDescendant(modal, "Button_CloseTop"), Is.Not.Null,
+                    modal.name + " top-right close");
+                Assert.That(FindDescendant(modal, "Title") ?? FindDescendant(modal, "Text_Title"), Is.Not.Null,
+                    modal.name + " fixed title");
+            }
+
+            Assert.That(FindDescendant(analyticsPanel.transform, "Viewport").GetComponent<ScrollRect>(), Is.Not.Null);
+            Assert.That(FindDescendant(modalRoots[4], "Scroll_Form").GetComponent<ScrollRect>(), Is.Not.Null);
+
+            RectTransform analyticsProfile = FindDescendant(analyticsPanel.transform, "Text_Profile") as RectTransform;
+            RectTransform analyticsClose = FindDescendant(analyticsPanel.transform, "Button_CloseTop") as RectTransform;
+            Assert.That(analyticsProfile, Is.Not.Null);
+            Assert.That(analyticsClose, Is.Not.Null);
+            float profileRight = analyticsProfile.anchoredPosition.x + analyticsProfile.sizeDelta.x * 0.5f;
+            float closeLeft = analyticsClose.anchoredPosition.x - analyticsClose.sizeDelta.x * 0.5f;
+            Assert.That(profileRight, Is.LessThanOrEqualTo(closeLeft - 24f),
+                "Analytics profile label must reserve space for the top-right close button.");
         }
 
         [Test]
@@ -306,6 +389,12 @@ namespace JobCheck.Ui.Editor.Tests
                 .FirstOrDefault(item => item != null && item.GetType().Name == typeName);
             Assert.That(component, Is.Not.Null, "Missing component: " + typeName);
             return component;
+        }
+
+        private static Transform FindDescendant(Transform root, string name)
+        {
+            return root.GetComponentsInChildren<Transform>(true)
+                .FirstOrDefault(item => item.name == name);
         }
 
         private static void Invoke(MonoBehaviour target, string methodName, params object[] arguments)

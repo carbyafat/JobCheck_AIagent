@@ -16,8 +16,11 @@ namespace JobCheck.Ui.Editor.Tests
             Assert.That(theme.FindProperty("displayFont").objectReferenceValue, Is.Not.Null);
             Assert.That(theme.FindProperty("bodyFont").objectReferenceValue, Is.Not.Null);
             Assert.That(Float(theme, "pageTitleSize"), Is.GreaterThan(Float(theme, "sectionTitleSize")));
+            Assert.That(Float(theme, "modalTitleSize"), Is.GreaterThan(Float(theme, "sectionTitleSize")));
             Assert.That(Float(theme, "sectionTitleSize"), Is.GreaterThan(Float(theme, "bodySize")));
             Assert.That(Float(theme, "bodySize"), Is.GreaterThan(Float(theme, "supportingTextSize")));
+            Assert.That(Float(theme, "supportingTextSize"), Is.GreaterThanOrEqualTo(20f),
+                "Supporting information must remain readable at the 1600x900 target size.");
         }
 
         [Test]
@@ -40,9 +43,14 @@ namespace JobCheck.Ui.Editor.Tests
             }
 
             Assert.That(Float(theme, "sidebarWidth"), Is.EqualTo(240f));
+            Assert.That(theme.FindProperty("buttonBackgroundSprite").objectReferenceValue, Is.Not.Null,
+                "Buttons must share one sliced background sprite.");
             Assert.That(Float(theme, "compactButtonHeight"), Is.LessThan(Float(theme, "buttonHeight")));
             Assert.That(Float(theme, "controlCornerRadius"), Is.LessThanOrEqualTo(Float(theme, "cardCornerRadius")));
             Assert.That(Float(theme, "modalMaxWidth"), Is.LessThanOrEqualTo(1400f));
+            Assert.That(Float(theme, "modalMaxHeight"), Is.LessThanOrEqualTo(900f));
+            Assert.That(Float(theme, "modalViewportRatio"), Is.EqualTo(0.85f).Within(0.001f));
+            Assert.That(Color(theme, "overlay").a, Is.EqualTo(0.65f).Within(0.001f));
         }
 
         [Test]
@@ -53,7 +61,7 @@ namespace JobCheck.Ui.Editor.Tests
             Assert.That(Contrast(Color(theme, "textPrimary"), Color(theme, "appBackground")),
                 Is.GreaterThanOrEqualTo(4.5f));
             Assert.That(Contrast(Color(theme, "textSecondary"), Color(theme, "appBackground")),
-                Is.GreaterThanOrEqualTo(4.5f));
+                Is.GreaterThanOrEqualTo(5.5f));
             Assert.That(Contrast(Color(theme, "textOnPrimary"), Color(theme, "primary")),
                 Is.GreaterThanOrEqualTo(4.5f));
         }

@@ -34,6 +34,8 @@ public class FilterPanel : MonoBehaviour
     [SerializeField] private Button buttonApplyFilter;
     [Tooltip("清除所有篩選條件按鈕。")]
     [SerializeField] private Button buttonClearAll;
+    [Tooltip("右上角關閉按鈕。")]
+    [SerializeField] private Button buttonCloseTop;
 
     private readonly List<string> statusValues = new List<string>();
     private AllJobPage ownerPage;
@@ -127,6 +129,14 @@ public class FilterPanel : MonoBehaviour
     }
 
     /// <summary>
+    /// 不改變目前篩選條件並關閉面板。
+    /// </summary>
+    public void Close()
+    {
+        gameObject.SetActive(false);
+    }
+
+    /// <summary>
     /// 清除薪水下限輸入。
     /// </summary>
     public void ClearMoney()
@@ -191,6 +201,7 @@ public class FilterPanel : MonoBehaviour
         if (buttonClearScore == null) buttonClearScore = FindChildButton("Button_ClearScore");
         if (buttonApplyFilter == null) buttonApplyFilter = FindChildButton("Button_AppliedFilter");
         if (buttonClearAll == null) buttonClearAll = FindChildButton("Button_ClearAll");
+        if (buttonCloseTop == null) buttonCloseTop = FindChildButton("Button_CloseTop");
     }
 
     /// <summary>
@@ -244,6 +255,7 @@ public class FilterPanel : MonoBehaviour
         BindButton(buttonClearAll, ClearAll);
         BindButton(buttonClearMoney, ClearMoney);
         BindButton(buttonClearScore, ClearScore);
+        BindButton(buttonCloseTop, Close);
     }
 
     /// <summary>

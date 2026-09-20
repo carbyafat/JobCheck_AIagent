@@ -56,6 +56,7 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
     [SerializeField] private TMP_Text textTitle;
     [SerializeField] private Button buttonSave;
     [SerializeField] private Button buttonCancel;
+    [SerializeField] private Button buttonCloseTop;
     [SerializeField] private TMP_Text textMessage;
 
     private AllJobPage owner;
@@ -369,6 +370,7 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         }
         buttonSave = buttonSave ?? FindButton("Button_SaveJobPosting");
         buttonCancel = buttonCancel ?? FindButton("Button_CancelJobPosting");
+        buttonCloseTop = buttonCloseTop ?? FindButton("Button_CloseTop");
 
         if (textMessage == null)
         {
@@ -389,6 +391,12 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
         {
             buttonCancel.onClick.RemoveListener(Cancel);
             buttonCancel.onClick.AddListener(Cancel);
+        }
+
+        if (buttonCloseTop != null)
+        {
+            buttonCloseTop.onClick.RemoveListener(Cancel);
+            buttonCloseTop.onClick.AddListener(Cancel);
         }
     }
 

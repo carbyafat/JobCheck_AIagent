@@ -14,7 +14,7 @@ public sealed class JobCheckUiTheme : ScriptableObject
     [SerializeField] private Color surfaceMuted = new Color32(238, 231, 229, 255);
     [SerializeField] private Color sidebarBackground = new Color32(53, 29, 35, 255);
     [SerializeField] private Color border = new Color32(216, 207, 208, 255);
-    [SerializeField] private Color overlay = new Color(0f, 0f, 0f, 0.68f);
+    [SerializeField] private Color overlay = new Color(0f, 0f, 0f, 0.65f);
 
     [Header("Palette - Actions")]
     [SerializeField] private Color primary = new Color32(126, 70, 80, 255);
@@ -26,7 +26,7 @@ public sealed class JobCheckUiTheme : ScriptableObject
 
     [Header("Palette - Text")]
     [SerializeField] private Color textPrimary = new Color32(46, 40, 41, 255);
-    [SerializeField] private Color textSecondary = new Color32(113, 104, 106, 255);
+    [SerializeField] private Color textSecondary = new Color32(98, 88, 91, 255);
     [SerializeField] private Color textOnPrimary = new Color32(255, 253, 252, 255);
 
     [Header("Typography")]
@@ -35,8 +35,9 @@ public sealed class JobCheckUiTheme : ScriptableObject
     [SerializeField, Min(1f)] private float brandTitleSize = 38f;
     [SerializeField, Min(1f)] private float pageTitleSize = 48f;
     [SerializeField, Min(1f)] private float sectionTitleSize = 28f;
+    [SerializeField, Min(1f)] private float modalTitleSize = 36f;
     [SerializeField, Min(1f)] private float bodySize = 22f;
-    [SerializeField, Min(1f)] private float supportingTextSize = 18f;
+    [SerializeField, Min(1f)] private float supportingTextSize = 20f;
     [SerializeField, Min(1f)] private float buttonTextSize = 22f;
 
     [Header("Spacing")]
@@ -48,6 +49,7 @@ public sealed class JobCheckUiTheme : ScriptableObject
     [SerializeField, Min(0f)] private float contentPadding = 32f;
 
     [Header("Components")]
+    [SerializeField] private Sprite buttonBackgroundSprite;
     [SerializeField, Min(0f)] private float controlCornerRadius = 8f;
     [SerializeField, Min(0f)] private float cardCornerRadius = 12f;
     [SerializeField, Min(0f)] private float modalCornerRadius = 12f;
@@ -56,6 +58,8 @@ public sealed class JobCheckUiTheme : ScriptableObject
     [SerializeField, Min(1f)] private float inputHeight = 52f;
     [SerializeField, Min(1f)] private float sidebarWidth = 240f;
     [SerializeField, Min(1f)] private float modalMaxWidth = 1400f;
+    [SerializeField, Min(1f)] private float modalMaxHeight = 900f;
+    [SerializeField, Range(0.5f, 1f)] private float modalViewportRatio = 0.85f;
 
     public Color AppBackground => appBackground;
     public Color Surface => surface;
@@ -77,6 +81,7 @@ public sealed class JobCheckUiTheme : ScriptableObject
     public float BrandTitleSize => brandTitleSize;
     public float PageTitleSize => pageTitleSize;
     public float SectionTitleSize => sectionTitleSize;
+    public float ModalTitleSize => modalTitleSize;
     public float BodySize => bodySize;
     public float SupportingTextSize => supportingTextSize;
     public float ButtonTextSize => buttonTextSize;
@@ -86,6 +91,7 @@ public sealed class JobCheckUiTheme : ScriptableObject
     public float SpaceLg => spaceLg;
     public float SpaceXl => spaceXl;
     public float ContentPadding => contentPadding;
+    public Sprite ButtonBackgroundSprite => buttonBackgroundSprite;
     public float ControlCornerRadius => controlCornerRadius;
     public float CardCornerRadius => cardCornerRadius;
     public float ModalCornerRadius => modalCornerRadius;
@@ -94,4 +100,6 @@ public sealed class JobCheckUiTheme : ScriptableObject
     public float InputHeight => inputHeight;
     public float SidebarWidth => sidebarWidth;
     public float ModalMaxWidth => modalMaxWidth;
+    public float ModalMaxHeight => modalMaxHeight;
+    public float ModalViewportRatio => modalViewportRatio;
 }

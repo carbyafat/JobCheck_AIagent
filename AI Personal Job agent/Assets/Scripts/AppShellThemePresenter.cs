@@ -12,7 +12,8 @@ public sealed class AppShellThemePresenter : MonoBehaviour
     [SerializeField] private Image appBackground;
     [SerializeField] private Image sidebarBackground;
     [SerializeField] private Text appNameText;
-    [SerializeField] private GameObject prototypeNote;
+    [SerializeField] private Text versionText;
+    [SerializeField] private Image activeNavigationIndicator;
     [SerializeField] private Button buttonHome;
     [SerializeField] private Button buttonJobs;
     [SerializeField] private Button buttonResume;
@@ -41,6 +42,7 @@ public sealed class AppShellThemePresenter : MonoBehaviour
         StyleNavigationButton(buttonHome, buttonHome == activeButton, 0);
         StyleNavigationButton(buttonJobs, buttonJobs == activeButton, 1);
         StyleNavigationButton(buttonResume, buttonResume == activeButton, 2);
+        PositionActiveIndicator(activeButton);
     }
 
     private void ApplyBaseStyle()
@@ -66,9 +68,10 @@ public sealed class AppShellThemePresenter : MonoBehaviour
             appNameText.fontSize = Mathf.RoundToInt(theme.BrandTitleSize);
         }
 
-        if (prototypeNote != null && prototypeNote.activeSelf)
+        if (versionText != null)
         {
-            prototypeNote.SetActive(false);
+            versionText.color = WithAlpha(theme.TextOnPrimary, 0.68f);
+            versionText.fontSize = Mathf.RoundToInt(theme.SupportingTextSize);
         }
 
         ApplyNavigation(ResolveInitialButton());
@@ -110,10 +113,10 @@ public sealed class AppShellThemePresenter : MonoBehaviour
         }
 
         ColorBlock colors = button.colors;
-        colors.normalColor = active ? theme.Primary : theme.PrimaryPressed;
-        colors.highlightedColor = theme.PrimaryHover;
-        colors.pressedColor = theme.Primary;
-        colors.selectedColor = active ? theme.Primary : theme.PrimaryHover;
+        colors.normalColor = active ? theme.SurfaceMuted : theme.PrimaryPressed;
+        colors.highlightedColor = active ? theme.Surface : theme.PrimaryHover;
+        colors.pressedColor = active ? theme.Border : theme.Primary;
+        colors.selectedColor = active ? theme.SurfaceMuted : theme.PrimaryHover;
         colors.disabledColor = WithAlpha(theme.TextSecondary, 0.45f);
         colors.colorMultiplier = 1f;
         colors.fadeDuration = 0.12f;
@@ -122,6 +125,11 @@ public sealed class AppShellThemePresenter : MonoBehaviour
         Image image = button.targetGraphic as Image;
         if (image != null)
         {
+            if (theme.ButtonBackgroundSprite != null)
+            {
+                image.sprite = theme.ButtonBackgroundSprite;
+            }
+
             image.type = Image.Type.Sliced;
             image.color = colors.normalColor;
         }
@@ -129,9 +137,26 @@ public sealed class AppShellThemePresenter : MonoBehaviour
         Text label = button.GetComponentInChildren<Text>(true);
         if (label != null)
         {
-            label.color = theme.TextOnPrimary;
+            label.color = active ? theme.PrimaryPressed : theme.TextOnPrimary;
             label.fontSize = Mathf.RoundToInt(theme.ButtonTextSize);
         }
+    }
+
+    private void PositionActiveIndicator(Button activeButton)
+    {
+        if (activeNavigationIndicator == null)
+        {
+            return;
+        }
+
+        int activeIndex = activeButton == buttonJobs ? 1 : activeButton == buttonResume ? 2 : 0;
+        RectTransform rect = activeNavigationIndicator.rectTransform;
+        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, theme.ButtonHeight);
+        Vector2 position = rect.anchoredPosition;
+        position.y = -180f - activeIndex * (theme.ButtonHeight + theme.SpaceLg);
+        rect.anchoredPosition = position;
+        activeNavigationIndicator.color = theme.Primary;
+        activeNavigationIndicator.gameObject.SetActive(activeButton != null);
     }
 
     private static Color WithAlpha(Color color, float alpha)
