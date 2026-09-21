@@ -44,23 +44,23 @@ public sealed class HomeDashboardPage : MonoBehaviour
         : fontAsset;
     private Color Background => theme != null
         ? theme.AppBackground
-        : new Color32(244, 241, 240, 255);
+        : (Color)new Color32(244, 241, 240, 255);
     private Color Surface => theme != null ? theme.Surface : Color.white;
     private Color SurfaceMuted => theme != null
         ? theme.SurfaceMuted
-        : new Color32(238, 231, 229, 255);
+        : (Color)new Color32(238, 231, 229, 255);
     private Color Border => theme != null
         ? theme.Border
-        : new Color32(216, 207, 208, 255);
+        : (Color)new Color32(216, 207, 208, 255);
     private Color Primary => theme != null
         ? theme.Primary
-        : new Color32(126, 70, 80, 255);
+        : (Color)new Color32(126, 70, 80, 255);
     private Color TextPrimary => theme != null
         ? theme.TextPrimary
-        : new Color32(46, 40, 41, 255);
+        : (Color)new Color32(46, 40, 41, 255);
     private Color TextSecondary => theme != null
         ? theme.TextSecondary
-        : new Color32(98, 88, 91, 255);
+        : (Color)new Color32(98, 88, 91, 255);
     private Color TextOnPrimary => theme != null ? theme.TextOnPrimary : Color.white;
 
     private void OnEnable()

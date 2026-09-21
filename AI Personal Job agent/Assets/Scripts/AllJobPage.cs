@@ -10,6 +10,11 @@ using Company = JobCheck.Domain.Company;
 using JobPosting = JobCheck.Domain.JobPosting;
 using DomainApplication = JobCheck.Domain.Application;
 using DomainApplicationEvent = JobCheck.Domain.ApplicationEvent;
+using CareerProfile = JobCheck.Domain.CareerProfile;
+using RequirementMatchEngine = JobCheck.Domain.RequirementMatchEngine;
+using RequirementMatchResult = JobCheck.Domain.RequirementMatchResult;
+using RequirementScore = JobCheck.Domain.RequirementScore;
+using RequirementScoreCalculator = JobCheck.Domain.RequirementScoreCalculator;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -73,6 +78,7 @@ public class AllJobPage : MonoBehaviour
     public string CurrentDataProfileLabel =>
         currentDataProfile == JobCheckDataProfile.Personal ? "個人" : "Demo";
     public string CurrentDataRoot => ResolveProjectRelativePath(ActiveDataRootPath);
+    public string PersonalDataRoot => ResolveProjectRelativePath(personalDataRootPath);
 
     private string ActiveDataRootPath
     {
@@ -582,9 +588,36 @@ public class AllJobPage : MonoBehaviour
             return;
         }
 
+        CareerProfile profile = null;
+        PersistenceStorageResult<CareerProfile> profileResult =
+            CareerProfileRepository.Load(PersonalDataRoot);
+        if (profileResult.IsSuccess)
+        {
+            profile = profileResult.Value;
+        }
+        else
+        {
+            Debug.LogWarning("履歷載入失敗；本次職缺列表不計算規則符合度。");
+        }
+
         foreach (JobPostingReadOnlyItem item in result.Value.Items)
         {
             JobSummaryData summary = JobCheckV02DisplayAdapter.CreateSummary(item);
+            if (profile != null)
+            {
+                RequirementMatchResult match = RequirementMatchEngine.Compare(
+                    profile,
+                    item.JobPosting.Requirements,
+                    DateTimeOffset.Now);
+                RequirementScore score = RequirementScoreCalculator.Calculate(match);
+                summary.fit_score = score.Score ?? -1;
+                summary.v02Detail.v027Match = match;
+                summary.v02Detail.v027Score = score;
+                if (summary.v02Tracking != null)
+                {
+                    summary.v02Tracking.fit_score = summary.fit_score;
+                }
+            }
             summary.is_expired = IsTrackingExpired(summary.v02Tracking);
             loadedJobs.Add(summary);
         }
@@ -1147,6 +1180,9 @@ public class JobDetailData
     public List<string> recruitment_process;
     public List<string> tags;
     public List<string> risk_flags;
+
+    [NonSerialized] public RequirementMatchResult v027Match;
+    [NonSerialized] public RequirementScore v027Score;
 }
 
 [Serializable]

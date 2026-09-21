@@ -967,7 +967,10 @@ public class Panel_JobDetail : MonoBehaviour
         AppendLine(builder, "是否逾期", IsCurrentTrackingExpired() ? "是" : "否");
         AppendLine(builder, "我的最愛", currentTracking != null && currentTracking.favorite ? "是" : "否");
         AppendLine(builder, "我的備註", currentTracking != null ? currentTracking.notes : string.Empty);
-        AppendLine(builder, "適配度", currentTracking != null && currentTracking.fit_score >= 0 ? currentTracking.fit_score.ToString() : "尚未評分");
+        AppendLine(
+            builder,
+            "履歷條件比對",
+            JobRequirementMatchTextFormatter.Format(data.v027Match, data.v027Score));
 
         return builder.ToString().TrimEnd();
     }

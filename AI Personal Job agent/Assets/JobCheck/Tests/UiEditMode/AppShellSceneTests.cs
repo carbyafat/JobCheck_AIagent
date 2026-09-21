@@ -141,7 +141,7 @@ namespace JobCheck.Ui.Editor.Tests
                 Assert.That(sidebar.Find("Text_PrototypeNote"), Is.Null);
                 Text version = RequireChild(sidebar, "Text_Version").GetComponent<Text>();
                 Assert.That(version, Is.Not.Null);
-                Assert.That(version.text, Is.EqualTo("v0.2.6"));
+                Assert.That(version.text, Is.EqualTo("v0.2.7"));
                 Assert.That(version.gameObject.activeSelf, Is.True);
                 Assert.That(RequireChild(sidebar, "Navigation_ActiveIndicator").GetComponent<Image>(),
                     Is.Not.Null);

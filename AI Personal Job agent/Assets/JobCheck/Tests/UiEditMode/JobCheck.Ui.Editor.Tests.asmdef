@@ -1,7 +1,7 @@
 {
   "name": "JobCheck.Ui.Editor.Tests",
   "rootNamespace": "JobCheck.Ui.Editor.Tests",
-  "references": ["Unity.TextMeshPro"],
+  "references": ["Unity.TextMeshPro", "JobCheck.Domain"],
   "includePlatforms": ["Editor"],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
