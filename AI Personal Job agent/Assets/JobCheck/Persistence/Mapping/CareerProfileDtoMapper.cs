@@ -30,7 +30,10 @@ namespace JobCheck.Persistence
                 {
                     Id = item.id,
                     Name = item.name,
-                    Notes = item.notes
+                    Notes = item.notes,
+                    SkillId = item.skill_id,
+                    Level = ParseOptionalEnum<SkillLevel>(item.level),
+                    ClaimedMonths = item.has_claimed_months ? item.claimed_months : (int?)null
                 }),
                 Experiences = Map(dto.experiences, item => new CareerExperience
                 {
@@ -40,7 +43,8 @@ namespace JobCheck.Persistence
                     StartDate = item.start_date,
                     EndDate = item.end_date,
                     IsCurrent = item.is_current,
-                    Description = item.description
+                    Description = item.description,
+                    SkillIds = PersistenceListMapper.Copy(item.skill_ids)
                 }),
                 Projects = Map(dto.projects, item => new CareerProject
                 {
@@ -57,14 +61,22 @@ namespace JobCheck.Persistence
                     Program = item.program,
                     StartDate = item.start_date,
                     EndDate = item.end_date,
-                    Notes = item.notes
+                    Notes = item.notes,
+                    DegreeLevel = ParseOptionalEnum<DegreeLevel>(item.degree_level),
+                    CompletionStatus = ParseEnumOrDefault(
+                        item.completion_status,
+                        EducationCompletionStatus.Unknown),
+                    FieldTags = PersistenceListMapper.Copy(item.field_tags)
                 }),
                 Languages = Map(dto.languages, item => new CareerLanguage
                 {
                     Id = item.id,
                     Name = item.name,
                     Level = item.level,
-                    Notes = item.notes
+                    Notes = item.notes,
+                    LanguageId = item.language_id,
+                    Proficiency = ParseOptionalEnum<LanguageProficiency>(item.proficiency),
+                    Certifications = PersistenceListMapper.Copy(item.certifications)
                 }),
                 CreatedAt = context.ParseOptionalDateTime(dto.created_at, "created_at"),
                 UpdatedAt = context.ParseOptionalDateTime(dto.updated_at, "updated_at")
@@ -97,7 +109,11 @@ namespace JobCheck.Persistence
                 {
                     id = item.Id,
                     name = item.Name,
-                    notes = item.Notes
+                    notes = item.Notes,
+                    skill_id = item.SkillId,
+                    level = FormatOptionalEnum(item.Level),
+                    has_claimed_months = item.ClaimedMonths.HasValue,
+                    claimed_months = item.ClaimedMonths.GetValueOrDefault()
                 }),
                 experiences = Map(profile.Experiences, item => new CareerExperienceDto
                 {
@@ -107,7 +123,8 @@ namespace JobCheck.Persistence
                     start_date = item.StartDate,
                     end_date = item.EndDate,
                     is_current = item.IsCurrent,
-                    description = item.Description
+                    description = item.Description,
+                    skill_ids = PersistenceListMapper.Copy(item.SkillIds)
                 }),
                 projects = Map(profile.Projects, item => new CareerProjectDto
                 {
@@ -124,14 +141,20 @@ namespace JobCheck.Persistence
                     program = item.Program,
                     start_date = item.StartDate,
                     end_date = item.EndDate,
-                    notes = item.Notes
+                    notes = item.Notes,
+                    degree_level = FormatOptionalEnum(item.DegreeLevel),
+                    completion_status = PersistenceEnumConverter.Format(item.CompletionStatus),
+                    field_tags = PersistenceListMapper.Copy(item.FieldTags)
                 }),
                 languages = Map(profile.Languages, item => new CareerLanguageDto
                 {
                     id = item.Id,
                     name = item.Name,
                     level = item.Level,
-                    notes = item.Notes
+                    notes = item.Notes,
+                    language_id = item.LanguageId,
+                    proficiency = FormatOptionalEnum(item.Proficiency),
+                    certifications = PersistenceListMapper.Copy(item.Certifications)
                 }),
                 created_at = PersistenceDateTimeConverter.Format(profile.CreatedAt),
                 updated_at = PersistenceDateTimeConverter.Format(profile.UpdatedAt)
@@ -148,6 +171,28 @@ namespace JobCheck.Persistence
             return source == null
                 ? new List<TTarget>()
                 : source.Where(item => item != null).Select(map).ToList();
+        }
+
+        private static TEnum? ParseOptionalEnum<TEnum>(string value)
+            where TEnum : struct
+        {
+            return PersistenceEnumConverter.TryParse(value, out TEnum parsed)
+                ? parsed
+                : (TEnum?)null;
+        }
+
+        private static TEnum ParseEnumOrDefault<TEnum>(string value, TEnum fallback)
+            where TEnum : struct
+        {
+            return PersistenceEnumConverter.TryParse(value, out TEnum parsed)
+                ? parsed
+                : fallback;
+        }
+
+        private static string FormatOptionalEnum<TEnum>(TEnum? value)
+            where TEnum : struct
+        {
+            return value.HasValue ? PersistenceEnumConverter.Format(value.Value) : null;
         }
     }
 }

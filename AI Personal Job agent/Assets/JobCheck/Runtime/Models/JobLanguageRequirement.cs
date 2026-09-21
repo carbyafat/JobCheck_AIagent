@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace JobCheck.Domain
 {
@@ -37,5 +38,10 @@ namespace JobCheck.Domain
         /// 來源頁面的完整語文需求文字，供顯示及追查。
         /// </summary>
         public string RawText { get; set; }
+
+        public string LanguageId { get; set; }
+        public LanguageProficiency? MinimumProficiency { get; set; }
+        public RequirementImportance Importance { get; set; } = RequirementImportance.Required;
+        public List<string> AcceptedCertifications { get; set; } = new List<string>();
     }
 }

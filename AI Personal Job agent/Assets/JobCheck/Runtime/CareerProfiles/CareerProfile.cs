@@ -38,6 +38,9 @@ namespace JobCheck.Domain
         public string Id { get; set; }
         public string Name { get; set; }
         public string Notes { get; set; }
+        public string SkillId { get; set; }
+        public SkillLevel? Level { get; set; }
+        public int? ClaimedMonths { get; set; }
     }
 
     [Serializable]
@@ -50,6 +53,7 @@ namespace JobCheck.Domain
         public string EndDate { get; set; }
         public bool IsCurrent { get; set; }
         public string Description { get; set; }
+        public List<string> SkillIds { get; set; } = new List<string>();
     }
 
     [Serializable]
@@ -71,6 +75,10 @@ namespace JobCheck.Domain
         public string StartDate { get; set; }
         public string EndDate { get; set; }
         public string Notes { get; set; }
+        public DegreeLevel? DegreeLevel { get; set; }
+        public EducationCompletionStatus CompletionStatus { get; set; }
+            = EducationCompletionStatus.Unknown;
+        public List<string> FieldTags { get; set; } = new List<string>();
     }
 
     [Serializable]
@@ -80,5 +88,8 @@ namespace JobCheck.Domain
         public string Name { get; set; }
         public string Level { get; set; }
         public string Notes { get; set; }
+        public string LanguageId { get; set; }
+        public LanguageProficiency? Proficiency { get; set; }
+        public List<string> Certifications { get; set; } = new List<string>();
     }
 }

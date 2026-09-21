@@ -198,7 +198,10 @@ public sealed class CareerProfilePage : MonoBehaviour
                     Id = ExistingId(CurrentProfile.Skills, index, item => item.Id,
                         CareerProfileIdGenerator.CreateSkillId),
                     Name = values[0],
-                    Notes = values[1]
+                    Notes = values[1],
+                    SkillId = Existing(CurrentProfile.Skills, index)?.SkillId,
+                    Level = Existing(CurrentProfile.Skills, index)?.Level,
+                    ClaimedMonths = Existing(CurrentProfile.Skills, index)?.ClaimedMonths
                 }),
             Experiences = ParseRows(editorFields["experiences"].text, 5, (values, index) =>
                 new CareerExperience
@@ -210,7 +213,9 @@ public sealed class CareerProfilePage : MonoBehaviour
                     StartDate = values[2],
                     EndDate = IsCurrentValue(values[3]) ? null : values[3],
                     IsCurrent = IsCurrentValue(values[3]),
-                    Description = values[4]
+                    Description = values[4],
+                    SkillIds = Existing(CurrentProfile.Experiences, index)?.SkillIds
+                        ?? new List<string>()
                 }),
             Projects = ParseRows(editorFields["projects"].text, 4, (values, index) =>
                 new CareerProject
@@ -231,7 +236,12 @@ public sealed class CareerProfilePage : MonoBehaviour
                     Program = values[1],
                     StartDate = values[2],
                     EndDate = values[3],
-                    Notes = values[4]
+                    Notes = values[4],
+                    DegreeLevel = Existing(CurrentProfile.Educations, index)?.DegreeLevel,
+                    CompletionStatus = Existing(CurrentProfile.Educations, index)
+                        ?.CompletionStatus ?? EducationCompletionStatus.Unknown,
+                    FieldTags = Existing(CurrentProfile.Educations, index)?.FieldTags
+                        ?? new List<string>()
                 }),
             Languages = ParseRows(editorFields["languages"].text, 3, (values, index) =>
                 new CareerLanguage
@@ -240,7 +250,11 @@ public sealed class CareerProfilePage : MonoBehaviour
                         CareerProfileIdGenerator.CreateLanguageId),
                     Name = values[0],
                     Level = values[1],
-                    Notes = values[2]
+                    Notes = values[2],
+                    LanguageId = Existing(CurrentProfile.Languages, index)?.LanguageId,
+                    Proficiency = Existing(CurrentProfile.Languages, index)?.Proficiency,
+                    Certifications = Existing(CurrentProfile.Languages, index)?.Certifications
+                        ?? new List<string>()
                 })
         };
 
@@ -359,6 +373,12 @@ public sealed class CareerProfilePage : MonoBehaviour
         return items == null
             ? string.Empty
             : string.Join("\n", items.Where(item => item != null).Select(format));
+    }
+
+    private static T Existing<T>(IList<T> items, int index)
+        where T : class
+    {
+        return items != null && index >= 0 && index < items.Count ? items[index] : null;
     }
 
     private static string OneLine(string value)

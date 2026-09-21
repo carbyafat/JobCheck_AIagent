@@ -103,6 +103,39 @@ namespace JobCheck.Persistence
         public List<string> tools = new List<string>();
         public List<string> skills = new List<string>();
         public List<string> other_conditions = new List<string>();
+        public List<SkillRequirementDto> skill_requirements = new List<SkillRequirementDto>();
+        public List<ExperienceRequirementDto> experience_requirements
+            = new List<ExperienceRequirementDto>();
+        public EducationRequirementDto education_requirement;
+    }
+
+    [Serializable]
+    public sealed class SkillRequirementDto
+    {
+        public string skill_id;
+        public string name;
+        public string importance;
+        public string minimum_level;
+        public bool has_minimum_months;
+        public int minimum_months;
+    }
+
+    [Serializable]
+    public sealed class ExperienceRequirementDto
+    {
+        public string skill_id;
+        public string name;
+        public int minimum_months;
+        public string importance;
+    }
+
+    [Serializable]
+    public sealed class EducationRequirementDto
+    {
+        public string minimum_degree_level;
+        public bool accepts_in_progress;
+        public List<string> field_tags = new List<string>();
+        public string importance;
     }
 
     /// <summary>
@@ -117,6 +150,10 @@ namespace JobCheck.Persistence
         public string reading;
         public string writing;
         public string raw_text;
+        public string language_id;
+        public string minimum_proficiency;
+        public string importance;
+        public List<string> accepted_certifications = new List<string>();
     }
 
     /// <summary>

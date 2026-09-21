@@ -270,7 +270,15 @@ namespace JobCheck.Persistence
                             Speaking = language.speaking,
                             Reading = language.reading,
                             Writing = language.writing,
-                            RawText = language.raw_text
+                            RawText = language.raw_text,
+                            LanguageId = language.language_id,
+                            MinimumProficiency = ParseOptionalEnum<LanguageProficiency>(
+                                language.minimum_proficiency),
+                            Importance = ParseEnumOrDefault(
+                                language.importance,
+                                RequirementImportance.Required),
+                            AcceptedCertifications = PersistenceListMapper.Copy(
+                                language.accepted_certifications)
                         });
                 }
             }
@@ -283,7 +291,44 @@ namespace JobCheck.Persistence
                 Languages = languages,
                 Tools = PersistenceListMapper.Copy(dto.tools),
                 Skills = PersistenceListMapper.Copy(dto.skills),
-                OtherConditions = PersistenceListMapper.Copy(dto.other_conditions)
+                OtherConditions = PersistenceListMapper.Copy(dto.other_conditions),
+                SkillRequirements = Map(dto.skill_requirements, item => new SkillRequirement
+                {
+                    SkillId = item.skill_id,
+                    Name = item.name,
+                    Importance = ParseEnumOrDefault(
+                        item.importance,
+                        RequirementImportance.Required),
+                    MinimumLevel = ParseOptionalEnum<SkillLevel>(item.minimum_level),
+                    MinimumMonths = item.has_minimum_months
+                        ? item.minimum_months
+                        : (int?)null
+                }),
+                ExperienceRequirements = Map(
+                    dto.experience_requirements,
+                    item => new ExperienceRequirement
+                    {
+                        SkillId = item.skill_id,
+                        Name = item.name,
+                        MinimumMonths = item.minimum_months,
+                        Importance = ParseEnumOrDefault(
+                            item.importance,
+                            RequirementImportance.Required)
+                    }),
+                EducationRequirement = dto.education_requirement == null
+                    ? null
+                    : new EducationRequirement
+                    {
+                        MinimumDegreeLevel = ParseEnumOrDefault(
+                            dto.education_requirement.minimum_degree_level,
+                            DegreeLevel.Unrestricted),
+                        AcceptsInProgress = dto.education_requirement.accepts_in_progress,
+                        FieldTags = PersistenceListMapper.Copy(
+                            dto.education_requirement.field_tags),
+                        Importance = ParseEnumOrDefault(
+                            dto.education_requirement.importance,
+                            RequirementImportance.Required)
+                    }
             };
         }
 
@@ -308,7 +353,13 @@ namespace JobCheck.Persistence
                             speaking = language.Speaking,
                             reading = language.Reading,
                             writing = language.Writing,
-                            raw_text = language.RawText
+                            raw_text = language.RawText,
+                            language_id = language.LanguageId,
+                            minimum_proficiency = FormatOptionalEnum(
+                                language.MinimumProficiency),
+                            importance = PersistenceEnumConverter.Format(language.Importance),
+                            accepted_certifications = PersistenceListMapper.Copy(
+                                language.AcceptedCertifications)
                         });
                 }
             }
@@ -321,8 +372,82 @@ namespace JobCheck.Persistence
                 languages = languages,
                 tools = PersistenceListMapper.Copy(value.Tools),
                 skills = PersistenceListMapper.Copy(value.Skills),
-                other_conditions = PersistenceListMapper.Copy(value.OtherConditions)
+                other_conditions = PersistenceListMapper.Copy(value.OtherConditions),
+                skill_requirements = Map(value.SkillRequirements, item => new SkillRequirementDto
+                {
+                    skill_id = item.SkillId,
+                    name = item.Name,
+                    importance = PersistenceEnumConverter.Format(item.Importance),
+                    minimum_level = FormatOptionalEnum(item.MinimumLevel),
+                    has_minimum_months = item.MinimumMonths.HasValue,
+                    minimum_months = item.MinimumMonths.GetValueOrDefault()
+                }),
+                experience_requirements = Map(
+                    value.ExperienceRequirements,
+                    item => new ExperienceRequirementDto
+                    {
+                        skill_id = item.SkillId,
+                        name = item.Name,
+                        minimum_months = item.MinimumMonths,
+                        importance = PersistenceEnumConverter.Format(item.Importance)
+                    }),
+                education_requirement = value.EducationRequirement == null
+                    ? null
+                    : new EducationRequirementDto
+                    {
+                        minimum_degree_level = PersistenceEnumConverter.Format(
+                            value.EducationRequirement.MinimumDegreeLevel),
+                        accepts_in_progress = value.EducationRequirement.AcceptsInProgress,
+                        field_tags = PersistenceListMapper.Copy(
+                            value.EducationRequirement.FieldTags),
+                        importance = PersistenceEnumConverter.Format(
+                            value.EducationRequirement.Importance)
+                    }
             };
+        }
+
+        private static List<TTarget> Map<TSource, TTarget>(
+            IEnumerable<TSource> source,
+            System.Func<TSource, TTarget> map)
+            where TSource : class
+        {
+            var result = new List<TTarget>();
+            if (source == null)
+            {
+                return result;
+            }
+
+            foreach (TSource item in source)
+            {
+                if (item != null)
+                {
+                    result.Add(map(item));
+                }
+            }
+
+            return result;
+        }
+
+        private static TEnum? ParseOptionalEnum<TEnum>(string value)
+            where TEnum : struct
+        {
+            return PersistenceEnumConverter.TryParse(value, out TEnum parsed)
+                ? parsed
+                : (TEnum?)null;
+        }
+
+        private static TEnum ParseEnumOrDefault<TEnum>(string value, TEnum fallback)
+            where TEnum : struct
+        {
+            return PersistenceEnumConverter.TryParse(value, out TEnum parsed)
+                ? parsed
+                : fallback;
+        }
+
+        private static string FormatOptionalEnum<TEnum>(TEnum? value)
+            where TEnum : struct
+        {
+            return value.HasValue ? PersistenceEnumConverter.Format(value.Value) : null;
         }
 
         private static JobBenefits MapBenefitsToDomain(JobBenefitsDto dto)

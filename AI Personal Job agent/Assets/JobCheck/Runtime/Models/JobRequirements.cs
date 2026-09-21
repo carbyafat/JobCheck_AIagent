@@ -44,5 +44,16 @@ namespace JobCheck.Domain
         /// 無法歸入固定欄位的其他應徵條件。
         /// </summary>
         public List<string> OtherConditions { get; set; } = new List<string>();
+
+        /// <summary>V0.2.7 可計算的技能要求；空集合代表尚未結構化。</summary>
+        public List<SkillRequirement> SkillRequirements { get; set; }
+            = new List<SkillRequirement>();
+
+        /// <summary>總年資或特定技能年資要求，以月為單位。</summary>
+        public List<ExperienceRequirement> ExperienceRequirements { get; set; }
+            = new List<ExperienceRequirement>();
+
+        /// <summary>可計算的最低學歷要求；null 代表尚未結構化。</summary>
+        public EducationRequirement EducationRequirement { get; set; }
     }
 }

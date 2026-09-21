@@ -33,6 +33,10 @@ namespace JobCheck.Persistence
         public string id;
         public string name;
         public string notes;
+        public string skill_id;
+        public string level;
+        public bool has_claimed_months;
+        public int claimed_months;
     }
 
     [Serializable]
@@ -45,6 +49,7 @@ namespace JobCheck.Persistence
         public string end_date;
         public bool is_current;
         public string description;
+        public List<string> skill_ids = new List<string>();
     }
 
     [Serializable]
@@ -66,6 +71,9 @@ namespace JobCheck.Persistence
         public string start_date;
         public string end_date;
         public string notes;
+        public string degree_level;
+        public string completion_status;
+        public List<string> field_tags = new List<string>();
     }
 
     [Serializable]
@@ -75,5 +83,8 @@ namespace JobCheck.Persistence
         public string name;
         public string level;
         public string notes;
+        public string language_id;
+        public string proficiency;
+        public List<string> certifications = new List<string>();
     }
 }
