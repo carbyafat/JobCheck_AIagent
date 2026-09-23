@@ -27,7 +27,7 @@ namespace JobCheck.Domain.Tests
         }
 
         [Test]
-        public void Compare_SkillBelowExplicitLevel_IsConfirmedMismatch()
+        public void Compare_HiddenSkillLevel_DoesNotAffectScore()
         {
             var profile = new CareerProfile
             {
@@ -49,8 +49,45 @@ namespace JobCheck.Domain.Tests
                 }
             };
 
+            RequirementMatchResult result = RequirementMatchEngine.Compare(
+                profile, requirements, EvaluatedAt);
+            Assert.That(result.Items.Single().Status,
+                Is.EqualTo(RequirementMatchStatus.RequirementUnclear));
+            Assert.That(result.Items.Single().ActualValue, Does.Not.Contain("等級"));
+            Assert.That(RequirementScoreCalculator.Calculate(result).Score, Is.Null);
+
+            profile.Skills[0].Level = SkillLevel.Expert;
             Assert.That(RequirementMatchEngine.Compare(profile, requirements, EvaluatedAt)
-                .Items.Single().Status, Is.EqualTo(RequirementMatchStatus.ConfirmedMismatch));
+                .Items.Single().Status, Is.EqualTo(RequirementMatchStatus.RequirementUnclear));
+        }
+
+        [Test]
+        public void Compare_SkillUsageMonths_DoesNotReadHiddenLevel()
+        {
+            var profile = new CareerProfile
+            {
+                Id = "profile",
+                Skills = new List<CareerSkill>
+                {
+                    new CareerSkill
+                    {
+                        Id = "skill", Name = "Unity", ClaimedMonths = 24,
+                        Level = SkillLevel.Beginner
+                    }
+                }
+            };
+            var requirements = new JobRequirements
+            {
+                SkillRequirements = new List<SkillRequirement>
+                {
+                    new SkillRequirement { Name = "Unity", MinimumMonths = 24 }
+                }
+            };
+
+            RequirementMatchItem item = RequirementMatchEngine.Compare(
+                profile, requirements, EvaluatedAt).Items.Single();
+            Assert.That(item.Status, Is.EqualTo(RequirementMatchStatus.Match));
+            Assert.That(item.ActualValue, Does.Not.Contain("等級"));
         }
 
         [Test]

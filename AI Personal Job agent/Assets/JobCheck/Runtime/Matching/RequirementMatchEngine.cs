@@ -66,17 +66,22 @@ namespace JobCheck.Domain
                     continue;
                 }
 
-                bool levelMismatch = requirement.MinimumLevel.HasValue
-                    && (!actual.Level.HasValue
-                        || actual.Level.Value < requirement.MinimumLevel.Value);
+                if (requirement.MinimumLevel.HasValue)
+                {
+                    output.Add(Item(RequirementCategory.Skill,
+                        RequirementMatchStatus.RequirementUnclear, requirement.Importance, label,
+                        "需人工確認", FormatCareerSkill(actual),
+                        "此技能的細分門檻暫不自動比對。"));
+                    continue;
+                }
+
                 bool monthsMismatch = requirement.MinimumMonths.HasValue
                     && (!actual.ClaimedMonths.HasValue
                         || actual.ClaimedMonths.Value < requirement.MinimumMonths.Value);
-                bool missingDetail = (requirement.MinimumLevel.HasValue && !actual.Level.HasValue)
-                    || (requirement.MinimumMonths.HasValue && !actual.ClaimedMonths.HasValue);
-                RequirementMatchStatus status = missingDetail
+                RequirementMatchStatus status = requirement.MinimumMonths.HasValue
+                    && !actual.ClaimedMonths.HasValue
                     ? RequirementMatchStatus.NotEvidenced
-                    : levelMismatch || monthsMismatch
+                    : monthsMismatch
                         ? RequirementMatchStatus.ConfirmedMismatch
                         : RequirementMatchStatus.Match;
                 output.Add(Item(RequirementCategory.Skill, status, requirement.Importance, label,
@@ -84,7 +89,7 @@ namespace JobCheck.Domain
                     status == RequirementMatchStatus.Match
                         ? "技能名稱與明確門檻皆符合。"
                         : status == RequirementMatchStatus.NotEvidenced
-                            ? "有列出技能，但缺少等級或年資證據。"
+                            ? "有列出技能，但缺少使用時間證據。"
                             : "技能已列出，但明確門檻不足。"));
             }
         }
@@ -488,7 +493,6 @@ namespace JobCheck.Domain
         private static string FormatSkillRequirement(SkillRequirement value)
         {
             var parts = new List<string>();
-            if (value.MinimumLevel.HasValue) parts.Add("等級 " + value.MinimumLevel.Value);
             if (value.MinimumMonths.HasValue) parts.Add(FormatMonths(value.MinimumMonths.Value));
             return parts.Count == 0 ? "需具備" : string.Join("、", parts);
         }
@@ -496,7 +500,6 @@ namespace JobCheck.Domain
         private static string FormatCareerSkill(CareerSkill value)
         {
             var parts = new List<string> { value.Name };
-            if (value.Level.HasValue) parts.Add("等級 " + value.Level.Value);
             if (value.ClaimedMonths.HasValue) parts.Add(FormatMonths(value.ClaimedMonths.Value));
             return string.Join("、", parts);
         }

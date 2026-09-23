@@ -40,9 +40,17 @@ public sealed class CareerProfilePage : MonoBehaviour
         new Dictionary<string, TMP_Text>(StringComparer.Ordinal);
     private readonly Dictionary<string, TMP_InputField> editorFields =
         new Dictionary<string, TMP_InputField>(StringComparer.Ordinal);
+    private List<CareerSkill> skillDraft;
+    private Transform skillListRoot;
+    private GameObject skillFormRoot;
+    private TMP_InputField skillNameInput;
+    private TMP_InputField skillNotesInput;
+    private TMP_Dropdown skillYearsDropdown;
+    private TMP_Dropdown skillMonthsDropdown;
+    private int editingSkillIndex = -1;
 
     private const string ProfileUiCharacters =
-        "個人履歷最後更新自我介紹連結技能工作經歷專案學歷語言能力尚未填寫新增讀取失敗未知錯誤編輯儲存取消至今年月日時分公司職務開始結束內容名稱技術網址說明機構項目備註程度母語首頁職缺側欄寬度搬遷匯出匯入選擇檔案取代本機關閉預覽成功檔案尚未加密請妥善保管等級學位已畢業在學未完成科系標籤月數逗號分隔請輸入整數";
+        "個人履歷最後更新自我介紹連結技能工作經歷專案學歷語言能力尚未填寫新增讀取失敗未知錯誤編輯儲存取消至今年月日時分公司職務開始結束內容名稱技術網址說明機構項目備註程度母語首頁職缺側欄寬度搬遷匯出匯入選擇檔案取代本機關閉預覽成功檔案尚未加密請妥善保管等級學位已畢業在學未完成科系標籤月數逗號分隔請輸入整數使用時間年自訂移除這筆重複請先填寫選填儲存技能暫不評級無技能";
 
     private Color AppBackground => theme != null
         ? theme.AppBackground
@@ -116,6 +124,9 @@ public sealed class CareerProfilePage : MonoBehaviour
         }
 
         editorFields["summary"].text = CurrentProfile.Summary ?? string.Empty;
+        skillDraft = CloneSkills(CurrentProfile.Skills);
+        RenderSkillDraft();
+        CloseSkillForm();
         SetEditorStatus("", false);
         if (editorScroll != null)
         {
@@ -130,6 +141,8 @@ public sealed class CareerProfilePage : MonoBehaviour
 
     public void CancelEditor()
     {
+        skillDraft = null;
+        CloseSkillForm();
         if (editorRoot != null)
         {
             editorRoot.SetActive(false);
@@ -159,9 +172,12 @@ public sealed class CareerProfilePage : MonoBehaviour
             return;
         }
 
+        if (skillFormRoot != null && skillFormRoot.activeSelf && !ApplySkillForm())
+            return;
+
         DateTimeOffset now = DateTimeOffset.Now;
         CareerProfile candidate = CreateSummaryEditCandidate(
-            CurrentProfile, editorFields["summary"].text, now);
+            CurrentProfile, editorFields["summary"].text, skillDraft, now);
 
         PersistenceStorageResult<CareerProfile> result = CareerProfileRepository.Save(
             ResolveProjectRelativePath(personalDataRootPath),
@@ -179,7 +195,7 @@ public sealed class CareerProfilePage : MonoBehaviour
     }
 
     private static CareerProfile CreateSummaryEditCandidate(
-        CareerProfile current, string summary, DateTimeOffset now)
+        CareerProfile current, string summary, IList<CareerSkill> skills, DateTimeOffset now)
     {
         return new CareerProfile
         {
@@ -189,12 +205,178 @@ public sealed class CareerProfilePage : MonoBehaviour
             CreatedAt = current.CreatedAt ?? now,
             UpdatedAt = now,
             Links = current.Links,
-            Skills = current.Skills,
+            Skills = skills == null ? current.Skills : new List<CareerSkill>(skills),
             Experiences = current.Experiences,
             Projects = current.Projects,
             Educations = current.Educations,
             Languages = current.Languages
         };
+    }
+
+    private static List<CareerSkill> CloneSkills(IEnumerable<CareerSkill> source)
+    {
+        return (source ?? Enumerable.Empty<CareerSkill>())
+            .Where(item => item != null)
+            .Select(item => new CareerSkill
+            {
+                Id = item.Id,
+                Name = item.Name,
+                Notes = item.Notes,
+                SkillId = item.SkillId,
+                Level = item.Level, // 舊資料保留，但目前不顯示、不用於比對。
+                ClaimedMonths = item.ClaimedMonths
+            })
+            .ToList();
+    }
+
+    private static string FormatSkillDuration(int? months)
+    {
+        if (!months.HasValue) return null;
+        int years = months.Value / 12;
+        int remainder = months.Value % 12;
+        if (years == 0) return "使用 " + remainder + " 個月";
+        return remainder == 0
+            ? "使用 " + years + " 年"
+            : "使用 " + years + " 年 " + remainder + " 個月";
+    }
+
+    private void RenderSkillDraft()
+    {
+        if (skillListRoot == null) return;
+        foreach (Transform child in skillListRoot.Cast<Transform>().ToArray())
+        {
+            child.SetParent(null, false);
+            Destroy(child.gameObject);
+        }
+
+        TMP_FontAsset font = ResolveFontAsset();
+        if (skillDraft == null || skillDraft.Count == 0)
+        {
+            TMP_Text empty = CreateText(skillListRoot, "Empty", "尚未新增技能", font, 20,
+                new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 36f),
+                TextAlignmentOptions.MidlineLeft);
+            empty.color = TextSecondary;
+            empty.gameObject.AddComponent<LayoutElement>().preferredHeight = 36f;
+            return;
+        }
+
+        for (int index = 0; index < skillDraft.Count; index++)
+        {
+            int skillIndex = index;
+            CareerSkill skill = skillDraft[index];
+            GameObject row = CreateUiObject("Skill_" + index, skillListRoot,
+                typeof(Image), typeof(HorizontalLayoutGroup));
+            row.GetComponent<Image>().color = Surface;
+            ApplySlicedSprite(row.GetComponent<Image>());
+            HorizontalLayoutGroup layout = row.GetComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(16, 12, 8, 8);
+            layout.spacing = 10f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+            row.AddComponent<LayoutElement>().preferredHeight = 68f;
+
+            TMP_Text label = CreateText(row.transform, "Summary", Join("｜",
+                skill.Name, FormatSkillDuration(skill.ClaimedMonths), skill.Notes), font, 21,
+                new Vector2(0f, 0.5f), Vector2.zero, new Vector2(0f, 52f),
+                TextAlignmentOptions.MidlineLeft);
+            label.color = TextPrimary;
+            label.enableWordWrapping = false;
+            label.overflowMode = TextOverflowModes.Ellipsis;
+            LayoutElement labelLayout = label.gameObject.AddComponent<LayoutElement>();
+            labelLayout.flexibleWidth = 1f;
+            labelLayout.minWidth = 120f;
+            CreateLayoutButton(row.transform, "Button_Edit", "編輯", font, 100f,
+                ButtonTone.Secondary).onClick.AddListener(() => OpenSkillForm(skillIndex));
+            CreateLayoutButton(row.transform, "Button_Remove", "移除", font, 100f,
+                ButtonTone.Secondary).onClick.AddListener(() => RemoveSkill(skillIndex));
+        }
+    }
+
+    private void OpenSkillForm(int index)
+    {
+        editingSkillIndex = index;
+        CareerSkill item = index >= 0 && skillDraft != null && index < skillDraft.Count
+            ? skillDraft[index] : null;
+        skillNameInput.text = item?.Name ?? string.Empty;
+        skillNotesInput.text = item?.Notes ?? string.Empty;
+        int? months = item?.ClaimedMonths;
+        if (months.HasValue) EnsureSkillYearOption(months.Value / 12);
+        skillYearsDropdown.SetValueWithoutNotify(months.HasValue
+            ? months.Value / 12 + 1 : 0);
+        skillMonthsDropdown.SetValueWithoutNotify(months.HasValue
+            ? Mathf.Clamp(months.Value % 12, 0, 11) : 0);
+        skillMonthsDropdown.interactable = months.HasValue;
+        skillFormRoot.SetActive(true);
+        SetEditorStatus("", false);
+    }
+
+    private void EnsureSkillYearOption(int years)
+    {
+        while (skillYearsDropdown.options.Count <= years + 1)
+        {
+            int nextYear = skillYearsDropdown.options.Count - 1;
+            skillYearsDropdown.options.Add(new TMP_Dropdown.OptionData(nextYear + " 年"));
+        }
+    }
+
+    private void CloseSkillForm()
+    {
+        editingSkillIndex = -1;
+        if (skillFormRoot != null) skillFormRoot.SetActive(false);
+    }
+
+    private void RemoveSkill(int index)
+    {
+        if (skillDraft == null || index < 0 || index >= skillDraft.Count) return;
+        skillDraft.RemoveAt(index);
+        CloseSkillForm();
+        RenderSkillDraft();
+        SetEditorStatus("技能已從本次編輯移除；按整頁儲存才會寫入。", false);
+    }
+
+    private bool ApplySkillForm()
+    {
+        string name = skillNameInput.text.Trim();
+        string skillId = RequirementCatalog.NormalizeSkill(name);
+        if (skillId.Length == 0)
+        {
+            SetEditorStatus("請先填寫技能名稱。", true);
+            return false;
+        }
+
+        if (skillDraft.Where((item, index) => index != editingSkillIndex)
+            .Any(item => RequirementCatalog.AreSameSkill(item.Name, name)))
+        {
+            SetEditorStatus("這項技能已存在，請編輯原有項目。", true);
+            return false;
+        }
+
+        int? months = skillYearsDropdown.value == 0
+            ? (int?)null
+            : (skillYearsDropdown.value - 1) * 12 + skillMonthsDropdown.value;
+        CareerSkill existing = editingSkillIndex >= 0 && editingSkillIndex < skillDraft.Count
+            ? skillDraft[editingSkillIndex] : null;
+        CareerSkill saved = new CareerSkill
+        {
+            Id = existing?.Id ?? CareerProfileIdGenerator.CreateSkillId(),
+            Name = name,
+            SkillId = existing != null
+                && string.Equals(existing.Name, name, StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(existing.SkillId)
+                    ? existing.SkillId : skillId,
+            Notes = skillNotesInput.text.Trim(),
+            ClaimedMonths = months,
+            Level = existing?.Level // 只保留舊資料，不以隱藏欄位評分。
+        };
+        if (existing == null) skillDraft.Add(saved);
+        else skillDraft[editingSkillIndex] = saved;
+        CloseSkillForm();
+        RenderSkillDraft();
+        SetEditorStatus("技能已暫存；按整頁儲存才會寫入。", false);
+        return true;
     }
 
     public static string FormatProfile(CareerProfile profile)
@@ -214,9 +396,7 @@ public sealed class CareerProfilePage : MonoBehaviour
         AppendListSection(builder, "連結", profile.Links,
             item => Join("｜", item.Label, item.Url), "尚未新增連結");
         AppendListSection(builder, "技能", profile.Skills,
-            item => Join("｜", item.Name, item.Notes,
-                item.Level.HasValue ? "等級 " + (int)item.Level.Value : null,
-                item.ClaimedMonths.HasValue ? item.ClaimedMonths + " 個月" : null),
+            item => Join("｜", item.Name, FormatSkillDuration(item.ClaimedMonths), item.Notes),
             "尚未新增技能");
         AppendListSection(builder, "工作經歷", profile.Experiences,
             item => Join("｜",
@@ -349,9 +529,7 @@ public sealed class CareerProfilePage : MonoBehaviour
         displayFields["links"].text = ListDisplay(profile.Links,
             item => Join("｜", item.Label, item.Url), "尚未新增連結");
         displayFields["skills"].text = ListDisplay(profile.Skills,
-            item => Join("｜", item.Name, item.Notes,
-                item.Level.HasValue ? "等級 " + (int)item.Level.Value : null,
-                item.ClaimedMonths.HasValue ? item.ClaimedMonths + " 個月" : null),
+            item => Join("｜", item.Name, FormatSkillDuration(item.ClaimedMonths), item.Notes),
             "尚未新增技能");
         displayFields["experiences"].text = ListDisplay(profile.Experiences,
             item => Join("｜", Join(" / ", item.Organization, item.Role),
@@ -1034,6 +1212,7 @@ public sealed class CareerProfilePage : MonoBehaviour
 
         CreateEditorField("summary", "自我介紹", "可多行，說明背景、能力與職涯方向。",
             "介紹背景、能力與職涯方向", font, content, 480f);
+        CreateSkillEditorUi(content, font);
 
         GameObject footer = CreateUiObject("Footer", editorRoot.transform, typeof(Image));
         RectTransform footerRect = footer.GetComponent<RectTransform>();
@@ -1056,6 +1235,199 @@ public sealed class CareerProfilePage : MonoBehaviour
         cancel.onClick.AddListener(CancelEditor);
         save.onClick.AddListener(SaveEditor);
         editorRoot.SetActive(false);
+    }
+
+    private void CreateSkillEditorUi(Transform parent, TMP_FontAsset font)
+    {
+        GameObject cardObject = CreateUiObject("Field_skills", parent,
+            typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(Outline));
+        cardObject.GetComponent<Image>().color = SurfaceMuted;
+        ApplySlicedSprite(cardObject.GetComponent<Image>());
+        Outline outline = cardObject.GetComponent<Outline>();
+        outline.effectColor = Border;
+        outline.effectDistance = new Vector2(1f, -1f);
+        VerticalLayoutGroup cardLayout = cardObject.GetComponent<VerticalLayoutGroup>();
+        int padding = Mathf.RoundToInt(theme != null ? theme.SpaceMd : 16f);
+        cardLayout.padding = new RectOffset(padding, padding, padding, padding);
+        cardLayout.spacing = theme != null ? theme.SpaceSm : 12f;
+        cardLayout.childAlignment = TextAnchor.UpperLeft;
+        cardLayout.childControlWidth = true;
+        cardLayout.childControlHeight = true;
+        cardLayout.childForceExpandWidth = true;
+        cardLayout.childForceExpandHeight = false;
+        cardObject.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+
+        TMP_Text title = CreateText(cardObject.transform, "Label_skills", "技能", font,
+            Mathf.RoundToInt(theme != null ? theme.SectionTitleSize : 28f),
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 38f),
+            TextAlignmentOptions.MidlineLeft);
+        title.fontStyle = FontStyles.Bold;
+        title.gameObject.AddComponent<LayoutElement>().preferredHeight = 38f;
+        TMP_Text help = CreateText(cardObject.transform, "Help_skills",
+            "逐筆新增技能；使用時間與備註可留空。", font,
+            Mathf.RoundToInt(theme != null ? theme.SupportingTextSize : 20f),
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 32f),
+            TextAlignmentOptions.MidlineLeft);
+        help.color = TextSecondary;
+        help.gameObject.AddComponent<LayoutElement>().preferredHeight = 32f;
+
+        GameObject list = CreateUiObject("SkillList", cardObject.transform,
+            typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        skillListRoot = list.transform;
+        VerticalLayoutGroup listLayout = list.GetComponent<VerticalLayoutGroup>();
+        listLayout.spacing = 8f;
+        listLayout.childControlWidth = true;
+        listLayout.childControlHeight = true;
+        listLayout.childForceExpandWidth = true;
+        listLayout.childForceExpandHeight = false;
+        list.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+
+        CreateLayoutButton(cardObject.transform, "Button_AddSkill", "新增技能", font,
+            170f, ButtonTone.Primary).onClick.AddListener(() => OpenSkillForm(-1));
+
+        skillFormRoot = CreateUiObject("SkillForm", cardObject.transform,
+            typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        skillFormRoot.GetComponent<Image>().color = Surface;
+        VerticalLayoutGroup formLayout = skillFormRoot.GetComponent<VerticalLayoutGroup>();
+        formLayout.padding = new RectOffset(16, 16, 16, 16);
+        formLayout.spacing = 8f;
+        formLayout.childControlWidth = true;
+        formLayout.childControlHeight = true;
+        formLayout.childForceExpandWidth = true;
+        formLayout.childForceExpandHeight = false;
+        skillFormRoot.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+
+        skillNameInput = CreateLabeledSkillInput(skillFormRoot.transform, "Name",
+            "技能名稱", "輸入技能名稱（可自訂）", font, 56f, true);
+        skillYearsDropdown = CreateLabeledSkillDropdown(skillFormRoot.transform,
+            "Years", "使用年數（選填）", font,
+            new[] { "未填寫" }.Concat(Enumerable.Range(0, 41)
+                .Select(years => years + " 年")).ToArray());
+        skillMonthsDropdown = CreateLabeledSkillDropdown(skillFormRoot.transform,
+            "Months", "額外月數", font,
+            Enumerable.Range(0, 12).Select(months => months + " 個月").ToArray());
+        skillYearsDropdown.onValueChanged.AddListener(index =>
+            skillMonthsDropdown.interactable = index > 0);
+        skillNotesInput = CreateLabeledSkillInput(skillFormRoot.transform, "Notes",
+            "備註（選填）", "例如：主要用於遊戲專案", font, 96f, false);
+
+        GameObject actions = CreateUiObject("SkillActions", skillFormRoot.transform,
+            typeof(HorizontalLayoutGroup));
+        HorizontalLayoutGroup actionsLayout = actions.GetComponent<HorizontalLayoutGroup>();
+        actionsLayout.spacing = 12f;
+        actionsLayout.childAlignment = TextAnchor.MiddleRight;
+        actionsLayout.childControlWidth = true;
+        actionsLayout.childControlHeight = true;
+        actionsLayout.childForceExpandWidth = false;
+        actionsLayout.childForceExpandHeight = true;
+        actions.AddComponent<LayoutElement>().preferredHeight = 56f;
+        CreateLayoutButton(actions.transform, "Button_CancelSkill", "取消", font,
+            120f, ButtonTone.Secondary).onClick.AddListener(CloseSkillForm);
+        CreateLayoutButton(actions.transform, "Button_SaveSkill", "儲存這筆", font,
+            150f, ButtonTone.Primary).onClick.AddListener(() => ApplySkillForm());
+        skillFormRoot.SetActive(false);
+    }
+
+    private TMP_InputField CreateLabeledSkillInput(
+        Transform parent, string key, string label, string placeholder,
+        TMP_FontAsset font, float height, bool singleLine)
+    {
+        TMP_Text heading = CreateText(parent, "Label_" + key, label, font, 20,
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 30f),
+            TextAlignmentOptions.MidlineLeft);
+        heading.gameObject.AddComponent<LayoutElement>().preferredHeight = 30f;
+        TMP_InputField input = CreateInput(parent, "Input_" + key, placeholder, font,
+            Vector2.zero, new Vector2(0f, height));
+        input.lineType = singleLine
+            ? TMP_InputField.LineType.SingleLine : TMP_InputField.LineType.MultiLineNewline;
+        input.gameObject.AddComponent<LayoutElement>().preferredHeight = height;
+        return input;
+    }
+
+    private TMP_Dropdown CreateLabeledSkillDropdown(
+        Transform parent, string key, string label, TMP_FontAsset font, string[] options)
+    {
+        TMP_Text heading = CreateText(parent, "Label_" + key, label, font, 20,
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 30f),
+            TextAlignmentOptions.MidlineLeft);
+        heading.gameObject.AddComponent<LayoutElement>().preferredHeight = 30f;
+
+        GameObject root = CreateUiObject("Dropdown_" + key, parent,
+            typeof(Image), typeof(TMP_Dropdown));
+        Image background = root.GetComponent<Image>();
+        background.color = SurfaceMuted;
+        ApplySlicedSprite(background);
+        root.AddComponent<LayoutElement>().preferredHeight = 56f;
+        TMP_Text caption = CreateText(root.transform, "Caption", string.Empty, font, 21,
+            new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero,
+            TextAlignmentOptions.MidlineLeft);
+        Stretch(caption.rectTransform, new Vector2(12f, 4f), new Vector2(-42f, -4f));
+        TMP_Text arrow = CreateText(root.transform, "Arrow", "▼", font, 18,
+            new Vector2(1f, 0.5f), new Vector2(-24f, 0f), new Vector2(32f, 44f),
+            TextAlignmentOptions.Center);
+        arrow.raycastTarget = false;
+
+        GameObject template = CreateUiObject("Template", root.transform,
+            typeof(Image), typeof(ScrollRect));
+        RectTransform templateRect = template.GetComponent<RectTransform>();
+        templateRect.anchorMin = new Vector2(0f, 0f);
+        templateRect.anchorMax = new Vector2(1f, 0f);
+        templateRect.pivot = new Vector2(0.5f, 1f);
+        templateRect.anchoredPosition = new Vector2(0f, -4f);
+        templateRect.sizeDelta = new Vector2(0f, 260f);
+        template.GetComponent<Image>().color = Surface;
+
+        GameObject viewport = CreateUiObject("Viewport", template.transform,
+            typeof(Image), typeof(RectMask2D));
+        RectTransform viewportRect = viewport.GetComponent<RectTransform>();
+        Stretch(viewportRect, new Vector2(4f, 4f), new Vector2(-4f, -4f));
+        viewport.GetComponent<Image>().color = Surface;
+
+        GameObject content = CreateUiObject("Content", viewport.transform);
+        RectTransform contentRect = content.GetComponent<RectTransform>();
+        contentRect.anchorMin = new Vector2(0f, 1f);
+        contentRect.anchorMax = new Vector2(1f, 1f);
+        contentRect.pivot = new Vector2(0.5f, 1f);
+        contentRect.anchoredPosition = Vector2.zero;
+        contentRect.sizeDelta = Vector2.zero;
+
+        GameObject item = CreateUiObject("Item", content.transform,
+            typeof(Image), typeof(Toggle));
+        RectTransform itemRect = item.GetComponent<RectTransform>();
+        itemRect.anchorMin = new Vector2(0f, 1f);
+        itemRect.anchorMax = new Vector2(1f, 1f);
+        itemRect.pivot = new Vector2(0.5f, 1f);
+        itemRect.anchoredPosition = Vector2.zero;
+        itemRect.sizeDelta = new Vector2(0f, 48f);
+        Image itemImage = item.GetComponent<Image>();
+        itemImage.color = Surface;
+        item.GetComponent<Toggle>().targetGraphic = itemImage;
+        TMP_Text itemText = CreateText(item.transform, "ItemText", string.Empty, font, 20,
+            new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero,
+            TextAlignmentOptions.MidlineLeft);
+        Stretch(itemText.rectTransform, new Vector2(12f, 4f), new Vector2(-12f, -4f));
+
+        ScrollRect scroll = template.GetComponent<ScrollRect>();
+        scroll.viewport = viewportRect;
+        scroll.content = contentRect;
+        scroll.horizontal = false;
+        scroll.vertical = true;
+        scroll.movementType = ScrollRect.MovementType.Clamped;
+        scroll.scrollSensitivity = 34f;
+
+        TMP_Dropdown dropdown = root.GetComponent<TMP_Dropdown>();
+        dropdown.targetGraphic = background;
+        dropdown.template = templateRect;
+        dropdown.captionText = caption;
+        dropdown.itemText = itemText;
+        dropdown.ClearOptions();
+        dropdown.AddOptions(options.ToList());
+        dropdown.RefreshShownValue();
+        template.SetActive(false);
+        return dropdown;
     }
 
     private void CreateEditorField(

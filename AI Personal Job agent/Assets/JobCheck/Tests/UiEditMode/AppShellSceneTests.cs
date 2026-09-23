@@ -502,7 +502,7 @@ namespace JobCheck.Ui.Editor.Tests
         }
 
         [Test]
-        public void ResumeEditor_BuildsSummaryOnlySingleColumnFormWithFixedFooter()
+        public void ResumeEditor_BuildsSummaryAndSkillFormInSingleColumn()
         {
             Type controllerType = Type.GetType("CareerProfilePage, Assembly-CSharp");
             Assert.That(controllerType, Is.Not.Null);
@@ -537,10 +537,26 @@ namespace JobCheck.Ui.Editor.Tests
                     Is.Not.Null);
                 Transform content = FindDescendant(editor, "Content");
                 Assert.That(content, Is.Not.Null);
-                Assert.That(content.childCount, Is.EqualTo(1));
+                Assert.That(content.childCount, Is.EqualTo(2));
                 Assert.That(content.GetChild(0).name, Is.EqualTo("Field_summary"));
+                Assert.That(content.GetChild(1).name, Is.EqualTo("Field_skills"));
                 Assert.That(FindDescendant(editor, "EditorColumns"), Is.Null);
-                Assert.That(FindDescendant(editor, "Field_skills"), Is.Null);
+                Assert.That(FindDescendant(editor, "SkillList"), Is.Not.Null);
+                Assert.That(FindDescendant(editor, "Button_AddSkill"), Is.Not.Null);
+                Transform skillForm = FindDescendant(editor, "SkillForm");
+                Assert.That(skillForm, Is.Not.Null);
+                Assert.That(skillForm.gameObject.activeSelf, Is.False);
+                Assert.That(FindDescendant(skillForm, "Input_Name"), Is.Not.Null);
+                Assert.That(FindDescendant(skillForm, "Dropdown_Suggestion"), Is.Null);
+                Assert.That(FindDescendant(skillForm, "Dropdown_Years"), Is.Not.Null);
+                Assert.That(FindDescendant(skillForm, "Dropdown_Months"), Is.Not.Null);
+                Assert.That(FindDescendant(skillForm, "Input_Notes"), Is.Not.Null);
+                Assert.That(FindDescendant(skillForm, "Dropdown_Level"), Is.Null);
+                var years = FindDescendant(skillForm, "Dropdown_Years")
+                    .GetComponent<TMPro.TMP_Dropdown>();
+                Assert.That(years.template, Is.Not.Null);
+                Assert.That(years.template.GetComponentInChildren<Toggle>(true), Is.Not.Null);
+                Assert.That(years.options[0].text, Is.EqualTo("未填寫"));
                 Assert.That(editor.Find("Footer"), Is.Not.Null);
                 Assert.That(FindDescendant(editor, "Button_Save"), Is.Not.Null);
                 Assert.That(FindDescendant(editor, "Button_Cancel"), Is.Not.Null);
@@ -552,7 +568,7 @@ namespace JobCheck.Ui.Editor.Tests
         }
 
         [Test]
-        public void ResumeSummaryEdit_PreservesOtherSections()
+        public void ResumeSkillDraft_PreservesOtherSectionsAndExistingSkillData()
         {
             Type controllerType = Type.GetType("CareerProfilePage, Assembly-CSharp");
             MethodInfo create = controllerType.GetMethod("CreateSummaryEditCandidate",
@@ -565,7 +581,10 @@ namespace JobCheck.Ui.Editor.Tests
                 Links = new System.Collections.Generic.List<JobCheck.Domain.CareerProfileLink>
                     { new JobCheck.Domain.CareerProfileLink { Id = "link_1", Label = "GitHub" } },
                 Skills = new System.Collections.Generic.List<JobCheck.Domain.CareerSkill>
-                    { new JobCheck.Domain.CareerSkill { Id = "skill_1", Name = "Unity" } },
+                    { new JobCheck.Domain.CareerSkill
+                        { Id = "skill_1", Name = "Unity",
+                          Level = JobCheck.Domain.SkillLevel.Basic,
+                          ClaimedMonths = 24 } },
                 Experiences = new System.Collections.Generic.List<JobCheck.Domain.CareerExperience>
                     { new JobCheck.Domain.CareerExperience { Id = "experience_1" } },
                 Projects = new System.Collections.Generic.List<JobCheck.Domain.CareerProject>
@@ -576,19 +595,57 @@ namespace JobCheck.Ui.Editor.Tests
                     { new JobCheck.Domain.CareerLanguage { Id = "language_1" } }
             };
             var now = new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.FromHours(8));
+            MethodInfo clone = controllerType.GetMethod("CloneSkills",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(clone, Is.Not.Null);
+            var skillDraft = (System.Collections.Generic.List<JobCheck.Domain.CareerSkill>)
+                clone.Invoke(null, new object[] { profile.Skills });
+            skillDraft[0].Name = "C#";
 
             var candidate = (JobCheck.Domain.CareerProfile)create.Invoke(
-                null, new object[] { profile, "新的介紹", now });
+                null, new object[] { profile, "新的介紹", skillDraft, now });
 
             Assert.That(candidate.Id, Is.EqualTo(profile.Id));
             Assert.That(candidate.Summary, Is.EqualTo("新的介紹"));
             Assert.That(candidate.UpdatedAt, Is.EqualTo(now));
             Assert.That(candidate.Links, Is.SameAs(profile.Links));
-            Assert.That(candidate.Skills, Is.SameAs(profile.Skills));
+            Assert.That(profile.Skills[0].Name, Is.EqualTo("Unity"));
+            Assert.That(candidate.Skills, Is.Not.SameAs(profile.Skills));
+            Assert.That(candidate.Skills[0].Name, Is.EqualTo("C#"));
+            Assert.That(candidate.Skills[0].Id, Is.EqualTo("skill_1"));
+            Assert.That(candidate.Skills[0].Level,
+                Is.EqualTo(JobCheck.Domain.SkillLevel.Basic));
+            Assert.That(candidate.Skills[0].ClaimedMonths, Is.EqualTo(24));
             Assert.That(candidate.Experiences, Is.SameAs(profile.Experiences));
             Assert.That(candidate.Projects, Is.SameAs(profile.Projects));
             Assert.That(candidate.Educations, Is.SameAs(profile.Educations));
             Assert.That(candidate.Languages, Is.SameAs(profile.Languages));
+        }
+
+        [Test]
+        public void ResumeSkillDisplay_DoesNotShowLegacyLevel()
+        {
+            Type controllerType = Type.GetType("CareerProfilePage, Assembly-CSharp");
+            Assert.That(controllerType, Is.Not.Null);
+            MethodInfo format = controllerType.GetMethod("FormatProfile",
+                BindingFlags.Static | BindingFlags.Public);
+            Assert.That(format, Is.Not.Null);
+            var profile = new JobCheck.Domain.CareerProfile
+            {
+                Skills = new System.Collections.Generic.List<JobCheck.Domain.CareerSkill>
+                {
+                    new JobCheck.Domain.CareerSkill
+                    {
+                        Name = "Unity", Level = JobCheck.Domain.SkillLevel.Basic,
+                        ClaimedMonths = 24
+                    }
+                }
+            };
+
+            string output = (string)format.Invoke(null, new object[] { profile });
+            Assert.That(output, Does.Contain("Unity"));
+            Assert.That(output, Does.Contain("使用 2 年"));
+            Assert.That(output, Does.Not.Contain("等級"));
         }
 
         [Test]
