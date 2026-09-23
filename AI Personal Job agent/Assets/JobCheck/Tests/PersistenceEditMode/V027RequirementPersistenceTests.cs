@@ -40,6 +40,14 @@ namespace JobCheck.Persistence.Tests
                         CompletionStatus = EducationCompletionStatus.Completed,
                         FieldTags = new List<string> { "資訊工程" }
                     }
+                },
+                Languages = new List<CareerLanguage>
+                {
+                    new CareerLanguage
+                    {
+                        Id = "language_test", Name = "英文", LanguageId = "en",
+                        Proficiency = LanguageProficiency.None
+                    }
                 }
             };
 
@@ -55,6 +63,8 @@ namespace JobCheck.Persistence.Tests
             Assert.That(mapped.Educations[0].DegreeLevel, Is.EqualTo(DegreeLevel.Bachelor));
             Assert.That(mapped.Educations[0].CompletionStatus,
                 Is.EqualTo(EducationCompletionStatus.Completed));
+            Assert.That(dto.languages[0].proficiency, Is.EqualTo("none"));
+            Assert.That(mapped.Languages[0].Proficiency, Is.EqualTo(LanguageProficiency.None));
         }
 
         [Test]

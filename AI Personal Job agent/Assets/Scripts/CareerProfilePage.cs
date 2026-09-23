@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -54,9 +55,43 @@ public sealed class CareerProfilePage : MonoBehaviour
     private TMP_Dropdown skillYearsDropdown;
     private TMP_Dropdown skillMonthsDropdown;
     private int editingSkillIndex = -1;
+    private List<CareerLanguage> languageDraft;
+    private Transform languageListRoot;
+    private GameObject languageFormRoot;
+    private TMP_Dropdown languageNameDropdown;
+    private TMP_Dropdown languageLevelDropdown;
+    private int editingLanguageIndex = -1;
+    private int editingLanguageInitialLevelOption;
+    private List<CareerExperience> experienceDraft;
+    private Transform experienceListRoot;
+    private GameObject experienceFormRoot;
+    private TMP_InputField experienceOrganizationInput;
+    private TMP_InputField experienceRoleInput;
+    private TMP_InputField experienceStartYearInput;
+    private TMP_Dropdown experienceStartMonthDropdown;
+    private TMP_InputField experienceEndYearInput;
+    private TMP_Dropdown experienceEndMonthDropdown;
+    private Toggle experienceCurrentToggle;
+    private TMP_InputField experienceDescriptionInput;
+    private GameObject experienceEndFields;
+    private GameObject experienceSkillChoices;
+    private TMP_Text experienceSkillSummary;
+    private readonly HashSet<string> selectedExperienceSkillIds =
+        new HashSet<string>(StringComparer.Ordinal);
+    private int editingExperienceIndex = -1;
+
+    private static readonly string[] LanguageNames = { "中文", "英文", "日文" };
+    private static readonly string[] LanguageIds = { "zh", "en", "ja" };
+    private static readonly LanguageProficiency[] LanguageLevels =
+    {
+        LanguageProficiency.None,
+        LanguageProficiency.Beginner,
+        LanguageProficiency.Intermediate,
+        LanguageProficiency.Proficient
+    };
 
     private const string ProfileUiCharacters =
-        "個人履歷最後更新自我介紹連結技能工作經歷專案學歷語言能力尚未填寫新增讀取失敗未知錯誤編輯儲存取消至今年月日時分公司職務開始結束內容名稱技術網址說明機構項目備註程度母語首頁職缺側欄寬度搬遷匯出匯入選擇檔案取代本機關閉預覽成功檔案尚未加密請妥善保管等級學位已畢業在學未完成科系標籤月數逗號分隔請輸入整數使用時間年自訂移除這筆重複請先填寫選填儲存技能暫不評級無技能個人網站作品集或其他參考網址功用有效的必填儲存連結貼上本機路徑";
+        "個人履歷最後更新自我介紹連結技能工作經歷專案學歷語言能力尚未填寫新增讀取失敗未知錯誤編輯儲存取消至今年月日時分公司職務開始結束內容名稱技術網址說明機構項目備註程度母語首頁職缺側欄寬度搬遷匯出匯入選擇檔案取代本機關閉預覽成功檔案尚未加密請妥善保管等級學位已畢業在學未完成科系標籤月數逗號分隔請輸入整數使用時間年自訂移除這筆重複請先填寫選填儲存技能暫不評級無技能個人網站作品集或其他參考網址功用有效的必填儲存連結貼上本機路徑中文英文日文不會略懂中等精通請選擇已有語言逐筆選擇語言與程度未新增的語言不會自動判為不會請選擇語言和程度這項語言已存在編輯原有項目語言能力已暫存公司組織目前仍在職選擇關聯技能展開收合尚無技能可先到技能區新增請填寫有效年月開始年月不得晚於結束年月不能晚於現在工作經歷已暫存";
 
     private Color AppBackground => theme != null
         ? theme.AppBackground
@@ -136,6 +171,12 @@ public sealed class CareerProfilePage : MonoBehaviour
         skillDraft = CloneSkills(CurrentProfile.Skills);
         RenderSkillDraft();
         CloseSkillForm();
+        experienceDraft = CloneExperiences(CurrentProfile.Experiences);
+        RenderExperienceDraft();
+        CloseExperienceForm();
+        languageDraft = CloneLanguages(CurrentProfile.Languages);
+        RenderLanguageDraft();
+        CloseLanguageForm();
         SetEditorStatus("", false);
         if (editorScroll != null)
         {
@@ -154,6 +195,10 @@ public sealed class CareerProfilePage : MonoBehaviour
         CloseLinkForm();
         skillDraft = null;
         CloseSkillForm();
+        experienceDraft = null;
+        CloseExperienceForm();
+        languageDraft = null;
+        CloseLanguageForm();
         if (editorRoot != null)
         {
             editorRoot.SetActive(false);
@@ -187,10 +232,15 @@ public sealed class CareerProfilePage : MonoBehaviour
             return;
         if (linkFormRoot != null && linkFormRoot.activeSelf && !ApplyLinkForm())
             return;
+        if (languageFormRoot != null && languageFormRoot.activeSelf && !ApplyLanguageForm())
+            return;
+        if (experienceFormRoot != null && experienceFormRoot.activeSelf && !ApplyExperienceForm())
+            return;
 
         DateTimeOffset now = DateTimeOffset.Now;
         CareerProfile candidate = CreateSummaryEditCandidate(
-            CurrentProfile, editorFields["summary"].text, linkDraft, skillDraft, now);
+            CurrentProfile, editorFields["summary"].text, linkDraft, skillDraft,
+            experienceDraft, languageDraft, now);
 
         PersistenceStorageResult<CareerProfile> result = CareerProfileRepository.Save(
             ResolveProjectRelativePath(personalDataRootPath),
@@ -209,7 +259,8 @@ public sealed class CareerProfilePage : MonoBehaviour
 
     private static CareerProfile CreateSummaryEditCandidate(
         CareerProfile current, string summary, IList<CareerProfileLink> links,
-        IList<CareerSkill> skills, DateTimeOffset now)
+        IList<CareerSkill> skills, IList<CareerExperience> experiences,
+        IList<CareerLanguage> languages, DateTimeOffset now)
     {
         return new CareerProfile
         {
@@ -220,10 +271,11 @@ public sealed class CareerProfilePage : MonoBehaviour
             UpdatedAt = now,
             Links = links == null ? current.Links : new List<CareerProfileLink>(links),
             Skills = skills == null ? current.Skills : new List<CareerSkill>(skills),
-            Experiences = current.Experiences,
+            Experiences = experiences == null
+                ? current.Experiences : new List<CareerExperience>(experiences),
             Projects = current.Projects,
             Educations = current.Educations,
-            Languages = current.Languages
+            Languages = languages == null ? current.Languages : new List<CareerLanguage>(languages)
         };
     }
 
@@ -371,6 +423,492 @@ public sealed class CareerProfilePage : MonoBehaviour
             .ToList();
     }
 
+    private static List<CareerExperience> CloneExperiences(IEnumerable<CareerExperience> source)
+    {
+        return (source ?? Enumerable.Empty<CareerExperience>())
+            .Where(item => item != null)
+            .Select(item => new CareerExperience
+            {
+                Id = item.Id,
+                Organization = item.Organization,
+                Role = item.Role,
+                StartDate = item.StartDate,
+                EndDate = item.EndDate,
+                IsCurrent = item.IsCurrent,
+                Description = item.Description,
+                SkillIds = item.SkillIds == null
+                    ? new List<string>() : new List<string>(item.SkillIds)
+            })
+            .ToList();
+    }
+
+    private static string ExperienceSkillId(CareerSkill skill)
+    {
+        return RequirementCatalog.NormalizeSkill(
+            string.IsNullOrWhiteSpace(skill?.SkillId) ? skill?.Name : skill.SkillId);
+    }
+
+    private void RenderExperienceDraft()
+    {
+        if (experienceListRoot == null) return;
+        foreach (Transform child in experienceListRoot.Cast<Transform>().ToArray())
+        {
+            child.SetParent(null, false);
+            Destroy(child.gameObject);
+        }
+
+        TMP_FontAsset font = ResolveFontAsset();
+        if (experienceDraft == null || experienceDraft.Count == 0)
+        {
+            TMP_Text empty = CreateText(experienceListRoot, "Empty", "尚未新增工作經歷",
+                font, 20, new Vector2(0f, 1f), Vector2.zero,
+                new Vector2(0f, 36f), TextAlignmentOptions.MidlineLeft);
+            empty.color = TextSecondary;
+            empty.gameObject.AddComponent<LayoutElement>().preferredHeight = 36f;
+            return;
+        }
+
+        for (int index = 0; index < experienceDraft.Count; index++)
+        {
+            int experienceIndex = index;
+            CareerExperience item = experienceDraft[index];
+            GameObject row = CreateUiObject("Experience_" + index, experienceListRoot,
+                typeof(Image), typeof(HorizontalLayoutGroup));
+            row.GetComponent<Image>().color = Surface;
+            ApplySlicedSprite(row.GetComponent<Image>());
+            HorizontalLayoutGroup layout = row.GetComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(16, 12, 8, 8);
+            layout.spacing = 10f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+            row.AddComponent<LayoutElement>().preferredHeight = 78f;
+
+            int months = RequirementMatchEngine.CalculateCoveredMonths(
+                new[] { item }, DateTimeOffset.Now);
+            string duration = months > 0 ? FormatExperienceMonths(months) : null;
+            TMP_Text label = CreateText(row.transform, "Summary", Join("｜",
+                Join(" / ", item.Organization, item.Role),
+                FormatPeriod(item.StartDate, item.EndDate, item.IsCurrent), duration),
+                font, 21, new Vector2(0f, 0.5f), Vector2.zero,
+                new Vector2(0f, 52f), TextAlignmentOptions.MidlineLeft);
+            label.enableWordWrapping = false;
+            label.overflowMode = TextOverflowModes.Ellipsis;
+            LayoutElement labelLayout = label.gameObject.AddComponent<LayoutElement>();
+            labelLayout.flexibleWidth = 1f;
+            labelLayout.minWidth = 120f;
+            CreateLayoutButton(row.transform, "Button_Edit", "編輯", font, 100f,
+                ButtonTone.Secondary).onClick.AddListener(
+                    () => OpenExperienceForm(experienceIndex));
+            CreateLayoutButton(row.transform, "Button_Remove", "移除", font, 100f,
+                ButtonTone.Secondary).onClick.AddListener(
+                    () => RemoveExperience(experienceIndex));
+        }
+    }
+
+    private static string FormatExperienceMonths(int months)
+    {
+        int years = months / 12;
+        int remainder = months % 12;
+        return years == 0 ? remainder + " 個月"
+            : remainder == 0 ? years + " 年"
+            : years + " 年 " + remainder + " 個月";
+    }
+
+    private static bool TryParseExperienceMonth(string value, out DateTime month)
+    {
+        month = default(DateTime);
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        string[] formats = { "yyyy/MM", "yyyy-MM", "yyyy.MM", "yyyy/MM/dd",
+            "yyyy-MM-dd", "yyyy.MM.dd", "yyyy" };
+        if (!DateTime.TryParseExact(value.Trim(), formats, CultureInfo.InvariantCulture,
+            DateTimeStyles.None, out DateTime parsed)) return false;
+        month = new DateTime(parsed.Year, parsed.Month, 1);
+        return true;
+    }
+
+    private static void SetExperienceMonthFields(
+        string value, TMP_InputField year, TMP_Dropdown month)
+    {
+        if (TryParseExperienceMonth(value, out DateTime parsed))
+        {
+            year.text = parsed.Year.ToString(CultureInfo.InvariantCulture);
+            month.SetValueWithoutNotify(parsed.Month);
+        }
+        else
+        {
+            year.text = string.Empty;
+            month.SetValueWithoutNotify(0);
+        }
+    }
+
+    private void OpenExperienceForm(int index)
+    {
+        editingExperienceIndex = index;
+        CareerExperience item = index >= 0 && experienceDraft != null
+            && index < experienceDraft.Count ? experienceDraft[index] : null;
+        experienceOrganizationInput.text = item?.Organization ?? string.Empty;
+        experienceRoleInput.text = item?.Role ?? string.Empty;
+        SetExperienceMonthFields(item?.StartDate, experienceStartYearInput,
+            experienceStartMonthDropdown);
+        SetExperienceMonthFields(item?.EndDate, experienceEndYearInput,
+            experienceEndMonthDropdown);
+        experienceCurrentToggle.isOn = item?.IsCurrent ?? false;
+        experienceEndFields.SetActive(!experienceCurrentToggle.isOn);
+        experienceDescriptionInput.text = item?.Description ?? string.Empty;
+        selectedExperienceSkillIds.Clear();
+        foreach (string id in item?.SkillIds ?? Enumerable.Empty<string>())
+        {
+            string normalized = RequirementCatalog.NormalizeSkill(id);
+            if (normalized.Length > 0) selectedExperienceSkillIds.Add(normalized);
+        }
+        RenderExperienceSkillChoices();
+        experienceSkillChoices.SetActive(false);
+        experienceFormRoot.SetActive(true);
+        SetEditorStatus("", false);
+    }
+
+    private void CloseExperienceForm()
+    {
+        editingExperienceIndex = -1;
+        selectedExperienceSkillIds.Clear();
+        if (experienceFormRoot != null) experienceFormRoot.SetActive(false);
+        if (experienceSkillChoices != null) experienceSkillChoices.SetActive(false);
+    }
+
+    private void RemoveExperience(int index)
+    {
+        if (experienceDraft == null || index < 0 || index >= experienceDraft.Count) return;
+        experienceDraft.RemoveAt(index);
+        CloseExperienceForm();
+        RenderExperienceDraft();
+        SetEditorStatus("工作經歷已從本次編輯移除；按整頁儲存才會寫入。", false);
+    }
+
+    private static bool TryReadExperienceMonth(
+        TMP_InputField yearInput, TMP_Dropdown monthDropdown, out DateTime month)
+    {
+        month = default(DateTime);
+        return int.TryParse(yearInput.text.Trim(), NumberStyles.None,
+                   CultureInfo.InvariantCulture, out int year)
+            && year >= 1 && year <= 9999
+            && monthDropdown.value >= 1 && monthDropdown.value <= 12
+            && DateTime.TryParseExact(year.ToString("D4", CultureInfo.InvariantCulture)
+                + "/" + monthDropdown.value.ToString("D2", CultureInfo.InvariantCulture),
+                "yyyy/MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out month);
+    }
+
+    private bool ApplyExperienceForm()
+    {
+        string organization = experienceOrganizationInput.text.Trim();
+        string role = experienceRoleInput.text.Trim();
+        if (organization.Length == 0 || role.Length == 0)
+        {
+            SetEditorStatus("請先填寫公司／組織與職務。", true);
+            return false;
+        }
+        if (!TryReadExperienceMonth(experienceStartYearInput,
+            experienceStartMonthDropdown, out DateTime start))
+        {
+            SetEditorStatus("請填寫有效的開始年月。", true);
+            return false;
+        }
+        DateTime now = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+        if (start > now)
+        {
+            SetEditorStatus("開始年月不能晚於現在。", true);
+            return false;
+        }
+        bool isCurrent = experienceCurrentToggle.isOn;
+        DateTime end = default(DateTime);
+        if (!isCurrent && !TryReadExperienceMonth(experienceEndYearInput,
+            experienceEndMonthDropdown, out end))
+        {
+            SetEditorStatus("請填寫有效的結束年月，或勾選目前仍在職。", true);
+            return false;
+        }
+        if (!isCurrent && (end < start || end > now))
+        {
+            SetEditorStatus("結束年月不得早於開始年月，也不能晚於現在。", true);
+            return false;
+        }
+        CareerExperience existing = editingExperienceIndex >= 0
+            && editingExperienceIndex < experienceDraft.Count
+                ? experienceDraft[editingExperienceIndex] : null;
+        CareerExperience saved = new CareerExperience
+        {
+            Id = existing?.Id ?? CareerProfileIdGenerator.CreateExperienceId(),
+            Organization = organization,
+            Role = role,
+            StartDate = start.ToString("yyyy/MM", CultureInfo.InvariantCulture),
+            EndDate = isCurrent ? null : end.ToString("yyyy/MM", CultureInfo.InvariantCulture),
+            IsCurrent = isCurrent,
+            Description = experienceDescriptionInput.text.Trim(),
+            SkillIds = selectedExperienceSkillIds.OrderBy(id => id, StringComparer.Ordinal).ToList()
+        };
+        if (existing == null) experienceDraft.Add(saved);
+        else experienceDraft[editingExperienceIndex] = saved;
+        CloseExperienceForm();
+        RenderExperienceDraft();
+        SetEditorStatus("工作經歷已暫存；按整頁儲存才會寫入。", false);
+        return true;
+    }
+
+    private void UpdateExperienceSkillSummary()
+    {
+        if (experienceSkillSummary == null) return;
+        string[] labels = (skillDraft ?? new List<CareerSkill>())
+            .Where(skill => selectedExperienceSkillIds.Contains(ExperienceSkillId(skill)))
+            .Select(skill => skill.Name).Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct().ToArray();
+        experienceSkillSummary.text = labels.Length == 0
+            ? "選擇關聯技能（可不選）" : "已選：" + string.Join("、", labels);
+    }
+
+    private void RenderExperienceSkillChoices()
+    {
+        if (experienceSkillChoices == null) return;
+        Transform root = experienceSkillChoices.transform;
+        foreach (Transform child in root.Cast<Transform>().ToArray())
+        {
+            child.SetParent(null, false);
+            Destroy(child.gameObject);
+        }
+        TMP_FontAsset font = ResolveFontAsset();
+        var choices = (skillDraft ?? new List<CareerSkill>())
+            .Where(skill => !string.IsNullOrWhiteSpace(skill?.Name)
+                && ExperienceSkillId(skill).Length > 0)
+            .GroupBy(ExperienceSkillId).Select(group => group.First()).ToList();
+        if (choices.Count == 0)
+        {
+            TMP_Text empty = CreateText(root, "Empty", "尚無技能，可先到技能區新增。",
+                font, 20, new Vector2(0f, 1f), Vector2.zero,
+                new Vector2(0f, 42f), TextAlignmentOptions.MidlineLeft);
+            empty.gameObject.AddComponent<LayoutElement>().preferredHeight = 42f;
+        }
+        foreach (CareerSkill skill in choices)
+        {
+            string id = ExperienceSkillId(skill);
+            CreateExperienceSkillOption(root, font, id, skill.Name);
+        }
+        foreach (string id in selectedExperienceSkillIds
+            .Where(id => choices.All(skill => ExperienceSkillId(skill) != id)).ToArray())
+        {
+            CreateExperienceSkillOption(root, font, id, "原有技能：" + id);
+        }
+        UpdateExperienceSkillSummary();
+    }
+
+    private void CreateExperienceSkillOption(
+        Transform root, TMP_FontAsset font, string id, string label)
+    {
+        GameObject row = CreateUiObject("SkillChoice_" + id, root,
+            typeof(Image), typeof(Toggle));
+        Image background = row.GetComponent<Image>();
+        background.color = Surface;
+        row.AddComponent<LayoutElement>().preferredHeight = 50f;
+        GameObject checkbox = CreateUiObject("Checkbox", row.transform,
+            typeof(Image), typeof(Outline));
+        RectTransform checkboxRect = checkbox.GetComponent<RectTransform>();
+        checkboxRect.anchorMin = new Vector2(0f, 0.5f);
+        checkboxRect.anchorMax = new Vector2(0f, 0.5f);
+        checkboxRect.sizeDelta = new Vector2(24f, 24f);
+        checkboxRect.anchoredPosition = new Vector2(24f, 0f);
+        checkbox.GetComponent<Image>().color = Surface;
+        checkbox.GetComponent<Outline>().effectColor = Border;
+        GameObject check = CreateUiObject("Selected", checkbox.transform, typeof(Image));
+        Stretch(check.GetComponent<RectTransform>(), new Vector2(4f, 4f),
+            new Vector2(-4f, -4f));
+        Image checkImage = check.GetComponent<Image>();
+        checkImage.color = Primary;
+        TMP_Text text = CreateText(row.transform, "Label", label, font, 21,
+            new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero,
+            TextAlignmentOptions.MidlineLeft);
+        Stretch(text.rectTransform, new Vector2(50f, 4f), new Vector2(-12f, -4f));
+        Toggle toggle = row.GetComponent<Toggle>();
+        toggle.targetGraphic = background;
+        toggle.graphic = checkImage;
+        toggle.isOn = selectedExperienceSkillIds.Contains(id);
+        toggle.onValueChanged.AddListener(on =>
+        {
+            if (on) selectedExperienceSkillIds.Add(id);
+            else selectedExperienceSkillIds.Remove(id);
+            UpdateExperienceSkillSummary();
+        });
+    }
+
+    private static List<CareerLanguage> CloneLanguages(IEnumerable<CareerLanguage> source)
+    {
+        return (source ?? Enumerable.Empty<CareerLanguage>())
+            .Where(item => item != null)
+            .Select(item => new CareerLanguage
+            {
+                Id = item.Id,
+                Name = item.Name,
+                Level = item.Level,
+                Notes = item.Notes,
+                LanguageId = item.LanguageId,
+                Proficiency = item.Proficiency,
+                Certifications = item.Certifications == null
+                    ? new List<string>() : new List<string>(item.Certifications)
+            })
+            .ToList();
+    }
+
+    private static string LanguageLevelLabel(LanguageProficiency? value, string legacyLevel)
+    {
+        if (!value.HasValue) return ValueOrEmpty(legacyLevel, "程度未填寫");
+        if (value.Value == LanguageProficiency.None) return "不會";
+        if (value.Value <= LanguageProficiency.Elementary) return "略懂";
+        if (value.Value <= LanguageProficiency.UpperIntermediate) return "中等";
+        return "精通";
+    }
+
+    private static int LanguageLevelOption(LanguageProficiency? value)
+    {
+        if (!value.HasValue) return 0;
+        if (value.Value == LanguageProficiency.None) return 1;
+        if (value.Value <= LanguageProficiency.Elementary) return 2;
+        if (value.Value <= LanguageProficiency.UpperIntermediate) return 3;
+        return 4;
+    }
+
+    private static int LanguageNameOption(CareerLanguage item)
+    {
+        string id = RequirementCatalog.NormalizeLanguage(
+            string.IsNullOrWhiteSpace(item?.LanguageId) ? item?.Name : item.LanguageId);
+        int index = Array.IndexOf(LanguageIds, id);
+        return index < 0 ? 0 : index + 1;
+    }
+
+    private void RenderLanguageDraft()
+    {
+        if (languageListRoot == null) return;
+        foreach (Transform child in languageListRoot.Cast<Transform>().ToArray())
+        {
+            child.SetParent(null, false);
+            Destroy(child.gameObject);
+        }
+
+        TMP_FontAsset font = ResolveFontAsset();
+        if (languageDraft == null || languageDraft.Count == 0)
+        {
+            TMP_Text empty = CreateText(languageListRoot, "Empty", "尚未新增語言能力", font, 20,
+                new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 36f),
+                TextAlignmentOptions.MidlineLeft);
+            empty.color = TextSecondary;
+            empty.gameObject.AddComponent<LayoutElement>().preferredHeight = 36f;
+            return;
+        }
+
+        for (int index = 0; index < languageDraft.Count; index++)
+        {
+            int languageIndex = index;
+            CareerLanguage language = languageDraft[index];
+            GameObject row = CreateUiObject("Language_" + index, languageListRoot,
+                typeof(Image), typeof(HorizontalLayoutGroup));
+            Image image = row.GetComponent<Image>();
+            image.color = Surface;
+            ApplySlicedSprite(image);
+            HorizontalLayoutGroup layout = row.GetComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(16, 12, 8, 8);
+            layout.spacing = 10f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+            row.AddComponent<LayoutElement>().preferredHeight = 68f;
+
+            TMP_Text label = CreateText(row.transform, "Summary",
+                Join("｜", language.Name,
+                    LanguageLevelLabel(language.Proficiency, language.Level)), font, 21,
+                new Vector2(0f, 0.5f), Vector2.zero, new Vector2(0f, 52f),
+                TextAlignmentOptions.MidlineLeft);
+            label.enableWordWrapping = false;
+            label.overflowMode = TextOverflowModes.Ellipsis;
+            LayoutElement labelLayout = label.gameObject.AddComponent<LayoutElement>();
+            labelLayout.flexibleWidth = 1f;
+            labelLayout.minWidth = 120f;
+            CreateLayoutButton(row.transform, "Button_Edit", "編輯", font, 100f,
+                ButtonTone.Secondary).onClick.AddListener(() => OpenLanguageForm(languageIndex));
+            CreateLayoutButton(row.transform, "Button_Remove", "移除", font, 100f,
+                ButtonTone.Secondary).onClick.AddListener(() => RemoveLanguage(languageIndex));
+        }
+    }
+
+    private void OpenLanguageForm(int index)
+    {
+        editingLanguageIndex = index;
+        CareerLanguage item = index >= 0 && languageDraft != null && index < languageDraft.Count
+            ? languageDraft[index] : null;
+        languageNameDropdown.SetValueWithoutNotify(LanguageNameOption(item));
+        editingLanguageInitialLevelOption = LanguageLevelOption(item?.Proficiency);
+        languageLevelDropdown.SetValueWithoutNotify(editingLanguageInitialLevelOption);
+        languageFormRoot.SetActive(true);
+        SetEditorStatus("", false);
+    }
+
+    private void CloseLanguageForm()
+    {
+        editingLanguageIndex = -1;
+        if (languageFormRoot != null) languageFormRoot.SetActive(false);
+    }
+
+    private void RemoveLanguage(int index)
+    {
+        if (languageDraft == null || index < 0 || index >= languageDraft.Count) return;
+        languageDraft.RemoveAt(index);
+        CloseLanguageForm();
+        RenderLanguageDraft();
+        SetEditorStatus("語言能力已從本次編輯移除；按整頁儲存才會寫入。", false);
+    }
+
+    private bool ApplyLanguageForm()
+    {
+        int nameOption = languageNameDropdown.value;
+        int levelOption = languageLevelDropdown.value;
+        if (nameOption == 0 || levelOption == 0)
+        {
+            SetEditorStatus("請選擇語言和程度。", true);
+            return false;
+        }
+
+        string languageId = LanguageIds[nameOption - 1];
+        if (languageDraft.Where((item, index) => index != editingLanguageIndex)
+            .Any(item => string.Equals(RequirementCatalog.NormalizeLanguage(
+                string.IsNullOrWhiteSpace(item.LanguageId) ? item.Name : item.LanguageId),
+                languageId, StringComparison.Ordinal)))
+        {
+            SetEditorStatus("這項語言已存在，請編輯原有項目。", true);
+            return false;
+        }
+
+        CareerLanguage existing = editingLanguageIndex >= 0
+            && editingLanguageIndex < languageDraft.Count
+                ? languageDraft[editingLanguageIndex] : null;
+        CareerLanguage saved = new CareerLanguage
+        {
+            Id = existing?.Id ?? CareerProfileIdGenerator.CreateLanguageId(),
+            Name = LanguageNames[nameOption - 1],
+            LanguageId = languageId,
+            Proficiency = existing != null && levelOption == editingLanguageInitialLevelOption
+                ? existing.Proficiency : LanguageLevels[levelOption - 1],
+            Level = existing?.Level,
+            Notes = existing?.Notes,
+            Certifications = existing?.Certifications == null
+                ? new List<string>() : new List<string>(existing.Certifications)
+        };
+        if (existing == null) languageDraft.Add(saved);
+        else languageDraft[editingLanguageIndex] = saved;
+        CloseLanguageForm();
+        RenderLanguageDraft();
+        SetEditorStatus("語言能力已暫存；按整頁儲存才會寫入。", false);
+        return true;
+    }
+
     private static string FormatSkillDuration(int? months)
     {
         if (!months.HasValue) return null;
@@ -476,6 +1014,8 @@ public sealed class CareerProfilePage : MonoBehaviour
         skillDraft.RemoveAt(index);
         CloseSkillForm();
         RenderSkillDraft();
+        if (experienceFormRoot != null && experienceFormRoot.activeSelf)
+            RenderExperienceSkillChoices();
         SetEditorStatus("技能已從本次編輯移除；按整頁儲存才會寫入。", false);
     }
 
@@ -517,6 +1057,8 @@ public sealed class CareerProfilePage : MonoBehaviour
         else skillDraft[editingSkillIndex] = saved;
         CloseSkillForm();
         RenderSkillDraft();
+        if (experienceFormRoot != null && experienceFormRoot.activeSelf)
+            RenderExperienceSkillChoices();
         SetEditorStatus("技能已暫存；按整頁儲存才會寫入。", false);
         return true;
     }
@@ -565,8 +1107,7 @@ public sealed class CareerProfilePage : MonoBehaviour
                     ? null : string.Join("、", item.FieldTags)),
             "尚未新增學歷");
         AppendListSection(builder, "語言能力", profile.Languages,
-            item => Join("｜", item.Name, item.Level, item.Notes,
-                item.Proficiency.HasValue ? "等級 " + (int)item.Proficiency.Value : null),
+            item => Join("｜", item.Name, LanguageLevelLabel(item.Proficiency, item.Level)),
             "尚未新增語言能力");
         return builder.ToString().TrimEnd();
     }
@@ -691,8 +1232,7 @@ public sealed class CareerProfilePage : MonoBehaviour
                     ? null : string.Join("、", item.FieldTags)),
             "尚未新增學歷");
         displayFields["languages"].text = ListDisplay(profile.Languages,
-            item => Join("｜", item.Name, item.Level, item.Notes,
-                item.Proficiency.HasValue ? "等級 " + (int)item.Proficiency.Value : null),
+            item => Join("｜", item.Name, LanguageLevelLabel(item.Proficiency, item.Level)),
             "尚未新增語言能力");
     }
 
@@ -1356,6 +1896,8 @@ public sealed class CareerProfilePage : MonoBehaviour
             "介紹背景、能力與職涯方向", font, content, 480f);
         CreateSkillEditorUi(content, font);
         CreateLinkEditorUi(content, font);
+        CreateExperienceEditorUi(content, font);
+        CreateLanguageEditorUi(content, font);
 
         GameObject footer = CreateUiObject("Footer", editorRoot.transform, typeof(Image));
         RectTransform footerRect = footer.GetComponent<RectTransform>();
@@ -1378,6 +1920,264 @@ public sealed class CareerProfilePage : MonoBehaviour
         cancel.onClick.AddListener(CancelEditor);
         save.onClick.AddListener(SaveEditor);
         editorRoot.SetActive(false);
+    }
+
+    private void CreateExperienceEditorUi(Transform parent, TMP_FontAsset font)
+    {
+        GameObject card = CreateUiObject("Field_experiences", parent,
+            typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(Outline));
+        card.GetComponent<Image>().color = SurfaceMuted;
+        ApplySlicedSprite(card.GetComponent<Image>());
+        Outline outline = card.GetComponent<Outline>();
+        outline.effectColor = Border;
+        outline.effectDistance = new Vector2(1f, -1f);
+        VerticalLayoutGroup cardLayout = card.GetComponent<VerticalLayoutGroup>();
+        int padding = Mathf.RoundToInt(theme != null ? theme.SpaceMd : 16f);
+        cardLayout.padding = new RectOffset(padding, padding, padding, padding);
+        cardLayout.spacing = theme != null ? theme.SpaceSm : 12f;
+        cardLayout.childAlignment = TextAnchor.UpperLeft;
+        cardLayout.childControlWidth = true;
+        cardLayout.childControlHeight = true;
+        cardLayout.childForceExpandWidth = true;
+        cardLayout.childForceExpandHeight = false;
+        card.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+
+        TMP_Text title = CreateText(card.transform, "Label_experiences", "工作經歷",
+            font, Mathf.RoundToInt(theme != null ? theme.SectionTitleSize : 28f),
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 38f),
+            TextAlignmentOptions.MidlineLeft);
+        title.fontStyle = FontStyles.Bold;
+        title.gameObject.AddComponent<LayoutElement>().preferredHeight = 38f;
+        TMP_Text help = CreateText(card.transform, "Help_experiences",
+            "逐筆填寫，年資由起迄年月計算；關聯技能可不選。", font,
+            Mathf.RoundToInt(theme != null ? theme.SupportingTextSize : 20f),
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 32f),
+            TextAlignmentOptions.MidlineLeft);
+        help.color = TextSecondary;
+        help.gameObject.AddComponent<LayoutElement>().preferredHeight = 32f;
+
+        GameObject list = CreateUiObject("ExperienceList", card.transform,
+            typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        experienceListRoot = list.transform;
+        VerticalLayoutGroup listLayout = list.GetComponent<VerticalLayoutGroup>();
+        listLayout.spacing = 8f;
+        listLayout.childControlWidth = true;
+        listLayout.childControlHeight = true;
+        listLayout.childForceExpandWidth = true;
+        listLayout.childForceExpandHeight = false;
+        list.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+        CreateLayoutButton(card.transform, "Button_AddExperience", "新增工作經歷",
+            font, 210f, ButtonTone.Primary).onClick.AddListener(
+                () => OpenExperienceForm(-1));
+
+        experienceFormRoot = CreateUiObject("ExperienceForm", card.transform,
+            typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        experienceFormRoot.GetComponent<Image>().color = Surface;
+        VerticalLayoutGroup formLayout = experienceFormRoot.GetComponent<VerticalLayoutGroup>();
+        formLayout.padding = new RectOffset(16, 16, 16, 16);
+        formLayout.spacing = 8f;
+        formLayout.childControlWidth = true;
+        formLayout.childControlHeight = true;
+        formLayout.childForceExpandWidth = true;
+        formLayout.childForceExpandHeight = false;
+        experienceFormRoot.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+
+        experienceOrganizationInput = CreateLabeledSkillInput(experienceFormRoot.transform,
+            "ExperienceOrganization", "公司／組織", "例如：某某科技", font, 56f, true);
+        experienceRoleInput = CreateLabeledSkillInput(experienceFormRoot.transform,
+            "ExperienceRole", "職務", "例如：軟體工程師", font, 56f, true);
+        experienceStartYearInput = CreateLabeledSkillInput(experienceFormRoot.transform,
+            "ExperienceStartYear", "開始年份", "例如：2022", font, 56f, true);
+        experienceStartYearInput.contentType = TMP_InputField.ContentType.IntegerNumber;
+        experienceStartMonthDropdown = CreateLabeledSkillDropdown(
+            experienceFormRoot.transform, "ExperienceStartMonth", "開始月份", font,
+            new[] { "請選擇月份" }.Concat(Enumerable.Range(1, 12)
+                .Select(month => month + " 月")).ToArray());
+
+        GameObject currentRow = CreateUiObject("CurrentEmployment", experienceFormRoot.transform,
+            typeof(Image), typeof(Toggle));
+        currentRow.GetComponent<Image>().color = SurfaceMuted;
+        currentRow.AddComponent<LayoutElement>().preferredHeight = 56f;
+        GameObject checkbox = CreateUiObject("Checkbox", currentRow.transform,
+            typeof(Image), typeof(Outline));
+        RectTransform checkboxRect = checkbox.GetComponent<RectTransform>();
+        checkboxRect.anchorMin = new Vector2(0f, 0.5f);
+        checkboxRect.anchorMax = new Vector2(0f, 0.5f);
+        checkboxRect.sizeDelta = new Vector2(28f, 28f);
+        checkboxRect.anchoredPosition = new Vector2(30f, 0f);
+        checkbox.GetComponent<Image>().color = Surface;
+        checkbox.GetComponent<Outline>().effectColor = Border;
+        GameObject check = CreateUiObject("Selected", checkbox.transform, typeof(Image));
+        Stretch(check.GetComponent<RectTransform>(), new Vector2(4f, 4f),
+            new Vector2(-4f, -4f));
+        Image checkImage = check.GetComponent<Image>();
+        checkImage.color = Primary;
+        TMP_Text currentLabel = CreateText(currentRow.transform, "Label", "目前仍在職",
+            font, 21, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero,
+            TextAlignmentOptions.MidlineLeft);
+        Stretch(currentLabel.rectTransform, new Vector2(56f, 4f), new Vector2(-12f, -4f));
+        experienceCurrentToggle = currentRow.GetComponent<Toggle>();
+        experienceCurrentToggle.targetGraphic = currentRow.GetComponent<Image>();
+        experienceCurrentToggle.graphic = checkImage;
+
+        experienceEndFields = CreateUiObject("ExperienceEndFields", experienceFormRoot.transform,
+            typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        VerticalLayoutGroup endLayout = experienceEndFields.GetComponent<VerticalLayoutGroup>();
+        endLayout.spacing = 8f;
+        endLayout.childControlWidth = true;
+        endLayout.childControlHeight = true;
+        endLayout.childForceExpandWidth = true;
+        endLayout.childForceExpandHeight = false;
+        experienceEndFields.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+        experienceEndYearInput = CreateLabeledSkillInput(experienceEndFields.transform,
+            "ExperienceEndYear", "結束年份", "例如：2025", font, 56f, true);
+        experienceEndYearInput.contentType = TMP_InputField.ContentType.IntegerNumber;
+        experienceEndMonthDropdown = CreateLabeledSkillDropdown(
+            experienceEndFields.transform, "ExperienceEndMonth", "結束月份", font,
+            new[] { "請選擇月份" }.Concat(Enumerable.Range(1, 12)
+                .Select(month => month + " 月")).ToArray());
+        experienceCurrentToggle.onValueChanged.AddListener(
+            current => experienceEndFields.SetActive(!current));
+
+        experienceDescriptionInput = CreateLabeledSkillInput(experienceFormRoot.transform,
+            "ExperienceDescription", "工作內容（選填）", "說明實際負責的工作與成果",
+            font, 144f, false);
+        TMP_Text skillLabel = CreateText(experienceFormRoot.transform,
+            "Label_ExperienceSkills", "使用技能（選填）", font, 20,
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 30f),
+            TextAlignmentOptions.MidlineLeft);
+        skillLabel.gameObject.AddComponent<LayoutElement>().preferredHeight = 30f;
+        Button skillButton = CreateLayoutButton(experienceFormRoot.transform,
+            "Button_ExperienceSkills", "選擇關聯技能（可不選）", font,
+            260f, ButtonTone.Secondary);
+        experienceSkillSummary = skillButton.GetComponentInChildren<TMP_Text>();
+        experienceSkillSummary.fontSize = 20;
+        experienceSkillSummary.enableWordWrapping = false;
+        experienceSkillSummary.overflowMode = TextOverflowModes.Ellipsis;
+        skillButton.onClick.AddListener(() =>
+            experienceSkillChoices.SetActive(!experienceSkillChoices.activeSelf));
+        experienceSkillChoices = CreateUiObject("ExperienceSkillChoices",
+            experienceFormRoot.transform, typeof(Image), typeof(VerticalLayoutGroup),
+            typeof(ContentSizeFitter));
+        experienceSkillChoices.GetComponent<Image>().color = SurfaceMuted;
+        VerticalLayoutGroup choicesLayout =
+            experienceSkillChoices.GetComponent<VerticalLayoutGroup>();
+        choicesLayout.padding = new RectOffset(8, 8, 8, 8);
+        choicesLayout.spacing = 4f;
+        choicesLayout.childControlWidth = true;
+        choicesLayout.childControlHeight = true;
+        choicesLayout.childForceExpandWidth = true;
+        choicesLayout.childForceExpandHeight = false;
+        experienceSkillChoices.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+        experienceSkillChoices.SetActive(false);
+
+        GameObject actions = CreateUiObject("ExperienceActions", experienceFormRoot.transform,
+            typeof(HorizontalLayoutGroup));
+        HorizontalLayoutGroup actionsLayout = actions.GetComponent<HorizontalLayoutGroup>();
+        actionsLayout.spacing = 12f;
+        actionsLayout.childAlignment = TextAnchor.MiddleRight;
+        actionsLayout.childControlWidth = true;
+        actionsLayout.childControlHeight = true;
+        actionsLayout.childForceExpandWidth = false;
+        actionsLayout.childForceExpandHeight = true;
+        actions.AddComponent<LayoutElement>().preferredHeight = 56f;
+        CreateLayoutButton(actions.transform, "Button_CancelExperience", "取消", font,
+            120f, ButtonTone.Secondary).onClick.AddListener(CloseExperienceForm);
+        CreateLayoutButton(actions.transform, "Button_SaveExperience", "儲存這筆", font,
+            150f, ButtonTone.Primary).onClick.AddListener(() => ApplyExperienceForm());
+        experienceFormRoot.SetActive(false);
+    }
+
+    private void CreateLanguageEditorUi(Transform parent, TMP_FontAsset font)
+    {
+        GameObject cardObject = CreateUiObject("Field_languages", parent,
+            typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(Outline));
+        Image cardImage = cardObject.GetComponent<Image>();
+        cardImage.color = SurfaceMuted;
+        ApplySlicedSprite(cardImage);
+        Outline outline = cardObject.GetComponent<Outline>();
+        outline.effectColor = Border;
+        outline.effectDistance = new Vector2(1f, -1f);
+        VerticalLayoutGroup cardLayout = cardObject.GetComponent<VerticalLayoutGroup>();
+        int padding = Mathf.RoundToInt(theme != null ? theme.SpaceMd : 16f);
+        cardLayout.padding = new RectOffset(padding, padding, padding, padding);
+        cardLayout.spacing = theme != null ? theme.SpaceSm : 12f;
+        cardLayout.childAlignment = TextAnchor.UpperLeft;
+        cardLayout.childControlWidth = true;
+        cardLayout.childControlHeight = true;
+        cardLayout.childForceExpandWidth = true;
+        cardLayout.childForceExpandHeight = false;
+        cardObject.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+
+        TMP_Text title = CreateText(cardObject.transform, "Label_languages", "語言能力", font,
+            Mathf.RoundToInt(theme != null ? theme.SectionTitleSize : 28f),
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 38f),
+            TextAlignmentOptions.MidlineLeft);
+        title.fontStyle = FontStyles.Bold;
+        title.gameObject.AddComponent<LayoutElement>().preferredHeight = 38f;
+        TMP_Text help = CreateText(cardObject.transform, "Help_languages",
+            "逐筆選擇語言與程度；未新增的語言不會自動判為不會。", font,
+            Mathf.RoundToInt(theme != null ? theme.SupportingTextSize : 20f),
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 32f),
+            TextAlignmentOptions.MidlineLeft);
+        help.color = TextSecondary;
+        help.gameObject.AddComponent<LayoutElement>().preferredHeight = 32f;
+
+        GameObject list = CreateUiObject("LanguageList", cardObject.transform,
+            typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        languageListRoot = list.transform;
+        VerticalLayoutGroup listLayout = list.GetComponent<VerticalLayoutGroup>();
+        listLayout.spacing = 8f;
+        listLayout.childControlWidth = true;
+        listLayout.childControlHeight = true;
+        listLayout.childForceExpandWidth = true;
+        listLayout.childForceExpandHeight = false;
+        list.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+
+        CreateLayoutButton(cardObject.transform, "Button_AddLanguage", "新增語言", font,
+            170f, ButtonTone.Primary).onClick.AddListener(() => OpenLanguageForm(-1));
+
+        languageFormRoot = CreateUiObject("LanguageForm", cardObject.transform,
+            typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        languageFormRoot.GetComponent<Image>().color = Surface;
+        VerticalLayoutGroup formLayout = languageFormRoot.GetComponent<VerticalLayoutGroup>();
+        formLayout.padding = new RectOffset(16, 16, 16, 16);
+        formLayout.spacing = 8f;
+        formLayout.childControlWidth = true;
+        formLayout.childControlHeight = true;
+        formLayout.childForceExpandWidth = true;
+        formLayout.childForceExpandHeight = false;
+        languageFormRoot.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+
+        languageNameDropdown = CreateLabeledSkillDropdown(languageFormRoot.transform,
+            "LanguageName", "語言", font, new[] { "請選擇語言", "中文", "英文", "日文" });
+        languageLevelDropdown = CreateLabeledSkillDropdown(languageFormRoot.transform,
+            "LanguageLevel", "程度", font,
+            new[] { "請選擇程度", "不會", "略懂", "中等", "精通" });
+
+        GameObject actions = CreateUiObject("LanguageActions", languageFormRoot.transform,
+            typeof(HorizontalLayoutGroup));
+        HorizontalLayoutGroup actionsLayout = actions.GetComponent<HorizontalLayoutGroup>();
+        actionsLayout.spacing = 12f;
+        actionsLayout.childAlignment = TextAnchor.MiddleRight;
+        actionsLayout.childControlWidth = true;
+        actionsLayout.childControlHeight = true;
+        actionsLayout.childForceExpandWidth = false;
+        actionsLayout.childForceExpandHeight = true;
+        actions.AddComponent<LayoutElement>().preferredHeight = 56f;
+        CreateLayoutButton(actions.transform, "Button_CancelLanguage", "取消", font,
+            120f, ButtonTone.Secondary).onClick.AddListener(CloseLanguageForm);
+        CreateLayoutButton(actions.transform, "Button_SaveLanguage", "儲存這筆", font,
+            150f, ButtonTone.Primary).onClick.AddListener(() => ApplyLanguageForm());
+        languageFormRoot.SetActive(false);
     }
 
     private void CreateLinkEditorUi(Transform parent, TMP_FontAsset font)
@@ -1585,7 +2385,7 @@ public sealed class CareerProfilePage : MonoBehaviour
         heading.gameObject.AddComponent<LayoutElement>().preferredHeight = 30f;
 
         GameObject root = CreateUiObject("Dropdown_" + key, parent,
-            typeof(Image), typeof(TMP_Dropdown));
+            typeof(Image), typeof(JobCheckPopupDropdown));
         Image background = root.GetComponent<Image>();
         background.color = SurfaceMuted;
         ApplySlicedSprite(background);
@@ -1604,7 +2404,7 @@ public sealed class CareerProfilePage : MonoBehaviour
         RectTransform templateRect = template.GetComponent<RectTransform>();
         templateRect.anchorMin = new Vector2(0f, 0f);
         templateRect.anchorMax = new Vector2(1f, 0f);
-        templateRect.pivot = new Vector2(0.5f, 1f);
+        templateRect.pivot = new Vector2(0.5f, 0f);
         templateRect.anchoredPosition = new Vector2(0f, -4f);
         templateRect.sizeDelta = new Vector2(0f, 260f);
         template.GetComponent<Image>().color = Surface;
@@ -1621,7 +2421,9 @@ public sealed class CareerProfilePage : MonoBehaviour
         contentRect.anchorMax = new Vector2(1f, 1f);
         contentRect.pivot = new Vector2(0.5f, 1f);
         contentRect.anchoredPosition = Vector2.zero;
-        contentRect.sizeDelta = Vector2.zero;
+        // TMP_Dropdown subtracts the item-to-content offset when calculating
+        // popup height. A zero-height template content loses one entire row.
+        contentRect.sizeDelta = new Vector2(0f, 48f);
 
         GameObject item = CreateUiObject("Item", content.transform,
             typeof(Image), typeof(Toggle));
@@ -1656,6 +2458,11 @@ public sealed class CareerProfilePage : MonoBehaviour
         dropdown.AddOptions(options.ToList());
         dropdown.RefreshShownValue();
         template.SetActive(false);
+        templateRect.SetParent(editorRoot.transform, false);
+        templateRect.anchorMin = new Vector2(0.5f, 0.5f);
+        templateRect.anchorMax = new Vector2(0.5f, 0.5f);
+        templateRect.pivot = new Vector2(0.5f, 0f);
+        templateRect.sizeDelta = new Vector2(0f, 260f);
         return dropdown;
     }
 

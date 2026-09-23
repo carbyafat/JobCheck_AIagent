@@ -502,7 +502,7 @@ namespace JobCheck.Ui.Editor.Tests
         }
 
         [Test]
-        public void ResumeEditor_BuildsSummarySkillAndLinkFormsInSingleColumn()
+        public void ResumeEditor_BuildsSummarySkillLinkAndLanguageFormsInSingleColumn()
         {
             Type controllerType = Type.GetType("CareerProfilePage, Assembly-CSharp");
             Assert.That(controllerType, Is.Not.Null);
@@ -537,11 +537,62 @@ namespace JobCheck.Ui.Editor.Tests
                     Is.Not.Null);
                 Transform content = FindDescendant(editor, "Content");
                 Assert.That(content, Is.Not.Null);
-                Assert.That(content.childCount, Is.EqualTo(3));
+                Assert.That(content.childCount, Is.EqualTo(5));
                 Assert.That(content.GetChild(0).name, Is.EqualTo("Field_summary"));
                 Assert.That(content.GetChild(1).name, Is.EqualTo("Field_skills"));
                 Assert.That(content.GetChild(2).name, Is.EqualTo("Field_links"));
+                Assert.That(content.GetChild(3).name, Is.EqualTo("Field_experiences"));
+                Assert.That(content.GetChild(4).name, Is.EqualTo("Field_languages"));
                 Assert.That(FindDescendant(editor, "EditorColumns"), Is.Null);
+                Assert.That(FindDescendant(editor, "ExperienceList"), Is.Not.Null);
+                Assert.That(FindDescendant(editor, "Button_AddExperience"), Is.Not.Null);
+                Transform experienceForm = FindDescendant(editor, "ExperienceForm");
+                Assert.That(experienceForm, Is.Not.Null);
+                Assert.That(experienceForm.gameObject.activeSelf, Is.False);
+                Assert.That(FindDescendant(experienceForm, "Input_ExperienceOrganization"),
+                    Is.Not.Null);
+                Assert.That(FindDescendant(experienceForm, "Input_ExperienceRole"),
+                    Is.Not.Null);
+                Assert.That(FindDescendant(experienceForm, "Input_ExperienceStartYear"),
+                    Is.Not.Null);
+                Assert.That(FindDescendant(experienceForm, "Dropdown_ExperienceStartMonth"),
+                    Is.Not.Null);
+                Assert.That(FindDescendant(experienceForm, "CurrentEmployment")
+                    .GetComponent<Toggle>(), Is.Not.Null);
+                Assert.That(FindDescendant(experienceForm, "Input_ExperienceEndYear"),
+                    Is.Not.Null);
+                Assert.That(FindDescendant(experienceForm, "Dropdown_ExperienceEndMonth"),
+                    Is.Not.Null);
+                Assert.That(FindDescendant(experienceForm, "ExperienceSkillChoices"),
+                    Is.Not.Null);
+                Assert.That(FindDescendant(experienceForm, "Button_SaveExperience"),
+                    Is.Not.Null);
+                Assert.That(FindDescendant(editor, "LanguageList"), Is.Not.Null);
+                Assert.That(FindDescendant(editor, "Button_AddLanguage"), Is.Not.Null);
+                Transform languageForm = FindDescendant(editor, "LanguageForm");
+                Assert.That(languageForm, Is.Not.Null);
+                Assert.That(languageForm.gameObject.activeSelf, Is.False);
+                Assert.That(FindDescendant(languageForm, "Button_SaveLanguage"), Is.Not.Null);
+                var languages = FindDescendant(languageForm, "Dropdown_LanguageName")
+                    .GetComponent<TMPro.TMP_Dropdown>();
+                var levels = FindDescendant(languageForm, "Dropdown_LanguageLevel")
+                    .GetComponent<TMPro.TMP_Dropdown>();
+                Assert.That(languages.template.parent, Is.SameAs(editor));
+                Assert.That(levels.template.parent, Is.SameAs(editor));
+                Assert.That(languages.template.pivot.y, Is.EqualTo(0f),
+                    "語言選單應向上展開，避開編輯區頁尾");
+                Assert.That(levels.template.pivot.y, Is.EqualTo(0f),
+                    "程度選單應向上展開，避開編輯區頁尾");
+                Assert.That(languages.template.Find("Viewport/Content")
+                    .GetComponent<RectTransform>().sizeDelta.y, Is.EqualTo(48f),
+                    "TMP 清單內容初始高度必須包含樣板列，否則最後一項會被裁掉");
+                Assert.That(levels.template.Find("Viewport/Content")
+                    .GetComponent<RectTransform>().sizeDelta.y, Is.EqualTo(48f));
+                Assert.That(languages.GetType().Name, Is.EqualTo("JobCheckPopupDropdown"));
+                Assert.That(languages.options.Select(item => item.text),
+                    Is.EqualTo(new[] { "請選擇語言", "中文", "英文", "日文" }));
+                Assert.That(levels.options.Select(item => item.text),
+                    Is.EqualTo(new[] { "請選擇程度", "不會", "略懂", "中等", "精通" }));
                 Assert.That(FindDescendant(editor, "LinkList"), Is.Not.Null);
                 Assert.That(FindDescendant(editor, "Button_AddLink"), Is.Not.Null);
                 Transform linkForm = FindDescendant(editor, "LinkForm");
@@ -564,6 +615,7 @@ namespace JobCheck.Ui.Editor.Tests
                 var years = FindDescendant(skillForm, "Dropdown_Years")
                     .GetComponent<TMPro.TMP_Dropdown>();
                 Assert.That(years.template, Is.Not.Null);
+                Assert.That(years.template.parent, Is.SameAs(editor));
                 Assert.That(years.template.GetComponentInChildren<Toggle>(true), Is.Not.Null);
                 Assert.That(years.options[0].text, Is.EqualTo("未填寫"));
                 Assert.That(editor.Find("Footer"), Is.Not.Null);
@@ -577,7 +629,7 @@ namespace JobCheck.Ui.Editor.Tests
         }
 
         [Test]
-        public void ResumeSkillAndLinkDrafts_PreserveOtherSectionsAndExistingData()
+        public void ResumeEditableDrafts_PreserveOtherSectionsAndExistingData()
         {
             Type controllerType = Type.GetType("CareerProfilePage, Assembly-CSharp");
             MethodInfo create = controllerType.GetMethod("CreateSummaryEditCandidate",
@@ -602,7 +654,11 @@ namespace JobCheck.Ui.Editor.Tests
                 Educations = new System.Collections.Generic.List<JobCheck.Domain.CareerEducation>
                     { new JobCheck.Domain.CareerEducation { Id = "education_1" } },
                 Languages = new System.Collections.Generic.List<JobCheck.Domain.CareerLanguage>
-                    { new JobCheck.Domain.CareerLanguage { Id = "language_1" } }
+                    { new JobCheck.Domain.CareerLanguage
+                        { Id = "language_1", Name = "英文", LanguageId = "en",
+                          Proficiency = JobCheck.Domain.LanguageProficiency.Elementary,
+                          Notes = "舊備註",
+                          Certifications = new System.Collections.Generic.List<string> { "TOEIC" } } }
             };
             var now = new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.FromHours(8));
             MethodInfo clone = controllerType.GetMethod("CloneSkills",
@@ -617,9 +673,26 @@ namespace JobCheck.Ui.Editor.Tests
             var linkDraft = (System.Collections.Generic.List<JobCheck.Domain.CareerProfileLink>)
                 cloneLinks.Invoke(null, new object[] { profile.Links });
             linkDraft[0].Label = "作品集";
+            MethodInfo cloneLanguages = controllerType.GetMethod("CloneLanguages",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(cloneLanguages, Is.Not.Null);
+            var languageDraft = (System.Collections.Generic.List<JobCheck.Domain.CareerLanguage>)
+                cloneLanguages.Invoke(null, new object[] { profile.Languages });
+            languageDraft[0].Name = "日文";
+            languageDraft[0].Certifications.Add("JLPT");
+
+            MethodInfo cloneExperiences = controllerType.GetMethod("CloneExperiences",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(cloneExperiences, Is.Not.Null);
+            var experienceDraft =
+                (System.Collections.Generic.List<JobCheck.Domain.CareerExperience>)
+                    cloneExperiences.Invoke(null, new object[] { profile.Experiences });
+            experienceDraft[0].Organization = "新公司";
 
             var candidate = (JobCheck.Domain.CareerProfile)create.Invoke(
-                null, new object[] { profile, "新的介紹", linkDraft, skillDraft, now });
+                null, new object[]
+                    { profile, "新的介紹", linkDraft, skillDraft, experienceDraft,
+                        languageDraft, now });
 
             Assert.That(candidate.Id, Is.EqualTo(profile.Id));
             Assert.That(candidate.Summary, Is.EqualTo("新的介紹"));
@@ -636,10 +709,20 @@ namespace JobCheck.Ui.Editor.Tests
             Assert.That(candidate.Skills[0].Level,
                 Is.EqualTo(JobCheck.Domain.SkillLevel.Basic));
             Assert.That(candidate.Skills[0].ClaimedMonths, Is.EqualTo(24));
-            Assert.That(candidate.Experiences, Is.SameAs(profile.Experiences));
+            Assert.That(profile.Experiences[0].Organization, Is.Null);
+            Assert.That(candidate.Experiences, Is.Not.SameAs(profile.Experiences));
+            Assert.That(candidate.Experiences[0].Organization, Is.EqualTo("新公司"));
+            Assert.That(candidate.Experiences[0].Id, Is.EqualTo("experience_1"));
             Assert.That(candidate.Projects, Is.SameAs(profile.Projects));
             Assert.That(candidate.Educations, Is.SameAs(profile.Educations));
-            Assert.That(candidate.Languages, Is.SameAs(profile.Languages));
+            Assert.That(profile.Languages[0].Name, Is.EqualTo("英文"));
+            Assert.That(profile.Languages[0].Certifications, Is.EqualTo(new[] { "TOEIC" }));
+            Assert.That(candidate.Languages, Is.Not.SameAs(profile.Languages));
+            Assert.That(candidate.Languages[0].Name, Is.EqualTo("日文"));
+            Assert.That(candidate.Languages[0].Id, Is.EqualTo("language_1"));
+            Assert.That(candidate.Languages[0].Notes, Is.EqualTo("舊備註"));
+            Assert.That(candidate.Languages[0].Proficiency,
+                Is.EqualTo(JobCheck.Domain.LanguageProficiency.Elementary));
         }
 
         [TestCase("https://example.com", true)]
@@ -657,6 +740,33 @@ namespace JobCheck.Ui.Editor.Tests
                 BindingFlags.Static | BindingFlags.NonPublic);
             Assert.That(validate, Is.Not.Null);
             Assert.That(validate.Invoke(null, new object[] { url }), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void ResumeLanguageDisplay_UsesFourVisibleLevels()
+        {
+            Type controllerType = Type.GetType("CareerProfilePage, Assembly-CSharp");
+            Assert.That(controllerType, Is.Not.Null);
+            MethodInfo format = controllerType.GetMethod("FormatProfile",
+                BindingFlags.Static | BindingFlags.Public);
+            var profile = new JobCheck.Domain.CareerProfile
+            {
+                Languages = new System.Collections.Generic.List<JobCheck.Domain.CareerLanguage>
+                {
+                    new JobCheck.Domain.CareerLanguage
+                        { Name = "中文", Proficiency = JobCheck.Domain.LanguageProficiency.None },
+                    new JobCheck.Domain.CareerLanguage
+                        { Name = "英文", Proficiency = JobCheck.Domain.LanguageProficiency.Elementary },
+                    new JobCheck.Domain.CareerLanguage
+                        { Name = "日文", Proficiency = JobCheck.Domain.LanguageProficiency.UpperIntermediate }
+                }
+            };
+
+            string output = (string)format.Invoke(null, new object[] { profile });
+            Assert.That(output, Does.Contain("中文｜不會"));
+            Assert.That(output, Does.Contain("英文｜略懂"));
+            Assert.That(output, Does.Contain("日文｜中等"));
+            Assert.That(output, Does.Not.Contain("等級 4"));
         }
 
         [Test]

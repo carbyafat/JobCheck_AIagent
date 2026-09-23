@@ -27,6 +27,33 @@ namespace JobCheck.Domain.Tests
         }
 
         [Test]
+        public void Compare_LanguageExplicitlyNone_DiffersFromUnfilledLanguage()
+        {
+            var requirements = new JobRequirements
+            {
+                Languages = new List<JobLanguageRequirement>
+                {
+                    new JobLanguageRequirement
+                    {
+                        Name = "英文", MinimumProficiency = LanguageProficiency.Beginner
+                    }
+                }
+            };
+            var profile = new CareerProfile { Id = "profile" };
+
+            Assert.That(RequirementMatchEngine.Compare(profile, requirements, EvaluatedAt)
+                .Items.Single().Status, Is.EqualTo(RequirementMatchStatus.NotEvidenced));
+
+            profile.Languages.Add(new CareerLanguage
+            {
+                Id = "language", Name = "英文", LanguageId = "en",
+                Proficiency = LanguageProficiency.None
+            });
+            Assert.That(RequirementMatchEngine.Compare(profile, requirements, EvaluatedAt)
+                .Items.Single().Status, Is.EqualTo(RequirementMatchStatus.ConfirmedMismatch));
+        }
+
+        [Test]
         public void Compare_HiddenSkillLevel_DoesNotAffectScore()
         {
             var profile = new CareerProfile
