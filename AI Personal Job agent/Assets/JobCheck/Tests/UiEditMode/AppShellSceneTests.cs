@@ -424,11 +424,11 @@ namespace JobCheck.Ui.Editor.Tests
         }
 
         [Test]
-        public void ResumeColumns_UseFortySixtySplitAndTallestColumnHeight()
+        public void SharedColumnsLayout_UsesFortySixtySplitAndTallestColumnHeight()
         {
             Type layoutType = Type.GetType("CareerProfileColumnsLayout, Assembly-CSharp");
             Assert.That(layoutType, Is.Not.Null);
-            var root = new GameObject("ResumeColumns", typeof(RectTransform), layoutType);
+            var root = new GameObject("SharedColumns", typeof(RectTransform), layoutType);
             var left = new GameObject("Left", typeof(RectTransform), typeof(LayoutElement));
             var right = new GameObject("Right", typeof(RectTransform), typeof(LayoutElement));
             try
@@ -460,7 +460,49 @@ namespace JobCheck.Ui.Editor.Tests
         }
 
         [Test]
-        public void ResumeEditor_BuildsScrollableTwoColumnFormWithFixedFooter()
+        public void ResumeDisplay_BuildsSingleColumnCards()
+        {
+            Type controllerType = Type.GetType("CareerProfilePage, Assembly-CSharp");
+            Assert.That(controllerType, Is.Not.Null);
+            var root = new GameObject("Page_Resume", typeof(RectTransform));
+            root.SetActive(false);
+            try
+            {
+                var display = new GameObject("ResumeProfileDisplay", typeof(RectTransform),
+                    typeof(CanvasRenderer), typeof(Image), typeof(TMPro.TextMeshProUGUI));
+                display.transform.SetParent(root.transform, false);
+                var controller = (MonoBehaviour)root.AddComponent(controllerType);
+                var data = new SerializedObject(controller);
+                data.FindProperty("fontAsset").objectReferenceValue =
+                    AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>(
+                        "Assets/Font/Yozai-Light SDF.asset");
+                data.FindProperty("displayText").objectReferenceValue =
+                    display.GetComponent<TMPro.TMP_Text>();
+                data.ApplyModifiedPropertiesWithoutUndo();
+
+                controllerType.GetMethod("EnsureDisplayUi",
+                    BindingFlags.Instance | BindingFlags.NonPublic).Invoke(controller, null);
+
+                Transform content = FindDescendant(display.transform, "Content");
+                Assert.That(content, Is.Not.Null);
+                Assert.That(FindDescendant(display.transform, "DisplayColumns"), Is.Null);
+                string[] cards =
+                {
+                    "Card_summary", "Card_skills", "Card_links", "Card_languages",
+                    "Card_experiences", "Card_projects", "Card_educations"
+                };
+                Assert.That(content.childCount, Is.EqualTo(cards.Length));
+                for (int index = 0; index < cards.Length; index++)
+                    Assert.That(content.GetChild(index).name, Is.EqualTo(cards[index]));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void ResumeEditor_BuildsSummaryOnlySingleColumnFormWithFixedFooter()
         {
             Type controllerType = Type.GetType("CareerProfilePage, Assembly-CSharp");
             Assert.That(controllerType, Is.Not.Null);
@@ -493,9 +535,12 @@ namespace JobCheck.Ui.Editor.Tests
                 Assert.That(editor, Is.Not.Null);
                 Assert.That(FindDescendant(editor, "EditorScroll").GetComponent<ScrollRect>(),
                     Is.Not.Null);
-                Assert.That(FindDescendant(editor, "EditorColumns"), Is.Not.Null);
-                Assert.That(FindDescendant(editor, "Column_Profile"), Is.Not.Null);
-                Assert.That(FindDescendant(editor, "Column_History"), Is.Not.Null);
+                Transform content = FindDescendant(editor, "Content");
+                Assert.That(content, Is.Not.Null);
+                Assert.That(content.childCount, Is.EqualTo(1));
+                Assert.That(content.GetChild(0).name, Is.EqualTo("Field_summary"));
+                Assert.That(FindDescendant(editor, "EditorColumns"), Is.Null);
+                Assert.That(FindDescendant(editor, "Field_skills"), Is.Null);
                 Assert.That(editor.Find("Footer"), Is.Not.Null);
                 Assert.That(FindDescendant(editor, "Button_Save"), Is.Not.Null);
                 Assert.That(FindDescendant(editor, "Button_Cancel"), Is.Not.Null);
@@ -504,6 +549,46 @@ namespace JobCheck.Ui.Editor.Tests
             {
                 UnityEngine.Object.DestroyImmediate(root);
             }
+        }
+
+        [Test]
+        public void ResumeSummaryEdit_PreservesOtherSections()
+        {
+            Type controllerType = Type.GetType("CareerProfilePage, Assembly-CSharp");
+            MethodInfo create = controllerType.GetMethod("CreateSummaryEditCandidate",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(create, Is.Not.Null);
+            var profile = new JobCheck.Domain.CareerProfile
+            {
+                Id = "profile_1",
+                Summary = "原本介紹",
+                Links = new System.Collections.Generic.List<JobCheck.Domain.CareerProfileLink>
+                    { new JobCheck.Domain.CareerProfileLink { Id = "link_1", Label = "GitHub" } },
+                Skills = new System.Collections.Generic.List<JobCheck.Domain.CareerSkill>
+                    { new JobCheck.Domain.CareerSkill { Id = "skill_1", Name = "Unity" } },
+                Experiences = new System.Collections.Generic.List<JobCheck.Domain.CareerExperience>
+                    { new JobCheck.Domain.CareerExperience { Id = "experience_1" } },
+                Projects = new System.Collections.Generic.List<JobCheck.Domain.CareerProject>
+                    { new JobCheck.Domain.CareerProject { Id = "project_1" } },
+                Educations = new System.Collections.Generic.List<JobCheck.Domain.CareerEducation>
+                    { new JobCheck.Domain.CareerEducation { Id = "education_1" } },
+                Languages = new System.Collections.Generic.List<JobCheck.Domain.CareerLanguage>
+                    { new JobCheck.Domain.CareerLanguage { Id = "language_1" } }
+            };
+            var now = new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.FromHours(8));
+
+            var candidate = (JobCheck.Domain.CareerProfile)create.Invoke(
+                null, new object[] { profile, "新的介紹", now });
+
+            Assert.That(candidate.Id, Is.EqualTo(profile.Id));
+            Assert.That(candidate.Summary, Is.EqualTo("新的介紹"));
+            Assert.That(candidate.UpdatedAt, Is.EqualTo(now));
+            Assert.That(candidate.Links, Is.SameAs(profile.Links));
+            Assert.That(candidate.Skills, Is.SameAs(profile.Skills));
+            Assert.That(candidate.Experiences, Is.SameAs(profile.Experiences));
+            Assert.That(candidate.Projects, Is.SameAs(profile.Projects));
+            Assert.That(candidate.Educations, Is.SameAs(profile.Educations));
+            Assert.That(candidate.Languages, Is.SameAs(profile.Languages));
         }
 
         [Test]

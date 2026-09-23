@@ -116,29 +116,6 @@ public sealed class CareerProfilePage : MonoBehaviour
         }
 
         editorFields["summary"].text = CurrentProfile.Summary ?? string.Empty;
-        editorFields["links"].text = Lines(CurrentProfile.Links,
-            item => Join(" | ", item.Label, item.Url));
-        editorFields["skills"].text = Lines(CurrentProfile.Skills,
-            item => Row(item.Name, item.Notes,
-                item.Level.HasValue ? ((int)item.Level.Value).ToString() : null,
-                item.ClaimedMonths?.ToString()));
-        editorFields["experiences"].text = Lines(CurrentProfile.Experiences,
-            item => Row(item.Organization, item.Role, item.StartDate,
-                item.IsCurrent ? "至今" : item.EndDate, OneLine(item.Description),
-                item.SkillIds == null ? null : string.Join(", ", item.SkillIds)));
-        editorFields["projects"].text = Lines(CurrentProfile.Projects,
-            item => Join(" | ", item.Name,
-                item.Technologies == null ? null : string.Join(", ", item.Technologies),
-                item.Url, OneLine(item.Description)));
-        editorFields["educations"].text = Lines(CurrentProfile.Educations,
-            item => Row(item.Institution, item.Program, item.StartDate,
-                item.EndDate, OneLine(item.Notes), DegreeLabel(item.DegreeLevel),
-                CompletionLabel(item.CompletionStatus),
-                item.FieldTags == null ? null : string.Join(", ", item.FieldTags)));
-        editorFields["languages"].text = Lines(CurrentProfile.Languages,
-            item => Row(item.Name, item.Level, OneLine(item.Notes),
-                item.Proficiency.HasValue ? ((int)item.Proficiency.Value).ToString() : null));
-
         SetEditorStatus("", false);
         if (editorScroll != null)
         {
@@ -182,90 +159,9 @@ public sealed class CareerProfilePage : MonoBehaviour
             return;
         }
 
-        if (!ValidateMatchInput(out string matchInputError))
-        {
-            SetEditorStatus(matchInputError, true);
-            return;
-        }
-
         DateTimeOffset now = DateTimeOffset.Now;
-        var candidate = new CareerProfile
-        {
-            Id = CurrentProfile.Id,
-            SchemaVersion = CareerProfile.CurrentSchemaVersion,
-            Summary = editorFields["summary"].text,
-            CreatedAt = CurrentProfile.CreatedAt ?? now,
-            UpdatedAt = now,
-            Links = ParseRows(editorFields["links"].text, 2, (values, index) =>
-                new CareerProfileLink
-                {
-                    Id = ExistingId(CurrentProfile.Links, index, item => item.Id,
-                        CareerProfileIdGenerator.CreateLinkId),
-                    Label = values[0],
-                    Url = values[1]
-                }),
-            Skills = ParseRows(editorFields["skills"].text, 4, (values, index) =>
-                new CareerSkill
-                {
-                    Id = ExistingId(CurrentProfile.Skills, index, item => item.Id,
-                        CareerProfileIdGenerator.CreateSkillId),
-                    Name = values[0],
-                    Notes = values[1],
-                    SkillId = RequirementCatalog.NormalizeSkill(values[0]),
-                    Level = ParseSkillLevel(values[2]),
-                    ClaimedMonths = ParseMonths(values[3])
-                }),
-            Experiences = ParseRows(editorFields["experiences"].text, 6, (values, index) =>
-                new CareerExperience
-                {
-                    Id = ExistingId(CurrentProfile.Experiences, index, item => item.Id,
-                        CareerProfileIdGenerator.CreateExperienceId),
-                    Organization = values[0],
-                    Role = values[1],
-                    StartDate = values[2],
-                    EndDate = IsCurrentValue(values[3]) ? null : values[3],
-                    IsCurrent = IsCurrentValue(values[3]),
-                    Description = values[4],
-                    SkillIds = SplitCommaList(values[5])
-                }),
-            Projects = ParseRows(editorFields["projects"].text, 4, (values, index) =>
-                new CareerProject
-                {
-                    Id = ExistingId(CurrentProfile.Projects, index, item => item.Id,
-                        CareerProfileIdGenerator.CreateProjectId),
-                    Name = values[0],
-                    Technologies = SplitCommaList(values[1]),
-                    Url = values[2],
-                    Description = values[3]
-                }),
-            Educations = ParseRows(editorFields["educations"].text, 8, (values, index) =>
-                new CareerEducation
-                {
-                    Id = ExistingId(CurrentProfile.Educations, index, item => item.Id,
-                        CareerProfileIdGenerator.CreateEducationId),
-                    Institution = values[0],
-                    Program = values[1],
-                    StartDate = values[2],
-                    EndDate = values[3],
-                    Notes = values[4],
-                    DegreeLevel = ParseDegree(values[5]),
-                    CompletionStatus = ParseCompletion(values[6]),
-                    FieldTags = SplitCommaList(values[7])
-                }),
-            Languages = ParseRows(editorFields["languages"].text, 4, (values, index) =>
-                new CareerLanguage
-                {
-                    Id = ExistingId(CurrentProfile.Languages, index, item => item.Id,
-                        CareerProfileIdGenerator.CreateLanguageId),
-                    Name = values[0],
-                    Level = values[1],
-                    Notes = values[2],
-                    LanguageId = RequirementCatalog.NormalizeLanguage(values[0]),
-                    Proficiency = ParseLanguageLevel(values[3]),
-                    Certifications = Existing(CurrentProfile.Languages, index)?.Certifications
-                        ?? new List<string>()
-                })
-        };
+        CareerProfile candidate = CreateSummaryEditCandidate(
+            CurrentProfile, editorFields["summary"].text, now);
 
         PersistenceStorageResult<CareerProfile> result = CareerProfileRepository.Save(
             ResolveProjectRelativePath(personalDataRootPath),
@@ -280,6 +176,25 @@ public sealed class CareerProfilePage : MonoBehaviour
         PrepareGlyphs(CurrentProfile);
         RenderProfile(CurrentProfile);
         CancelEditor();
+    }
+
+    private static CareerProfile CreateSummaryEditCandidate(
+        CareerProfile current, string summary, DateTimeOffset now)
+    {
+        return new CareerProfile
+        {
+            Id = current.Id,
+            SchemaVersion = current.SchemaVersion,
+            Summary = summary,
+            CreatedAt = current.CreatedAt ?? now,
+            UpdatedAt = now,
+            Links = current.Links,
+            Skills = current.Skills,
+            Experiences = current.Experiences,
+            Projects = current.Projects,
+            Educations = current.Educations,
+            Languages = current.Languages
+        };
     }
 
     public static string FormatProfile(CareerProfile profile)
@@ -386,11 +301,6 @@ public sealed class CareerProfilePage : MonoBehaviour
         return string.Join(separator, values.Where(value => !string.IsNullOrWhiteSpace(value)));
     }
 
-    private static string Row(params string[] values)
-    {
-        return string.Join(" | ", values.Select(value => OneLine(value) ?? string.Empty));
-    }
-
     private static string DegreeLabel(DegreeLevel? level)
     {
         switch (level)
@@ -413,172 +323,6 @@ public sealed class CareerProfilePage : MonoBehaviour
             case EducationCompletionStatus.Incomplete: return "未完成";
             default: return string.Empty;
         }
-    }
-
-    private static SkillLevel? ParseSkillLevel(string value)
-    {
-        RequirementInputParser.TryParseSkillLevel(value, out SkillLevel? result);
-        return result;
-    }
-
-    private static int? ParseMonths(string value)
-    {
-        RequirementInputParser.TryParseOptionalMonths(value, out int? result);
-        return result;
-    }
-
-    private static DegreeLevel? ParseDegree(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return null;
-        RequirementInputParser.TryParseDegree(value, out DegreeLevel result);
-        return result;
-    }
-
-    private static EducationCompletionStatus ParseCompletion(string value)
-    {
-        RequirementInputParser.TryParseCompletion(
-            value, out EducationCompletionStatus result);
-        return result;
-    }
-
-    private static LanguageProficiency? ParseLanguageLevel(string value)
-    {
-        RequirementInputParser.TryParseLanguageLevel(
-            value, out LanguageProficiency? result);
-        return result;
-    }
-
-    private bool ValidateMatchInput(out string error)
-    {
-        error = null;
-        foreach (string[] row in InputRows(editorFields["skills"].text))
-        {
-            if (!RequirementInputParser.TryParseSkillLevel(
-                    Column(row, 2), out SkillLevel? _))
-                return Invalid("技能等級請填 1–5，或留空。", out error);
-            if (!RequirementInputParser.TryParseOptionalMonths(
-                    Column(row, 3), out int? _))
-                return Invalid("技能月數請填非負整數，或留空。", out error);
-        }
-
-        foreach (string[] row in InputRows(editorFields["educations"].text))
-        {
-            if (!RequirementInputParser.TryParseDegree(
-                    Column(row, 5), out DegreeLevel _))
-                return Invalid("學位請填高中、專科、學士、碩士或博士。", out error);
-            if (!RequirementInputParser.TryParseCompletion(
-                    Column(row, 6), out EducationCompletionStatus _))
-                return Invalid("完成狀態請填已畢業、在學或未完成。", out error);
-        }
-
-        foreach (string[] row in InputRows(editorFields["languages"].text))
-        {
-            if (!RequirementInputParser.TryParseLanguageLevel(
-                    Column(row, 3), out LanguageProficiency? _))
-                return Invalid("語言等級請填 1–6，或留空。", out error);
-        }
-
-        return true;
-    }
-
-    private static IEnumerable<string[]> InputRows(string text)
-    {
-        return (text ?? string.Empty).Replace("\r\n", "\n").Split('\n')
-            .Where(line => !string.IsNullOrWhiteSpace(line))
-            .Select(line => line.Split('|'));
-    }
-
-    private static string Column(string[] row, int index)
-    {
-        return index < row.Length ? row[index].Trim() : string.Empty;
-    }
-
-    private static bool Invalid(string message, out string error)
-    {
-        error = message;
-        return false;
-    }
-
-    private static string Lines<T>(IEnumerable<T> items, Func<T, string> format)
-        where T : class
-    {
-        return items == null
-            ? string.Empty
-            : string.Join("\n", items.Where(item => item != null).Select(format));
-    }
-
-    private static T Existing<T>(IList<T> items, int index)
-        where T : class
-    {
-        return items != null && index >= 0 && index < items.Count ? items[index] : null;
-    }
-
-    private static string OneLine(string value)
-    {
-        return string.IsNullOrEmpty(value)
-            ? value
-            : value.Replace("\r", " ").Replace("\n", " ");
-    }
-
-    private static List<T> ParseRows<T>(
-        string source,
-        int fieldCount,
-        Func<string[], int, T> create)
-    {
-        var result = new List<T>();
-        if (string.IsNullOrWhiteSpace(source))
-        {
-            return result;
-        }
-
-        string[] lines = source.Replace("\r\n", "\n").Split('\n');
-        foreach (string rawLine in lines)
-        {
-            if (string.IsNullOrWhiteSpace(rawLine))
-            {
-                continue;
-            }
-
-            string[] rawValues = rawLine.Split('|');
-            var values = new string[fieldCount];
-            for (int index = 0; index < fieldCount; index++)
-            {
-                values[index] = index < rawValues.Length ? rawValues[index].Trim() : string.Empty;
-            }
-
-            result.Add(create(values, result.Count));
-        }
-
-        return result;
-    }
-
-    private static string ExistingId<T>(
-        IList<T> items,
-        int index,
-        Func<T, string> getId,
-        Func<string> createId)
-        where T : class
-    {
-        return items != null && index < items.Count && items[index] != null
-            ? getId(items[index])
-            : createId();
-    }
-
-    private static bool IsCurrentValue(string value)
-    {
-        return string.Equals(value, "至今", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(value, "現在", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(value, "current", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static List<string> SplitCommaList(string value)
-    {
-        return string.IsNullOrWhiteSpace(value)
-            ? new List<string>()
-            : value.Split(new[] { ',', '，' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(item => item.Trim())
-                .Where(item => item.Length > 0)
-                .ToList();
     }
 
     private static string FormatIssues(IReadOnlyList<PersistenceStorageIssue> issues)
@@ -775,40 +519,12 @@ public sealed class CareerProfilePage : MonoBehaviour
         scroll.scrollSensitivity = 45f;
 
         CreateDisplayCard("summary", "自我介紹", font, content, 84f);
-
-        GameObject columnsObject = CreateUiObject(
-            "DisplayColumns", content, typeof(CareerProfileColumnsLayout));
-        CareerProfileColumnsLayout columns =
-            columnsObject.GetComponent<CareerProfileColumnsLayout>();
-        columns.Configure(0.4f, theme != null ? theme.SpaceMd : 16f);
-
-        RectTransform leftColumn = CreateDisplayColumn(columnsObject.transform, "Column_Profile", 0.4f);
-        RectTransform rightColumn = CreateDisplayColumn(columnsObject.transform, "Column_History", 0.6f);
-        CreateDisplayCard("skills", "技能", font, leftColumn, 72f);
-        CreateDisplayCard("links", "連結", font, leftColumn, 64f);
-        CreateDisplayCard("languages", "語言能力", font, leftColumn, 64f);
-        CreateDisplayCard("experiences", "工作經歷", font, rightColumn, 118f);
-        CreateDisplayCard("projects", "專案經歷", font, rightColumn, 104f);
-        CreateDisplayCard("educations", "學歷", font, rightColumn, 82f);
-    }
-
-    private RectTransform CreateDisplayColumn(Transform parent, string name, float widthRatio)
-    {
-        GameObject columnObject = CreateUiObject(
-            name, parent, typeof(VerticalLayoutGroup));
-        VerticalLayoutGroup column = columnObject.GetComponent<VerticalLayoutGroup>();
-        column.spacing = theme != null ? theme.SpaceMd : 16f;
-        column.childAlignment = TextAnchor.UpperLeft;
-        column.childControlWidth = true;
-        column.childControlHeight = true;
-        column.childForceExpandWidth = true;
-        column.childForceExpandHeight = false;
-        ContentSizeFitter fitter = columnObject.AddComponent<ContentSizeFitter>();
-        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-        LayoutElement layout = columnObject.AddComponent<LayoutElement>();
-        layout.flexibleWidth = widthRatio;
-        return columnObject.GetComponent<RectTransform>();
+        CreateDisplayCard("skills", "技能", font, content, 72f);
+        CreateDisplayCard("links", "連結", font, content, 64f);
+        CreateDisplayCard("languages", "語言能力", font, content, 64f);
+        CreateDisplayCard("experiences", "工作經歷", font, content, 118f);
+        CreateDisplayCard("projects", "專案經歷", font, content, 104f);
+        CreateDisplayCard("educations", "學歷", font, content, 82f);
     }
 
     private void CreateDisplayCard(
@@ -1316,33 +1032,8 @@ public sealed class CareerProfilePage : MonoBehaviour
         editorScroll.movementType = ScrollRect.MovementType.Clamped;
         editorScroll.scrollSensitivity = 45f;
 
-        GameObject columnsObject = CreateUiObject(
-            "EditorColumns", content, typeof(CareerProfileColumnsLayout));
-        columnsObject.GetComponent<CareerProfileColumnsLayout>().Configure(
-            0.5f, theme != null ? theme.SpaceMd : 16f);
-        RectTransform leftColumn = CreateDisplayColumn(
-            columnsObject.transform, "Column_Profile", 0.5f);
-        RectTransform rightColumn = CreateDisplayColumn(
-            columnsObject.transform, "Column_History", 0.5f);
-
         CreateEditorField("summary", "自我介紹", "可多行，說明背景、能力與職涯方向。",
-            "介紹背景、能力與職涯方向", font, leftColumn, 180f);
-        CreateEditorField("links", "連結", "每行：名稱 | URL",
-            "GitHub | https://github.com/...", font, leftColumn, 130f);
-        CreateEditorField("skills", "技能", "每行：技能 | 備註 | 等級 1–5 | 使用月數",
-            "Unity | 主要開發工具 | 3 | 24", font, leftColumn, 150f);
-        CreateEditorField("languages", "語言能力", "每行：語言 | 程度 | 備註 | 比對等級 1–6",
-            "中文 | 母語 | | 6", font, leftColumn, 150f);
-
-        CreateEditorField("experiences", "工作經歷",
-            "每行：公司 | 職務 | 開始 | 結束／至今 | 內容 | 技能（逗號分隔）",
-            "公司 | 工程師 | 2024/01 | 至今 | 工作內容 | Unity, C#", font, rightColumn, 180f);
-        CreateEditorField("projects", "專案經歷",
-            "每行：名稱 | 技術（逗號分隔）| URL | 說明",
-            "JobCheck | Unity, C# | https://... | 專案說明", font, rightColumn, 180f);
-        CreateEditorField("educations", "學歷",
-            "每行：機構 | 項目 | 開始 | 結束 | 備註 | 學位 | 已畢業／在學 | 科系標籤",
-            "學校 | 資訊工程 | 2020 | 2024 | | 學士 | 已畢業 | 資訊工程", font, rightColumn, 180f);
+            "介紹背景、能力與職涯方向", font, content, 480f);
 
         GameObject footer = CreateUiObject("Footer", editorRoot.transform, typeof(Image));
         RectTransform footerRect = footer.GetComponent<RectTransform>();
