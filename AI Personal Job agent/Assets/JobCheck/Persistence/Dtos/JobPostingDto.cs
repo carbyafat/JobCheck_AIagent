@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.Serialization;
 
 namespace JobCheck.Persistence
 {
@@ -103,9 +104,12 @@ namespace JobCheck.Persistence
         public List<string> tools = new List<string>();
         public List<string> skills = new List<string>();
         public List<string> other_conditions = new List<string>();
+        [OptionalField]
         public List<SkillRequirementDto> skill_requirements = new List<SkillRequirementDto>();
+        [OptionalField]
         public List<ExperienceRequirementDto> experience_requirements
             = new List<ExperienceRequirementDto>();
+        [OptionalField]
         public EducationRequirementDto education_requirement;
     }
 
@@ -150,9 +154,13 @@ namespace JobCheck.Persistence
         public string reading;
         public string writing;
         public string raw_text;
+        [OptionalField]
         public string language_id;
+        [OptionalField]
         public string minimum_proficiency;
+        [OptionalField]
         public string importance;
+        [OptionalField]
         public List<string> accepted_certifications = new List<string>();
     }
 

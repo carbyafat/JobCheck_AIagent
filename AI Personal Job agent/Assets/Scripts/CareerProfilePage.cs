@@ -42,7 +42,7 @@ public sealed class CareerProfilePage : MonoBehaviour
         new Dictionary<string, TMP_InputField>(StringComparer.Ordinal);
 
     private const string ProfileUiCharacters =
-        "個人履歷最後更新自我介紹連結技能工作經歷專案學歷語言能力尚未填寫新增讀取失敗未知錯誤編輯儲存取消至今年月日時分公司職務開始結束內容名稱技術網址說明機構項目備註程度母語首頁職缺側欄寬度搬遷匯出匯入選擇檔案取代本機關閉預覽成功檔案尚未加密請妥善保管";
+        "個人履歷最後更新自我介紹連結技能工作經歷專案學歷語言能力尚未填寫新增讀取失敗未知錯誤編輯儲存取消至今年月日時分公司職務開始結束內容名稱技術網址說明機構項目備註程度母語首頁職缺側欄寬度搬遷匯出匯入選擇檔案取代本機關閉預覽成功檔案尚未加密請妥善保管等級學位已畢業在學未完成科系標籤月數逗號分隔請輸入整數";
 
     private Color AppBackground => theme != null
         ? theme.AppBackground
@@ -119,19 +119,25 @@ public sealed class CareerProfilePage : MonoBehaviour
         editorFields["links"].text = Lines(CurrentProfile.Links,
             item => Join(" | ", item.Label, item.Url));
         editorFields["skills"].text = Lines(CurrentProfile.Skills,
-            item => Join(" | ", item.Name, item.Notes));
+            item => Row(item.Name, item.Notes,
+                item.Level.HasValue ? ((int)item.Level.Value).ToString() : null,
+                item.ClaimedMonths?.ToString()));
         editorFields["experiences"].text = Lines(CurrentProfile.Experiences,
-            item => Join(" | ", item.Organization, item.Role, item.StartDate,
-                item.IsCurrent ? "至今" : item.EndDate, OneLine(item.Description)));
+            item => Row(item.Organization, item.Role, item.StartDate,
+                item.IsCurrent ? "至今" : item.EndDate, OneLine(item.Description),
+                item.SkillIds == null ? null : string.Join(", ", item.SkillIds)));
         editorFields["projects"].text = Lines(CurrentProfile.Projects,
             item => Join(" | ", item.Name,
                 item.Technologies == null ? null : string.Join(", ", item.Technologies),
                 item.Url, OneLine(item.Description)));
         editorFields["educations"].text = Lines(CurrentProfile.Educations,
-            item => Join(" | ", item.Institution, item.Program, item.StartDate,
-                item.EndDate, OneLine(item.Notes)));
+            item => Row(item.Institution, item.Program, item.StartDate,
+                item.EndDate, OneLine(item.Notes), DegreeLabel(item.DegreeLevel),
+                CompletionLabel(item.CompletionStatus),
+                item.FieldTags == null ? null : string.Join(", ", item.FieldTags)));
         editorFields["languages"].text = Lines(CurrentProfile.Languages,
-            item => Join(" | ", item.Name, item.Level, OneLine(item.Notes)));
+            item => Row(item.Name, item.Level, OneLine(item.Notes),
+                item.Proficiency.HasValue ? ((int)item.Proficiency.Value).ToString() : null));
 
         SetEditorStatus("", false);
         if (editorScroll != null)
@@ -176,6 +182,12 @@ public sealed class CareerProfilePage : MonoBehaviour
             return;
         }
 
+        if (!ValidateMatchInput(out string matchInputError))
+        {
+            SetEditorStatus(matchInputError, true);
+            return;
+        }
+
         DateTimeOffset now = DateTimeOffset.Now;
         var candidate = new CareerProfile
         {
@@ -192,18 +204,18 @@ public sealed class CareerProfilePage : MonoBehaviour
                     Label = values[0],
                     Url = values[1]
                 }),
-            Skills = ParseRows(editorFields["skills"].text, 2, (values, index) =>
+            Skills = ParseRows(editorFields["skills"].text, 4, (values, index) =>
                 new CareerSkill
                 {
                     Id = ExistingId(CurrentProfile.Skills, index, item => item.Id,
                         CareerProfileIdGenerator.CreateSkillId),
                     Name = values[0],
                     Notes = values[1],
-                    SkillId = Existing(CurrentProfile.Skills, index)?.SkillId,
-                    Level = Existing(CurrentProfile.Skills, index)?.Level,
-                    ClaimedMonths = Existing(CurrentProfile.Skills, index)?.ClaimedMonths
+                    SkillId = RequirementCatalog.NormalizeSkill(values[0]),
+                    Level = ParseSkillLevel(values[2]),
+                    ClaimedMonths = ParseMonths(values[3])
                 }),
-            Experiences = ParseRows(editorFields["experiences"].text, 5, (values, index) =>
+            Experiences = ParseRows(editorFields["experiences"].text, 6, (values, index) =>
                 new CareerExperience
                 {
                     Id = ExistingId(CurrentProfile.Experiences, index, item => item.Id,
@@ -214,8 +226,7 @@ public sealed class CareerProfilePage : MonoBehaviour
                     EndDate = IsCurrentValue(values[3]) ? null : values[3],
                     IsCurrent = IsCurrentValue(values[3]),
                     Description = values[4],
-                    SkillIds = Existing(CurrentProfile.Experiences, index)?.SkillIds
-                        ?? new List<string>()
+                    SkillIds = SplitCommaList(values[5])
                 }),
             Projects = ParseRows(editorFields["projects"].text, 4, (values, index) =>
                 new CareerProject
@@ -227,7 +238,7 @@ public sealed class CareerProfilePage : MonoBehaviour
                     Url = values[2],
                     Description = values[3]
                 }),
-            Educations = ParseRows(editorFields["educations"].text, 5, (values, index) =>
+            Educations = ParseRows(editorFields["educations"].text, 8, (values, index) =>
                 new CareerEducation
                 {
                     Id = ExistingId(CurrentProfile.Educations, index, item => item.Id,
@@ -237,13 +248,11 @@ public sealed class CareerProfilePage : MonoBehaviour
                     StartDate = values[2],
                     EndDate = values[3],
                     Notes = values[4],
-                    DegreeLevel = Existing(CurrentProfile.Educations, index)?.DegreeLevel,
-                    CompletionStatus = Existing(CurrentProfile.Educations, index)
-                        ?.CompletionStatus ?? EducationCompletionStatus.Unknown,
-                    FieldTags = Existing(CurrentProfile.Educations, index)?.FieldTags
-                        ?? new List<string>()
+                    DegreeLevel = ParseDegree(values[5]),
+                    CompletionStatus = ParseCompletion(values[6]),
+                    FieldTags = SplitCommaList(values[7])
                 }),
-            Languages = ParseRows(editorFields["languages"].text, 3, (values, index) =>
+            Languages = ParseRows(editorFields["languages"].text, 4, (values, index) =>
                 new CareerLanguage
                 {
                     Id = ExistingId(CurrentProfile.Languages, index, item => item.Id,
@@ -251,8 +260,8 @@ public sealed class CareerProfilePage : MonoBehaviour
                     Name = values[0],
                     Level = values[1],
                     Notes = values[2],
-                    LanguageId = Existing(CurrentProfile.Languages, index)?.LanguageId,
-                    Proficiency = Existing(CurrentProfile.Languages, index)?.Proficiency,
+                    LanguageId = RequirementCatalog.NormalizeLanguage(values[0]),
+                    Proficiency = ParseLanguageLevel(values[3]),
                     Certifications = Existing(CurrentProfile.Languages, index)?.Certifications
                         ?? new List<string>()
                 })
@@ -290,12 +299,17 @@ public sealed class CareerProfilePage : MonoBehaviour
         AppendListSection(builder, "連結", profile.Links,
             item => Join("｜", item.Label, item.Url), "尚未新增連結");
         AppendListSection(builder, "技能", profile.Skills,
-            item => Join("｜", item.Name, item.Notes), "尚未新增技能");
+            item => Join("｜", item.Name, item.Notes,
+                item.Level.HasValue ? "等級 " + (int)item.Level.Value : null,
+                item.ClaimedMonths.HasValue ? item.ClaimedMonths + " 個月" : null),
+            "尚未新增技能");
         AppendListSection(builder, "工作經歷", profile.Experiences,
             item => Join("｜",
                 Join(" / ", item.Organization, item.Role),
                 FormatPeriod(item.StartDate, item.EndDate, item.IsCurrent),
-                item.Description),
+                item.Description,
+                item.SkillIds == null || item.SkillIds.Count == 0
+                    ? null : "技能 " + string.Join("、", item.SkillIds)),
             "尚未新增工作經歷");
         AppendListSection(builder, "專案經歷", profile.Projects,
             item => Join("｜",
@@ -308,10 +322,15 @@ public sealed class CareerProfilePage : MonoBehaviour
             item => Join("｜",
                 Join(" / ", item.Institution, item.Program),
                 FormatPeriod(item.StartDate, item.EndDate, false),
-                item.Notes),
+                item.Notes, DegreeLabel(item.DegreeLevel),
+                CompletionLabel(item.CompletionStatus),
+                item.FieldTags == null || item.FieldTags.Count == 0
+                    ? null : string.Join("、", item.FieldTags)),
             "尚未新增學歷");
         AppendListSection(builder, "語言能力", profile.Languages,
-            item => Join("｜", item.Name, item.Level, item.Notes), "尚未新增語言能力");
+            item => Join("｜", item.Name, item.Level, item.Notes,
+                item.Proficiency.HasValue ? "等級 " + (int)item.Proficiency.Value : null),
+            "尚未新增語言能力");
         return builder.ToString().TrimEnd();
     }
 
@@ -365,6 +384,119 @@ public sealed class CareerProfilePage : MonoBehaviour
     private static string Join(string separator, params string[] values)
     {
         return string.Join(separator, values.Where(value => !string.IsNullOrWhiteSpace(value)));
+    }
+
+    private static string Row(params string[] values)
+    {
+        return string.Join(" | ", values.Select(value => OneLine(value) ?? string.Empty));
+    }
+
+    private static string DegreeLabel(DegreeLevel? level)
+    {
+        switch (level)
+        {
+            case DegreeLevel.HighSchool: return "高中";
+            case DegreeLevel.Associate: return "專科";
+            case DegreeLevel.Bachelor: return "學士";
+            case DegreeLevel.Master: return "碩士";
+            case DegreeLevel.Doctorate: return "博士";
+            default: return string.Empty;
+        }
+    }
+
+    private static string CompletionLabel(EducationCompletionStatus status)
+    {
+        switch (status)
+        {
+            case EducationCompletionStatus.Completed: return "已畢業";
+            case EducationCompletionStatus.InProgress: return "在學";
+            case EducationCompletionStatus.Incomplete: return "未完成";
+            default: return string.Empty;
+        }
+    }
+
+    private static SkillLevel? ParseSkillLevel(string value)
+    {
+        RequirementInputParser.TryParseSkillLevel(value, out SkillLevel? result);
+        return result;
+    }
+
+    private static int? ParseMonths(string value)
+    {
+        RequirementInputParser.TryParseOptionalMonths(value, out int? result);
+        return result;
+    }
+
+    private static DegreeLevel? ParseDegree(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        RequirementInputParser.TryParseDegree(value, out DegreeLevel result);
+        return result;
+    }
+
+    private static EducationCompletionStatus ParseCompletion(string value)
+    {
+        RequirementInputParser.TryParseCompletion(
+            value, out EducationCompletionStatus result);
+        return result;
+    }
+
+    private static LanguageProficiency? ParseLanguageLevel(string value)
+    {
+        RequirementInputParser.TryParseLanguageLevel(
+            value, out LanguageProficiency? result);
+        return result;
+    }
+
+    private bool ValidateMatchInput(out string error)
+    {
+        error = null;
+        foreach (string[] row in InputRows(editorFields["skills"].text))
+        {
+            if (!RequirementInputParser.TryParseSkillLevel(
+                    Column(row, 2), out SkillLevel? _))
+                return Invalid("技能等級請填 1–5，或留空。", out error);
+            if (!RequirementInputParser.TryParseOptionalMonths(
+                    Column(row, 3), out int? _))
+                return Invalid("技能月數請填非負整數，或留空。", out error);
+        }
+
+        foreach (string[] row in InputRows(editorFields["educations"].text))
+        {
+            if (!RequirementInputParser.TryParseDegree(
+                    Column(row, 5), out DegreeLevel _))
+                return Invalid("學位請填高中、專科、學士、碩士或博士。", out error);
+            if (!RequirementInputParser.TryParseCompletion(
+                    Column(row, 6), out EducationCompletionStatus _))
+                return Invalid("完成狀態請填已畢業、在學或未完成。", out error);
+        }
+
+        foreach (string[] row in InputRows(editorFields["languages"].text))
+        {
+            if (!RequirementInputParser.TryParseLanguageLevel(
+                    Column(row, 3), out LanguageProficiency? _))
+                return Invalid("語言等級請填 1–6，或留空。", out error);
+        }
+
+        return true;
+    }
+
+    private static IEnumerable<string[]> InputRows(string text)
+    {
+        return (text ?? string.Empty).Replace("\r\n", "\n").Split('\n')
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .Select(line => line.Split('|'));
+    }
+
+    private static string Column(string[] row, int index)
+    {
+        return index < row.Length ? row[index].Trim() : string.Empty;
+    }
+
+    private static bool Invalid(string message, out string error)
+    {
+        error = message;
+        return false;
     }
 
     private static string Lines<T>(IEnumerable<T> items, Func<T, string> format)
@@ -473,10 +605,15 @@ public sealed class CareerProfilePage : MonoBehaviour
         displayFields["links"].text = ListDisplay(profile.Links,
             item => Join("｜", item.Label, item.Url), "尚未新增連結");
         displayFields["skills"].text = ListDisplay(profile.Skills,
-            item => Join("｜", item.Name, item.Notes), "尚未新增技能");
+            item => Join("｜", item.Name, item.Notes,
+                item.Level.HasValue ? "等級 " + (int)item.Level.Value : null,
+                item.ClaimedMonths.HasValue ? item.ClaimedMonths + " 個月" : null),
+            "尚未新增技能");
         displayFields["experiences"].text = ListDisplay(profile.Experiences,
             item => Join("｜", Join(" / ", item.Organization, item.Role),
-                FormatPeriod(item.StartDate, item.EndDate, item.IsCurrent), item.Description),
+                FormatPeriod(item.StartDate, item.EndDate, item.IsCurrent), item.Description,
+                item.SkillIds == null || item.SkillIds.Count == 0
+                    ? null : "技能 " + string.Join("、", item.SkillIds)),
             "尚未新增工作經歷");
         displayFields["projects"].text = ListDisplay(profile.Projects,
             item => Join("｜", item.Name,
@@ -484,10 +621,15 @@ public sealed class CareerProfilePage : MonoBehaviour
                 item.Url, item.Description), "尚未新增專案經歷");
         displayFields["educations"].text = ListDisplay(profile.Educations,
             item => Join("｜", Join(" / ", item.Institution, item.Program),
-                FormatPeriod(item.StartDate, item.EndDate, false), item.Notes),
+                FormatPeriod(item.StartDate, item.EndDate, false), item.Notes,
+                DegreeLabel(item.DegreeLevel), CompletionLabel(item.CompletionStatus),
+                item.FieldTags == null || item.FieldTags.Count == 0
+                    ? null : string.Join("、", item.FieldTags)),
             "尚未新增學歷");
         displayFields["languages"].text = ListDisplay(profile.Languages,
-            item => Join("｜", item.Name, item.Level, item.Notes), "尚未新增語言能力");
+            item => Join("｜", item.Name, item.Level, item.Notes,
+                item.Proficiency.HasValue ? "等級 " + (int)item.Proficiency.Value : null),
+            "尚未新增語言能力");
     }
 
     private void ShowDisplayError(string message)
@@ -1187,20 +1329,20 @@ public sealed class CareerProfilePage : MonoBehaviour
             "介紹背景、能力與職涯方向", font, leftColumn, 180f);
         CreateEditorField("links", "連結", "每行：名稱 | URL",
             "GitHub | https://github.com/...", font, leftColumn, 130f);
-        CreateEditorField("skills", "技能", "每行：技能 | 備註",
-            "Unity | 主要開發工具", font, leftColumn, 130f);
-        CreateEditorField("languages", "語言能力", "每行：語言 | 程度 | 備註",
-            "中文 | 母語 |", font, leftColumn, 130f);
+        CreateEditorField("skills", "技能", "每行：技能 | 備註 | 等級 1–5 | 使用月數",
+            "Unity | 主要開發工具 | 3 | 24", font, leftColumn, 150f);
+        CreateEditorField("languages", "語言能力", "每行：語言 | 程度 | 備註 | 比對等級 1–6",
+            "中文 | 母語 | | 6", font, leftColumn, 150f);
 
         CreateEditorField("experiences", "工作經歷",
-            "每行：公司 | 職務 | 開始 | 結束／至今 | 內容",
-            "公司 | 工程師 | 2024/01 | 至今 | 工作內容", font, rightColumn, 180f);
+            "每行：公司 | 職務 | 開始 | 結束／至今 | 內容 | 技能（逗號分隔）",
+            "公司 | 工程師 | 2024/01 | 至今 | 工作內容 | Unity, C#", font, rightColumn, 180f);
         CreateEditorField("projects", "專案經歷",
             "每行：名稱 | 技術（逗號分隔）| URL | 說明",
             "JobCheck | Unity, C# | https://... | 專案說明", font, rightColumn, 180f);
         CreateEditorField("educations", "學歷",
-            "每行：機構 | 項目 | 開始 | 結束 | 備註",
-            "學校 | 科系 | 2020 | 2024 |", font, rightColumn, 180f);
+            "每行：機構 | 項目 | 開始 | 結束 | 備註 | 學位 | 已畢業／在學 | 科系標籤",
+            "學校 | 資訊工程 | 2020 | 2024 | | 學士 | 已畢業 | 資訊工程", font, rightColumn, 180f);
 
         GameObject footer = CreateUiObject("Footer", editorRoot.transform, typeof(Image));
         RectTransform footerRect = footer.GetComponent<RectTransform>();

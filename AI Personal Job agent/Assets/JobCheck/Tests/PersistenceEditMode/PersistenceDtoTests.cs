@@ -98,6 +98,68 @@ namespace JobCheck.Persistence.Tests
             Assert.IsNotNull(jobPosting.risk_flags);
         }
 
+        [Test]
+        public void OldJobRequirementsJson_LoadsWithoutV027Fields()
+        {
+            const string json = "{\"experience\":\"3 年以上\",\"education\":\"大學\","
+                + "\"major\":null,\"languages\":[],\"tools\":[],\"skills\":[],"
+                + "\"other_conditions\":[]}";
+
+            Assert.IsTrue(PersistenceJsonSerializer.TryDeserialize(
+                json, out JobRequirementsDto dto, out string error), error);
+            Assert.AreEqual("3 年以上", dto.experience);
+            Assert.IsNull(dto.education_requirement);
+        }
+
+        [Test]
+        public void OldCareerEducationJson_LoadsWithoutV027Fields()
+        {
+            const string json = "{\"id\":\"edu_1\",\"institution\":\"學校\","
+                + "\"program\":\"資訊工程\",\"start_date\":\"2020\","
+                + "\"end_date\":\"2024\",\"notes\":null}";
+
+            Assert.IsTrue(PersistenceJsonSerializer.TryDeserialize(
+                json, out CareerEducationDto dto, out string error), error);
+            Assert.AreEqual("學校", dto.institution);
+            Assert.IsNull(dto.degree_level);
+        }
+
+        [Test]
+        public void OtherOldCareerItems_LoadWithoutV027Fields()
+        {
+            const string skill = "{\"id\":\"skill_1\",\"name\":\"Unity\",\"notes\":null}";
+            const string experience = "{\"id\":\"exp_1\",\"organization\":\"公司\","
+                + "\"role\":\"工程師\",\"start_date\":\"2020/01\",\"end_date\":\"2024/01\","
+                + "\"is_current\":false,\"description\":null}";
+            const string language = "{\"id\":\"lang_1\",\"name\":\"中文\","
+                + "\"level\":\"母語\",\"notes\":null}";
+
+            Assert.IsTrue(PersistenceJsonSerializer.TryDeserialize(
+                skill, out CareerSkillDto skillDto, out string skillError), skillError);
+            Assert.IsTrue(PersistenceJsonSerializer.TryDeserialize(
+                experience, out CareerExperienceDto experienceDto, out string experienceError),
+                experienceError);
+            Assert.IsTrue(PersistenceJsonSerializer.TryDeserialize(
+                language, out CareerLanguageDto languageDto, out string languageError),
+                languageError);
+            Assert.AreEqual("Unity", skillDto.name);
+            Assert.AreEqual("公司", experienceDto.organization);
+            Assert.AreEqual("中文", languageDto.name);
+        }
+
+        [Test]
+        public void OldLanguageRequirement_LoadsWithoutV027Fields()
+        {
+            const string json = "{\"name\":\"英文\",\"listening\":null,"
+                + "\"speaking\":null,\"reading\":null,\"writing\":null,"
+                + "\"raw_text\":\"英文流利\"}";
+
+            Assert.IsTrue(PersistenceJsonSerializer.TryDeserialize(
+                json, out JobLanguageRequirementDto dto, out string error), error);
+            Assert.AreEqual("英文", dto.name);
+            Assert.IsNull(dto.minimum_proficiency);
+        }
+
         /// <summary>
         /// 確認 Application 第一版會內嵌事件集合，而且預設不是 null。
         /// </summary>

@@ -346,6 +346,7 @@ namespace JobCheck.Persistence
                 Tools = NormalizeTextEntries(request.Tools),
                 Skills = NormalizeTextEntries(request.Skills)
             };
+            ApplyMeasurableRequirements(value);
             return IsEmpty(value) ? null : value;
         }
 
@@ -354,11 +355,52 @@ namespace JobCheck.Persistence
             JobPostingEditRequest request)
         {
             var value = existing ?? new JobRequirements();
+            string previousExperience = value.Experience;
+            string previousEducation = value.Education;
             value.Experience = TrimOrNull(request.Experience);
             value.Education = TrimOrNull(request.Education);
             value.Tools = NormalizeTextEntries(request.Tools);
             value.Skills = NormalizeTextEntries(request.Skills);
+            if (!string.Equals(previousExperience, value.Experience, StringComparison.Ordinal))
+                ApplyExperienceRequirement(value);
+            if (!string.Equals(previousEducation, value.Education, StringComparison.Ordinal))
+                ApplyEducationRequirement(value);
             return IsEmpty(value) ? null : value;
+        }
+
+        private static void ApplyMeasurableRequirements(JobRequirements value)
+        {
+            ApplyExperienceRequirement(value);
+            ApplyEducationRequirement(value);
+        }
+
+        private static void ApplyExperienceRequirement(JobRequirements value)
+        {
+            value.ExperienceRequirements = new List<ExperienceRequirement>();
+            if (RequirementInputParser.TryParseMinimumExperience(
+                    value.Experience, out int months) && months > 0)
+            {
+                value.ExperienceRequirements.Add(new ExperienceRequirement
+                {
+                    Name = "總工作年資",
+                    MinimumMonths = months
+                });
+            }
+
+        }
+
+        private static void ApplyEducationRequirement(JobRequirements value)
+        {
+            value.EducationRequirement = null;
+            if (RequirementInputParser.TryParseMinimumEducation(
+                    value.Education, out DegreeLevel degree, out bool acceptsInProgress))
+            {
+                value.EducationRequirement = new EducationRequirement
+                {
+                    MinimumDegreeLevel = degree,
+                    AcceptsInProgress = acceptsInProgress
+                };
+            }
         }
 
         private static bool IsEmpty(JobRequirements value)
@@ -370,7 +412,10 @@ namespace JobCheck.Persistence
                     && (value.Languages == null || value.Languages.Count == 0)
                     && (value.Tools == null || value.Tools.Count == 0)
                     && (value.Skills == null || value.Skills.Count == 0)
-                    && (value.OtherConditions == null || value.OtherConditions.Count == 0));
+                    && (value.OtherConditions == null || value.OtherConditions.Count == 0)
+                    && (value.SkillRequirements == null || value.SkillRequirements.Count == 0)
+                    && (value.ExperienceRequirements == null || value.ExperienceRequirements.Count == 0)
+                    && value.EducationRequirement == null);
         }
 
         private static List<string> NormalizeTextEntries(IEnumerable<string> values)

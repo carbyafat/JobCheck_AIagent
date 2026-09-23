@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.Serialization;
 
 namespace JobCheck.Persistence
 {
@@ -33,9 +34,13 @@ namespace JobCheck.Persistence
         public string id;
         public string name;
         public string notes;
+        [OptionalField]
         public string skill_id;
+        [OptionalField]
         public string level;
+        [OptionalField]
         public bool has_claimed_months;
+        [OptionalField]
         public int claimed_months;
     }
 
@@ -49,6 +54,7 @@ namespace JobCheck.Persistence
         public string end_date;
         public bool is_current;
         public string description;
+        [OptionalField]
         public List<string> skill_ids = new List<string>();
     }
 
@@ -71,8 +77,11 @@ namespace JobCheck.Persistence
         public string start_date;
         public string end_date;
         public string notes;
+        [OptionalField]
         public string degree_level;
+        [OptionalField]
         public string completion_status;
+        [OptionalField]
         public List<string> field_tags = new List<string>();
     }
 
@@ -83,8 +92,11 @@ namespace JobCheck.Persistence
         public string name;
         public string level;
         public string notes;
+        [OptionalField]
         public string language_id;
+        [OptionalField]
         public string proficiency;
+        [OptionalField]
         public List<string> certifications = new List<string>();
     }
 }

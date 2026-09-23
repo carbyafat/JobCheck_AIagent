@@ -623,6 +623,8 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
 
     private void SetupStructuredFields()
     {
+        SetRequirementHint(inputExperience, "3 年以上（填數字）或不拘");
+        SetRequirementHint(inputEducation, "學士以上、碩士以上、不拘；在學可加註（在學可）");
         SetupDropdown(
             dropdownCompensationType,
             compensationTypeValues,
@@ -645,6 +647,12 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
             new[] { "", "全職", "兼職", "約聘", "派遣", "實習", "直聘" });
         multiSelectTags?.Configure(JobPostingLabelCatalog.TagOptions);
         multiSelectRiskFlags?.Configure(JobPostingLabelCatalog.RiskFlagOptions);
+    }
+
+    private static void SetRequirementHint(TMP_InputField input, string hint)
+    {
+        if (input?.placeholder is TMP_Text placeholder)
+            placeholder.text = hint;
     }
 
     private void SetupDropdown(

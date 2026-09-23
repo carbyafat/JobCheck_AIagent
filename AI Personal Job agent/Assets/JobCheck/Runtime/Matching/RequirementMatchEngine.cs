@@ -95,10 +95,27 @@ namespace JobCheck.Domain
             DateTimeOffset evaluatedAt,
             ICollection<RequirementMatchItem> output)
         {
-            if (requirements.ExperienceRequirements == null
-                || requirements.ExperienceRequirements.Count == 0)
+            List<ExperienceRequirement> experienceRequirements =
+                requirements.ExperienceRequirements == null
+                    ? new List<ExperienceRequirement>()
+                    : requirements.ExperienceRequirements.Where(item => item != null).ToList();
+            if (experienceRequirements.Count == 0
+                && RequirementInputParser.TryParseMinimumExperience(
+                    requirements.Experience, out int parsedMonths)
+                && parsedMonths > 0)
             {
-                if (!string.IsNullOrWhiteSpace(requirements.Experience))
+                experienceRequirements.Add(new ExperienceRequirement
+                {
+                    Name = "總工作年資",
+                    MinimumMonths = parsedMonths
+                });
+            }
+
+            if (experienceRequirements.Count == 0)
+            {
+                if (!string.IsNullOrWhiteSpace(requirements.Experience)
+                    && !RequirementInputParser.TryParseMinimumExperience(
+                        requirements.Experience, out int _))
                 {
                     output.Add(Item(RequirementCategory.Experience,
                         RequirementMatchStatus.RequirementUnclear,
@@ -110,8 +127,7 @@ namespace JobCheck.Domain
                 return;
             }
 
-            foreach (ExperienceRequirement requirement in requirements.ExperienceRequirements
-                .Where(item => item != null))
+            foreach (ExperienceRequirement requirement in experienceRequirements)
             {
                 if (requirement.MinimumMonths <= 0)
                 {
@@ -133,6 +149,13 @@ namespace JobCheck.Domain
                     item, evaluatedAt, out DateTime _, out DateTime _));
                 if (skillId.Length > 0)
                 {
+                    bool hasClaimedMonths = (profile?.Skills ?? new List<CareerSkill>())
+                        .Any(item => item != null
+                            && string.Equals(RequirementCatalog.NormalizeSkill(
+                                string.IsNullOrWhiteSpace(item.SkillId)
+                                    ? item.Name : item.SkillId), skillId,
+                                StringComparison.Ordinal)
+                            && item.ClaimedMonths.HasValue);
                     int claimed = (profile?.Skills ?? new List<CareerSkill>())
                         .Where(item => item != null
                             && string.Equals(RequirementCatalog.NormalizeSkill(
@@ -144,7 +167,7 @@ namespace JobCheck.Domain
                         .DefaultIfEmpty(0)
                         .Max();
                     months = Math.Max(months, claimed);
-                    hasEvidence = hasEvidence || claimed > 0;
+                    hasEvidence = hasEvidence || hasClaimedMonths;
                 }
 
                 RequirementMatchStatus status = !hasEvidence
@@ -170,6 +193,17 @@ namespace JobCheck.Domain
             ICollection<RequirementMatchItem> output)
         {
             EducationRequirement requirement = requirements.EducationRequirement;
+            if (requirement == null
+                && RequirementInputParser.TryParseMinimumEducation(
+                    requirements.Education, out DegreeLevel parsedDegree,
+                    out bool acceptsInProgress))
+            {
+                requirement = new EducationRequirement
+                {
+                    MinimumDegreeLevel = parsedDegree,
+                    AcceptsInProgress = acceptsInProgress
+                };
+            }
             if (requirement == null)
             {
                 if (!string.IsNullOrWhiteSpace(requirements.Education)
@@ -187,6 +221,7 @@ namespace JobCheck.Domain
 
             if (requirement.MinimumDegreeLevel == DegreeLevel.Unrestricted)
             {
+                AddUnstructuredMajor(requirements, output);
                 return;
             }
 
@@ -241,6 +276,23 @@ namespace JobCheck.Domain
                         : fieldStatus == RequirementMatchStatus.NotEvidenced
                             ? "履歷沒有可比較的科系標籤。"
                             : "已填科系標籤與職缺要求沒有交集。"));
+            }
+            else
+            {
+                AddUnstructuredMajor(requirements, output);
+            }
+        }
+
+        private static void AddUnstructuredMajor(
+            JobRequirements requirements,
+            ICollection<RequirementMatchItem> output)
+        {
+            if (!string.IsNullOrWhiteSpace(requirements.Major))
+            {
+                output.Add(Item(RequirementCategory.Education,
+                    RequirementMatchStatus.RequirementUnclear,
+                    RequirementImportance.Required, "科系", requirements.Major,
+                    null, "科系條件尚未轉成明確標籤。"));
             }
         }
 

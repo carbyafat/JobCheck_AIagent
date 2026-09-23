@@ -194,6 +194,30 @@ namespace JobCheck.Tests
         }
 
         [Test]
+        public void Create_ExplicitYearsAndDegree_BecomeAssessableRequirements()
+        {
+            var request = new JobPostingCreateRequest
+            {
+                CompanyName = "測試公司",
+                Title = "工程師",
+                SourcePlatform = "測試來源",
+                Experience = "3 年以上",
+                Education = "學士以上（在學可）"
+            };
+
+            PersistenceStorageResult<JobPostingWriteSummary> result =
+                JobPostingCommandService.Create(root, request);
+
+            Assert.IsTrue(result.IsSuccess, FormatIssues(result));
+            JobRequirements requirements = Load().JobPostings.Single().Requirements;
+            Assert.That(requirements.ExperienceRequirements.Single().MinimumMonths,
+                Is.EqualTo(36));
+            Assert.That(requirements.EducationRequirement.MinimumDegreeLevel,
+                Is.EqualTo(DegreeLevel.Bachelor));
+            Assert.That(requirements.EducationRequirement.AcceptsInProgress, Is.True);
+        }
+
+        [Test]
         public void Create_WithoutStructuredDetails_KeepsOptionalObjectsNull()
         {
             PersistenceStorageResult<JobPostingWriteSummary> result = Create();
