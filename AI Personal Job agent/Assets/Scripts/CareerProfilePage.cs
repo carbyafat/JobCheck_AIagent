@@ -79,6 +79,31 @@ public sealed class CareerProfilePage : MonoBehaviour
     private readonly HashSet<string> selectedExperienceSkillIds =
         new HashSet<string>(StringComparer.Ordinal);
     private int editingExperienceIndex = -1;
+    private List<CareerProject> projectDraft;
+    private Transform projectListRoot;
+    private GameObject projectFormRoot;
+    private TMP_InputField projectNameInput;
+    private TMP_InputField projectDescriptionInput;
+    private TMP_InputField projectUrlInput;
+    private GameObject projectSkillChoices;
+    private TMP_Text projectSkillSummary;
+    private readonly HashSet<string> selectedProjectTechnologies =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    private int editingProjectIndex = -1;
+    private List<CareerEducation> educationDraft;
+    private Transform educationListRoot;
+    private GameObject educationFormRoot;
+    private TMP_InputField educationInstitutionInput;
+    private TMP_InputField educationProgramInput;
+    private TMP_Dropdown educationDegreeDropdown;
+    private TMP_Dropdown educationStatusDropdown;
+    private TMP_InputField educationStartYearInput;
+    private TMP_Dropdown educationStartMonthDropdown;
+    private TMP_InputField educationEndYearInput;
+    private TMP_Dropdown educationEndMonthDropdown;
+    private TMP_InputField educationFieldTagsInput;
+    private TMP_InputField educationNotesInput;
+    private int editingEducationIndex = -1;
 
     private static readonly string[] LanguageNames = { "中文", "英文", "日文" };
     private static readonly string[] LanguageIds = { "zh", "en", "ja" };
@@ -91,7 +116,7 @@ public sealed class CareerProfilePage : MonoBehaviour
     };
 
     private const string ProfileUiCharacters =
-        "個人履歷最後更新自我介紹連結技能工作經歷專案學歷語言能力尚未填寫新增讀取失敗未知錯誤編輯儲存取消至今年月日時分公司職務開始結束內容名稱技術網址說明機構項目備註程度母語首頁職缺側欄寬度搬遷匯出匯入選擇檔案取代本機關閉預覽成功檔案尚未加密請妥善保管等級學位已畢業在學未完成科系標籤月數逗號分隔請輸入整數使用時間年自訂移除這筆重複請先填寫選填儲存技能暫不評級無技能個人網站作品集或其他參考網址功用有效的必填儲存連結貼上本機路徑中文英文日文不會略懂中等精通請選擇已有語言逐筆選擇語言與程度未新增的語言不會自動判為不會請選擇語言和程度這項語言已存在編輯原有項目語言能力已暫存公司組織目前仍在職選擇關聯技能展開收合尚無技能可先到技能區新增請填寫有效年月開始年月不得晚於結束年月不能晚於現在工作經歷已暫存";
+        "個人履歷最後更新自我介紹連結技能工作經歷專案學歷語言能力尚未填寫新增讀取失敗未知錯誤編輯儲存取消至今年月日時分公司職務開始結束內容名稱技術網址說明機構項目備註程度母語首頁職缺側欄寬度搬遷匯出匯入選擇檔案取代本機關閉預覽成功檔案尚未加密請妥善保管等級學位已畢業在學未完成科系標籤月數逗號分隔請輸入整數使用時間年自訂移除這筆重複請先填寫選填儲存技能暫不評級無技能個人網站作品集或其他參考網址功用有效的必填儲存連結貼上本機路徑中文英文日文不會略懂中等精通請選擇已有語言逐筆選擇語言與程度未新增的語言不會自動判為不會請選擇語言和程度這項語言已存在編輯原有項目語言能力已暫存公司組織目前仍在職選擇關聯技能展開收合尚無技能可先到技能區新增請填寫有效年月開始年月不得晚於結束年月不能晚於現在工作經歷已暫存專案經歷簡述成果專案已暫存學校學程高中專科學士碩士博士就學狀態逐筆填寫可供職缺比對例如某某大學資訊工程學系資訊管理其他需要補充的學歷資訊兩欄都留空學歷已暫存";
 
     private Color AppBackground => theme != null
         ? theme.AppBackground
@@ -174,6 +199,12 @@ public sealed class CareerProfilePage : MonoBehaviour
         experienceDraft = CloneExperiences(CurrentProfile.Experiences);
         RenderExperienceDraft();
         CloseExperienceForm();
+        projectDraft = CloneProjects(CurrentProfile.Projects);
+        RenderProjectDraft();
+        CloseProjectForm();
+        educationDraft = CloneEducations(CurrentProfile.Educations);
+        RenderEducationDraft();
+        CloseEducationForm();
         languageDraft = CloneLanguages(CurrentProfile.Languages);
         RenderLanguageDraft();
         CloseLanguageForm();
@@ -197,6 +228,10 @@ public sealed class CareerProfilePage : MonoBehaviour
         CloseSkillForm();
         experienceDraft = null;
         CloseExperienceForm();
+        projectDraft = null;
+        CloseProjectForm();
+        educationDraft = null;
+        CloseEducationForm();
         languageDraft = null;
         CloseLanguageForm();
         if (editorRoot != null)
@@ -236,11 +271,15 @@ public sealed class CareerProfilePage : MonoBehaviour
             return;
         if (experienceFormRoot != null && experienceFormRoot.activeSelf && !ApplyExperienceForm())
             return;
+        if (projectFormRoot != null && projectFormRoot.activeSelf && !ApplyProjectForm())
+            return;
+        if (educationFormRoot != null && educationFormRoot.activeSelf && !ApplyEducationForm())
+            return;
 
         DateTimeOffset now = DateTimeOffset.Now;
         CareerProfile candidate = CreateSummaryEditCandidate(
             CurrentProfile, editorFields["summary"].text, linkDraft, skillDraft,
-            experienceDraft, languageDraft, now);
+            experienceDraft, projectDraft, educationDraft, languageDraft, now);
 
         PersistenceStorageResult<CareerProfile> result = CareerProfileRepository.Save(
             ResolveProjectRelativePath(personalDataRootPath),
@@ -260,6 +299,7 @@ public sealed class CareerProfilePage : MonoBehaviour
     private static CareerProfile CreateSummaryEditCandidate(
         CareerProfile current, string summary, IList<CareerProfileLink> links,
         IList<CareerSkill> skills, IList<CareerExperience> experiences,
+        IList<CareerProject> projects, IList<CareerEducation> educations,
         IList<CareerLanguage> languages, DateTimeOffset now)
     {
         return new CareerProfile
@@ -273,8 +313,8 @@ public sealed class CareerProfilePage : MonoBehaviour
             Skills = skills == null ? current.Skills : new List<CareerSkill>(skills),
             Experiences = experiences == null
                 ? current.Experiences : new List<CareerExperience>(experiences),
-            Projects = current.Projects,
-            Educations = current.Educations,
+            Projects = projects == null ? current.Projects : new List<CareerProject>(projects),
+            Educations = educations == null ? current.Educations : new List<CareerEducation>(educations),
             Languages = languages == null ? current.Languages : new List<CareerLanguage>(languages)
         };
     }
@@ -739,6 +779,396 @@ public sealed class CareerProfilePage : MonoBehaviour
         });
     }
 
+    private static List<CareerProject> CloneProjects(IEnumerable<CareerProject> source)
+    {
+        return (source ?? Enumerable.Empty<CareerProject>())
+            .Where(item => item != null)
+            .Select(item => new CareerProject
+            {
+                Id = item.Id,
+                Name = item.Name,
+                Description = item.Description,
+                Technologies = item.Technologies == null
+                    ? new List<string>() : new List<string>(item.Technologies),
+                Url = item.Url
+            })
+            .ToList();
+    }
+
+    private static string ProjectTechnologyKey(string value) =>
+        RequirementCatalog.NormalizeSkill(value);
+
+    private void RenderProjectDraft()
+    {
+        if (projectListRoot == null) return;
+        foreach (Transform child in projectListRoot.Cast<Transform>().ToArray())
+        {
+            child.SetParent(null, false);
+            Destroy(child.gameObject);
+        }
+
+        TMP_FontAsset font = ResolveFontAsset();
+        if (projectDraft == null || projectDraft.Count == 0)
+        {
+            TMP_Text empty = CreateText(projectListRoot, "Empty", "尚未新增專案經歷",
+                font, 20, new Vector2(0f, 1f), Vector2.zero,
+                new Vector2(0f, 36f), TextAlignmentOptions.MidlineLeft);
+            empty.color = TextSecondary;
+            empty.gameObject.AddComponent<LayoutElement>().preferredHeight = 36f;
+            return;
+        }
+
+        for (int index = 0; index < projectDraft.Count; index++)
+        {
+            int projectIndex = index;
+            CareerProject item = projectDraft[index];
+            GameObject row = CreateUiObject("Project_" + index, projectListRoot,
+                typeof(Image), typeof(HorizontalLayoutGroup));
+            row.GetComponent<Image>().color = Surface;
+            ApplySlicedSprite(row.GetComponent<Image>());
+            HorizontalLayoutGroup layout = row.GetComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(16, 12, 8, 8);
+            layout.spacing = 10f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+            row.AddComponent<LayoutElement>().preferredHeight = 78f;
+
+            TMP_Text label = CreateText(row.transform, "Summary",
+                Join("｜", item.Name, item.Description), font, 21,
+                new Vector2(0f, 0.5f), Vector2.zero, new Vector2(0f, 52f),
+                TextAlignmentOptions.MidlineLeft);
+            label.enableWordWrapping = false;
+            label.overflowMode = TextOverflowModes.Ellipsis;
+            LayoutElement labelLayout = label.gameObject.AddComponent<LayoutElement>();
+            labelLayout.flexibleWidth = 1f;
+            labelLayout.minWidth = 120f;
+            CreateLayoutButton(row.transform, "Button_Edit", "編輯", font, 100f,
+                ButtonTone.Secondary).onClick.AddListener(() => OpenProjectForm(projectIndex));
+            CreateLayoutButton(row.transform, "Button_Remove", "移除", font, 100f,
+                ButtonTone.Secondary).onClick.AddListener(() => RemoveProject(projectIndex));
+        }
+    }
+
+    private void OpenProjectForm(int index)
+    {
+        editingProjectIndex = index;
+        CareerProject item = index >= 0 && projectDraft != null
+            && index < projectDraft.Count ? projectDraft[index] : null;
+        projectNameInput.text = item?.Name ?? string.Empty;
+        projectDescriptionInput.text = item?.Description ?? string.Empty;
+        projectUrlInput.text = item?.Url ?? string.Empty;
+        selectedProjectTechnologies.Clear();
+        foreach (string technology in item?.Technologies ?? Enumerable.Empty<string>())
+        {
+            if (!string.IsNullOrWhiteSpace(technology))
+                selectedProjectTechnologies.Add(technology.Trim());
+        }
+        RenderProjectSkillChoices();
+        projectSkillChoices.SetActive(false);
+        projectFormRoot.SetActive(true);
+        SetEditorStatus("", false);
+    }
+
+    private void CloseProjectForm()
+    {
+        editingProjectIndex = -1;
+        selectedProjectTechnologies.Clear();
+        if (projectFormRoot != null) projectFormRoot.SetActive(false);
+        if (projectSkillChoices != null) projectSkillChoices.SetActive(false);
+    }
+
+    private void RemoveProject(int index)
+    {
+        if (projectDraft == null || index < 0 || index >= projectDraft.Count) return;
+        projectDraft.RemoveAt(index);
+        CloseProjectForm();
+        RenderProjectDraft();
+        SetEditorStatus("專案經歷已從本次編輯移除；按整頁儲存才會寫入。", false);
+    }
+
+    private bool ApplyProjectForm()
+    {
+        string name = projectNameInput.text.Trim();
+        if (name.Length == 0)
+        {
+            SetEditorStatus("請先填寫專案名稱。", true);
+            return false;
+        }
+
+        CareerProject existing = editingProjectIndex >= 0
+            && editingProjectIndex < projectDraft.Count
+                ? projectDraft[editingProjectIndex] : null;
+        CareerProject saved = new CareerProject
+        {
+            Id = existing?.Id ?? CareerProfileIdGenerator.CreateProjectId(),
+            Name = name,
+            Description = projectDescriptionInput.text.Trim(),
+            Technologies = selectedProjectTechnologies
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase).ToList(),
+            Url = projectUrlInput.text.Trim()
+        };
+        if (existing == null) projectDraft.Add(saved);
+        else projectDraft[editingProjectIndex] = saved;
+        CloseProjectForm();
+        RenderProjectDraft();
+        SetEditorStatus("專案經歷已暫存；按整頁儲存才會寫入。", false);
+        return true;
+    }
+
+    private void UpdateProjectSkillSummary()
+    {
+        if (projectSkillSummary == null) return;
+        projectSkillSummary.text = selectedProjectTechnologies.Count == 0
+            ? "選擇使用技能（可不選）"
+            : "已選：" + string.Join("、", selectedProjectTechnologies
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase));
+    }
+
+    private void RenderProjectSkillChoices()
+    {
+        if (projectSkillChoices == null) return;
+        Transform root = projectSkillChoices.transform;
+        foreach (Transform child in root.Cast<Transform>().ToArray())
+        {
+            child.SetParent(null, false);
+            Destroy(child.gameObject);
+        }
+        TMP_FontAsset font = ResolveFontAsset();
+        var choices = (skillDraft ?? new List<CareerSkill>())
+            .Where(skill => !string.IsNullOrWhiteSpace(skill?.Name)
+                && ExperienceSkillId(skill).Length > 0)
+            .GroupBy(ExperienceSkillId).Select(group => group.First()).ToList();
+        if (choices.Count == 0 && selectedProjectTechnologies.Count == 0)
+        {
+            TMP_Text empty = CreateText(root, "Empty", "尚無技能，可先到技能區新增。",
+                font, 20, new Vector2(0f, 1f), Vector2.zero,
+                new Vector2(0f, 42f), TextAlignmentOptions.MidlineLeft);
+            empty.gameObject.AddComponent<LayoutElement>().preferredHeight = 42f;
+        }
+        foreach (CareerSkill skill in choices)
+        {
+            CreateProjectSkillOption(root, font, skill.Name);
+        }
+        foreach (string technology in selectedProjectTechnologies
+            .Where(value => choices.All(skill =>
+                ExperienceSkillId(skill) != ProjectTechnologyKey(value))).ToArray())
+        {
+            CreateProjectSkillOption(root, font, technology);
+        }
+        UpdateProjectSkillSummary();
+    }
+
+    private void CreateProjectSkillOption(Transform root, TMP_FontAsset font, string label)
+    {
+        string key = ProjectTechnologyKey(label);
+        GameObject row = CreateUiObject("Technology_" + key, root,
+            typeof(Image), typeof(Toggle));
+        Image background = row.GetComponent<Image>();
+        background.color = Surface;
+        row.AddComponent<LayoutElement>().preferredHeight = 50f;
+        GameObject checkbox = CreateUiObject("Checkbox", row.transform,
+            typeof(Image), typeof(Outline));
+        RectTransform checkboxRect = checkbox.GetComponent<RectTransform>();
+        checkboxRect.anchorMin = new Vector2(0f, 0.5f);
+        checkboxRect.anchorMax = new Vector2(0f, 0.5f);
+        checkboxRect.sizeDelta = new Vector2(24f, 24f);
+        checkboxRect.anchoredPosition = new Vector2(24f, 0f);
+        checkbox.GetComponent<Image>().color = Surface;
+        checkbox.GetComponent<Outline>().effectColor = Border;
+        GameObject check = CreateUiObject("Selected", checkbox.transform, typeof(Image));
+        Stretch(check.GetComponent<RectTransform>(), new Vector2(4f, 4f),
+            new Vector2(-4f, -4f));
+        Image checkImage = check.GetComponent<Image>();
+        checkImage.color = Primary;
+        TMP_Text text = CreateText(row.transform, "Label", label, font, 21,
+            new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero,
+            TextAlignmentOptions.MidlineLeft);
+        Stretch(text.rectTransform, new Vector2(50f, 4f), new Vector2(-12f, -4f));
+        Toggle toggle = row.GetComponent<Toggle>();
+        toggle.targetGraphic = background;
+        toggle.graphic = checkImage;
+        toggle.isOn = selectedProjectTechnologies.Any(value =>
+            ProjectTechnologyKey(value) == key);
+        toggle.onValueChanged.AddListener(on =>
+        {
+            selectedProjectTechnologies.RemoveWhere(value =>
+                ProjectTechnologyKey(value) == key);
+            if (on) selectedProjectTechnologies.Add(label);
+            UpdateProjectSkillSummary();
+        });
+    }
+
+    private static List<CareerEducation> CloneEducations(IEnumerable<CareerEducation> source)
+    {
+        return (source ?? Enumerable.Empty<CareerEducation>())
+            .Where(item => item != null)
+            .Select(item => new CareerEducation
+            {
+                Id = item.Id,
+                Institution = item.Institution,
+                Program = item.Program,
+                StartDate = item.StartDate,
+                EndDate = item.EndDate,
+                Notes = item.Notes,
+                DegreeLevel = item.DegreeLevel,
+                CompletionStatus = item.CompletionStatus,
+                FieldTags = item.FieldTags == null
+                    ? new List<string>() : new List<string>(item.FieldTags)
+            }).ToList();
+    }
+
+    private void RenderEducationDraft()
+    {
+        if (educationListRoot == null) return;
+        foreach (Transform child in educationListRoot.Cast<Transform>().ToArray())
+        {
+            child.SetParent(null, false);
+            Destroy(child.gameObject);
+        }
+        TMP_FontAsset font = ResolveFontAsset();
+        if (educationDraft == null || educationDraft.Count == 0)
+        {
+            TMP_Text empty = CreateText(educationListRoot, "Empty", "尚未新增學歷", font, 20,
+                new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 36f),
+                TextAlignmentOptions.MidlineLeft);
+            empty.color = TextSecondary;
+            empty.gameObject.AddComponent<LayoutElement>().preferredHeight = 36f;
+            return;
+        }
+        for (int index = 0; index < educationDraft.Count; index++)
+        {
+            int educationIndex = index;
+            CareerEducation item = educationDraft[index];
+            GameObject row = CreateUiObject("Education_" + index, educationListRoot,
+                typeof(Image), typeof(HorizontalLayoutGroup));
+            row.GetComponent<Image>().color = Surface;
+            ApplySlicedSprite(row.GetComponent<Image>());
+            HorizontalLayoutGroup layout = row.GetComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(16, 12, 8, 8);
+            layout.spacing = 10f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+            row.AddComponent<LayoutElement>().preferredHeight = 68f;
+            TMP_Text label = CreateText(row.transform, "Summary",
+                Join("｜", item.Institution, item.Program, DegreeLabel(item.DegreeLevel),
+                    CompletionLabel(item.CompletionStatus)), font, 21,
+                new Vector2(0f, 0.5f), Vector2.zero, new Vector2(0f, 52f),
+                TextAlignmentOptions.MidlineLeft);
+            label.enableWordWrapping = false;
+            label.overflowMode = TextOverflowModes.Ellipsis;
+            LayoutElement labelLayout = label.gameObject.AddComponent<LayoutElement>();
+            labelLayout.flexibleWidth = 1f;
+            labelLayout.minWidth = 120f;
+            CreateLayoutButton(row.transform, "Button_Edit", "編輯", font, 100f,
+                ButtonTone.Secondary).onClick.AddListener(() => OpenEducationForm(educationIndex));
+            CreateLayoutButton(row.transform, "Button_Remove", "移除", font, 100f,
+                ButtonTone.Secondary).onClick.AddListener(() => RemoveEducation(educationIndex));
+        }
+    }
+
+    private void OpenEducationForm(int index)
+    {
+        editingEducationIndex = index;
+        CareerEducation item = index >= 0 && educationDraft != null
+            && index < educationDraft.Count ? educationDraft[index] : null;
+        educationInstitutionInput.text = item?.Institution ?? string.Empty;
+        educationProgramInput.text = item?.Program ?? string.Empty;
+        educationDegreeDropdown.SetValueWithoutNotify(item?.DegreeLevel.HasValue == true
+            && item.DegreeLevel.Value >= DegreeLevel.HighSchool
+            && item.DegreeLevel.Value <= DegreeLevel.Doctorate
+                ? (int)item.DegreeLevel.Value : 0);
+        educationStatusDropdown.SetValueWithoutNotify((int)(item?.CompletionStatus
+            ?? EducationCompletionStatus.Unknown));
+        SetExperienceMonthFields(item?.StartDate, educationStartYearInput,
+            educationStartMonthDropdown);
+        SetExperienceMonthFields(item?.EndDate, educationEndYearInput,
+            educationEndMonthDropdown);
+        educationFieldTagsInput.text = item?.FieldTags == null
+            ? string.Empty : string.Join("、", item.FieldTags);
+        educationNotesInput.text = item?.Notes ?? string.Empty;
+        educationFormRoot.SetActive(true);
+        SetEditorStatus("", false);
+    }
+
+    private void CloseEducationForm()
+    {
+        editingEducationIndex = -1;
+        if (educationFormRoot != null) educationFormRoot.SetActive(false);
+    }
+
+    private void RemoveEducation(int index)
+    {
+        if (educationDraft == null || index < 0 || index >= educationDraft.Count) return;
+        educationDraft.RemoveAt(index);
+        CloseEducationForm();
+        RenderEducationDraft();
+        SetEditorStatus("學歷已從本次編輯移除；按整頁儲存才會寫入。", false);
+    }
+
+    private bool ApplyEducationForm()
+    {
+        string institution = educationInstitutionInput.text.Trim();
+        if (institution.Length == 0)
+        {
+            SetEditorStatus("請先填寫學校／機構。", true);
+            return false;
+        }
+        bool hasStart = educationStartYearInput.text.Trim().Length > 0
+            || educationStartMonthDropdown.value > 0;
+        bool hasEnd = educationEndYearInput.text.Trim().Length > 0
+            || educationEndMonthDropdown.value > 0;
+        DateTime start = default(DateTime);
+        DateTime end = default(DateTime);
+        if (hasStart && !TryReadExperienceMonth(educationStartYearInput,
+            educationStartMonthDropdown, out start))
+        {
+            SetEditorStatus("請填寫有效的開始年月，或兩欄都留空。", true);
+            return false;
+        }
+        if (hasEnd && !TryReadExperienceMonth(educationEndYearInput,
+            educationEndMonthDropdown, out end))
+        {
+            SetEditorStatus("請填寫有效的結束年月，或兩欄都留空。", true);
+            return false;
+        }
+        if (hasStart && hasEnd && end < start)
+        {
+            SetEditorStatus("結束年月不得早於開始年月。", true);
+            return false;
+        }
+        CareerEducation existing = editingEducationIndex >= 0
+            && editingEducationIndex < educationDraft.Count
+                ? educationDraft[editingEducationIndex] : null;
+        CareerEducation saved = new CareerEducation
+        {
+            Id = existing?.Id ?? CareerProfileIdGenerator.CreateEducationId(),
+            Institution = institution,
+            Program = educationProgramInput.text.Trim(),
+            DegreeLevel = educationDegreeDropdown.value == 0
+                ? (DegreeLevel?)null : (DegreeLevel)educationDegreeDropdown.value,
+            CompletionStatus = (EducationCompletionStatus)educationStatusDropdown.value,
+            StartDate = hasStart ? start.ToString("yyyy/MM", CultureInfo.InvariantCulture) : null,
+            EndDate = hasEnd ? end.ToString("yyyy/MM", CultureInfo.InvariantCulture) : null,
+            FieldTags = educationFieldTagsInput.text
+                .Split(new[] { ',', '，', '、', ';', '；' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(tag => tag.Trim()).Where(tag => tag.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            Notes = educationNotesInput.text.Trim()
+        };
+        if (existing == null) educationDraft.Add(saved);
+        else educationDraft[editingEducationIndex] = saved;
+        CloseEducationForm();
+        RenderEducationDraft();
+        SetEditorStatus("學歷已暫存；按整頁儲存才會寫入。", false);
+        return true;
+    }
+
     private static List<CareerLanguage> CloneLanguages(IEnumerable<CareerLanguage> source)
     {
         return (source ?? Enumerable.Empty<CareerLanguage>())
@@ -1016,6 +1446,8 @@ public sealed class CareerProfilePage : MonoBehaviour
         RenderSkillDraft();
         if (experienceFormRoot != null && experienceFormRoot.activeSelf)
             RenderExperienceSkillChoices();
+        if (projectFormRoot != null && projectFormRoot.activeSelf)
+            RenderProjectSkillChoices();
         SetEditorStatus("技能已從本次編輯移除；按整頁儲存才會寫入。", false);
     }
 
@@ -1059,6 +1491,8 @@ public sealed class CareerProfilePage : MonoBehaviour
         RenderSkillDraft();
         if (experienceFormRoot != null && experienceFormRoot.activeSelf)
             RenderExperienceSkillChoices();
+        if (projectFormRoot != null && projectFormRoot.activeSelf)
+            RenderProjectSkillChoices();
         SetEditorStatus("技能已暫存；按整頁儲存才會寫入。", false);
         return true;
     }
@@ -1897,6 +2331,8 @@ public sealed class CareerProfilePage : MonoBehaviour
         CreateSkillEditorUi(content, font);
         CreateLinkEditorUi(content, font);
         CreateExperienceEditorUi(content, font);
+        CreateProjectEditorUi(content, font);
+        CreateEducationEditorUi(content, font);
         CreateLanguageEditorUi(content, font);
 
         GameObject footer = CreateUiObject("Footer", editorRoot.transform, typeof(Image));
@@ -2091,6 +2527,233 @@ public sealed class CareerProfilePage : MonoBehaviour
         CreateLayoutButton(actions.transform, "Button_SaveExperience", "儲存這筆", font,
             150f, ButtonTone.Primary).onClick.AddListener(() => ApplyExperienceForm());
         experienceFormRoot.SetActive(false);
+    }
+
+    private void CreateProjectEditorUi(Transform parent, TMP_FontAsset font)
+    {
+        GameObject card = CreateUiObject("Field_projects", parent,
+            typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(Outline));
+        card.GetComponent<Image>().color = SurfaceMuted;
+        ApplySlicedSprite(card.GetComponent<Image>());
+        Outline outline = card.GetComponent<Outline>();
+        outline.effectColor = Border;
+        outline.effectDistance = new Vector2(1f, -1f);
+        VerticalLayoutGroup cardLayout = card.GetComponent<VerticalLayoutGroup>();
+        int padding = Mathf.RoundToInt(theme != null ? theme.SpaceMd : 16f);
+        cardLayout.padding = new RectOffset(padding, padding, padding, padding);
+        cardLayout.spacing = theme != null ? theme.SpaceSm : 12f;
+        cardLayout.childAlignment = TextAnchor.UpperLeft;
+        cardLayout.childControlWidth = true;
+        cardLayout.childControlHeight = true;
+        cardLayout.childForceExpandWidth = true;
+        cardLayout.childForceExpandHeight = false;
+        card.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+
+        TMP_Text title = CreateText(card.transform, "Label_projects", "專案經歷",
+            font, Mathf.RoundToInt(theme != null ? theme.SectionTitleSize : 28f),
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 38f),
+            TextAlignmentOptions.MidlineLeft);
+        title.fontStyle = FontStyles.Bold;
+        title.gameObject.AddComponent<LayoutElement>().preferredHeight = 38f;
+        TMP_Text help = CreateText(card.transform, "Help_projects",
+            "逐筆記錄做了什麼與成果；技能和網址可不填。", font,
+            Mathf.RoundToInt(theme != null ? theme.SupportingTextSize : 20f),
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 32f),
+            TextAlignmentOptions.MidlineLeft);
+        help.color = TextSecondary;
+        help.gameObject.AddComponent<LayoutElement>().preferredHeight = 32f;
+
+        GameObject list = CreateUiObject("ProjectList", card.transform,
+            typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        projectListRoot = list.transform;
+        VerticalLayoutGroup listLayout = list.GetComponent<VerticalLayoutGroup>();
+        listLayout.spacing = 8f;
+        listLayout.childControlWidth = true;
+        listLayout.childControlHeight = true;
+        listLayout.childForceExpandWidth = true;
+        listLayout.childForceExpandHeight = false;
+        list.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+        CreateLayoutButton(card.transform, "Button_AddProject", "新增專案經歷",
+            font, 210f, ButtonTone.Primary).onClick.AddListener(
+                () => OpenProjectForm(-1));
+
+        projectFormRoot = CreateUiObject("ProjectForm", card.transform,
+            typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        projectFormRoot.GetComponent<Image>().color = Surface;
+        VerticalLayoutGroup formLayout = projectFormRoot.GetComponent<VerticalLayoutGroup>();
+        formLayout.padding = new RectOffset(16, 16, 16, 16);
+        formLayout.spacing = 8f;
+        formLayout.childControlWidth = true;
+        formLayout.childControlHeight = true;
+        formLayout.childForceExpandWidth = true;
+        formLayout.childForceExpandHeight = false;
+        projectFormRoot.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+
+        projectNameInput = CreateLabeledSkillInput(projectFormRoot.transform,
+            "ProjectName", "專案名稱", "例如：JobCheck", font, 56f, true);
+        projectDescriptionInput = CreateLabeledSkillInput(projectFormRoot.transform,
+            "ProjectDescription", "簡述／成果（選填）",
+            "說明做了什麼、負責哪些部分，以及完成的成果", font, 168f, false);
+        TMP_Text skillLabel = CreateText(projectFormRoot.transform,
+            "Label_ProjectSkills", "使用技能（選填）", font, 20,
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 30f),
+            TextAlignmentOptions.MidlineLeft);
+        skillLabel.gameObject.AddComponent<LayoutElement>().preferredHeight = 30f;
+        Button skillButton = CreateLayoutButton(projectFormRoot.transform,
+            "Button_ProjectSkills", "選擇使用技能（可不選）", font,
+            260f, ButtonTone.Secondary);
+        projectSkillSummary = skillButton.GetComponentInChildren<TMP_Text>();
+        projectSkillSummary.fontSize = 20;
+        projectSkillSummary.enableWordWrapping = false;
+        projectSkillSummary.overflowMode = TextOverflowModes.Ellipsis;
+        skillButton.onClick.AddListener(() =>
+            projectSkillChoices.SetActive(!projectSkillChoices.activeSelf));
+        projectSkillChoices = CreateUiObject("ProjectSkillChoices",
+            projectFormRoot.transform, typeof(Image), typeof(VerticalLayoutGroup),
+            typeof(ContentSizeFitter));
+        projectSkillChoices.GetComponent<Image>().color = SurfaceMuted;
+        VerticalLayoutGroup choicesLayout =
+            projectSkillChoices.GetComponent<VerticalLayoutGroup>();
+        choicesLayout.padding = new RectOffset(8, 8, 8, 8);
+        choicesLayout.spacing = 4f;
+        choicesLayout.childControlWidth = true;
+        choicesLayout.childControlHeight = true;
+        choicesLayout.childForceExpandWidth = true;
+        choicesLayout.childForceExpandHeight = false;
+        projectSkillChoices.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+        projectSkillChoices.SetActive(false);
+
+        projectUrlInput = CreateLabeledSkillInput(projectFormRoot.transform,
+            "ProjectUrl", "專案網址（選填）", "例如：https://github.com/...",
+            font, 56f, true);
+        GameObject actions = CreateUiObject("ProjectActions", projectFormRoot.transform,
+            typeof(HorizontalLayoutGroup));
+        HorizontalLayoutGroup actionsLayout = actions.GetComponent<HorizontalLayoutGroup>();
+        actionsLayout.spacing = 12f;
+        actionsLayout.childAlignment = TextAnchor.MiddleRight;
+        actionsLayout.childControlWidth = true;
+        actionsLayout.childControlHeight = true;
+        actionsLayout.childForceExpandWidth = false;
+        actionsLayout.childForceExpandHeight = true;
+        actions.AddComponent<LayoutElement>().preferredHeight = 56f;
+        CreateLayoutButton(actions.transform, "Button_CancelProject", "取消", font,
+            120f, ButtonTone.Secondary).onClick.AddListener(CloseProjectForm);
+        CreateLayoutButton(actions.transform, "Button_SaveProject", "儲存這筆", font,
+            150f, ButtonTone.Primary).onClick.AddListener(() => ApplyProjectForm());
+        projectFormRoot.SetActive(false);
+    }
+
+    private void CreateEducationEditorUi(Transform parent, TMP_FontAsset font)
+    {
+        GameObject card = CreateUiObject("Field_educations", parent,
+            typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(Outline));
+        card.GetComponent<Image>().color = SurfaceMuted;
+        ApplySlicedSprite(card.GetComponent<Image>());
+        Outline outline = card.GetComponent<Outline>();
+        outline.effectColor = Border;
+        outline.effectDistance = new Vector2(1f, -1f);
+        VerticalLayoutGroup cardLayout = card.GetComponent<VerticalLayoutGroup>();
+        int padding = Mathf.RoundToInt(theme != null ? theme.SpaceMd : 16f);
+        cardLayout.padding = new RectOffset(padding, padding, padding, padding);
+        cardLayout.spacing = theme != null ? theme.SpaceSm : 12f;
+        cardLayout.childAlignment = TextAnchor.UpperLeft;
+        cardLayout.childControlWidth = true;
+        cardLayout.childControlHeight = true;
+        cardLayout.childForceExpandWidth = true;
+        cardLayout.childForceExpandHeight = false;
+        card.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+
+        TMP_Text title = CreateText(card.transform, "Label_educations", "學歷", font,
+            Mathf.RoundToInt(theme != null ? theme.SectionTitleSize : 28f),
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 38f),
+            TextAlignmentOptions.MidlineLeft);
+        title.fontStyle = FontStyles.Bold;
+        title.gameObject.AddComponent<LayoutElement>().preferredHeight = 38f;
+        TMP_Text help = CreateText(card.transform, "Help_educations",
+            "逐筆填寫學校、學位與就學狀態；科系標籤可供職缺比對。", font,
+            Mathf.RoundToInt(theme != null ? theme.SupportingTextSize : 20f),
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 32f),
+            TextAlignmentOptions.MidlineLeft);
+        help.color = TextSecondary;
+        help.gameObject.AddComponent<LayoutElement>().preferredHeight = 32f;
+
+        GameObject list = CreateUiObject("EducationList", card.transform,
+            typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        educationListRoot = list.transform;
+        VerticalLayoutGroup listLayout = list.GetComponent<VerticalLayoutGroup>();
+        listLayout.spacing = 8f;
+        listLayout.childControlWidth = true;
+        listLayout.childControlHeight = true;
+        listLayout.childForceExpandWidth = true;
+        listLayout.childForceExpandHeight = false;
+        list.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+        CreateLayoutButton(card.transform, "Button_AddEducation", "新增學歷", font,
+            170f, ButtonTone.Primary).onClick.AddListener(() => OpenEducationForm(-1));
+
+        educationFormRoot = CreateUiObject("EducationForm", card.transform,
+            typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        educationFormRoot.GetComponent<Image>().color = Surface;
+        VerticalLayoutGroup formLayout = educationFormRoot.GetComponent<VerticalLayoutGroup>();
+        formLayout.padding = new RectOffset(16, 16, 16, 16);
+        formLayout.spacing = 8f;
+        formLayout.childControlWidth = true;
+        formLayout.childControlHeight = true;
+        formLayout.childForceExpandWidth = true;
+        formLayout.childForceExpandHeight = false;
+        educationFormRoot.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+
+        educationInstitutionInput = CreateLabeledSkillInput(educationFormRoot.transform,
+            "EducationInstitution", "學校／機構", "例如：某某大學", font, 56f, true);
+        educationProgramInput = CreateLabeledSkillInput(educationFormRoot.transform,
+            "EducationProgram", "科系／學程（選填）", "例如：資訊工程學系", font, 56f, true);
+        educationDegreeDropdown = CreateLabeledSkillDropdown(educationFormRoot.transform,
+            "EducationDegree", "學位（選填）", font,
+            new[] { "未填寫", "高中", "專科", "學士", "碩士", "博士" });
+        educationStatusDropdown = CreateLabeledSkillDropdown(educationFormRoot.transform,
+            "EducationStatus", "就學狀態（選填）", font,
+            new[] { "未填寫", "在學", "已畢業", "未完成" });
+        educationStartYearInput = CreateLabeledSkillInput(educationFormRoot.transform,
+            "EducationStartYear", "開始年份（選填）", "例如：2020", font, 56f, true);
+        educationStartYearInput.contentType = TMP_InputField.ContentType.IntegerNumber;
+        educationStartMonthDropdown = CreateLabeledSkillDropdown(educationFormRoot.transform,
+            "EducationStartMonth", "開始月份（選填）", font,
+            new[] { "未填寫" }.Concat(Enumerable.Range(1, 12)
+                .Select(month => month + " 月")).ToArray());
+        educationEndYearInput = CreateLabeledSkillInput(educationFormRoot.transform,
+            "EducationEndYear", "結束年份（選填）", "例如：2024", font, 56f, true);
+        educationEndYearInput.contentType = TMP_InputField.ContentType.IntegerNumber;
+        educationEndMonthDropdown = CreateLabeledSkillDropdown(educationFormRoot.transform,
+            "EducationEndMonth", "結束月份（選填）", font,
+            new[] { "未填寫" }.Concat(Enumerable.Range(1, 12)
+                .Select(month => month + " 月")).ToArray());
+        educationFieldTagsInput = CreateLabeledSkillInput(educationFormRoot.transform,
+            "EducationFieldTags", "科系標籤（選填）",
+            "例如：資訊工程、資訊管理", font, 56f, true);
+        educationNotesInput = CreateLabeledSkillInput(educationFormRoot.transform,
+            "EducationNotes", "備註（選填）", "其他需要補充的學歷資訊", font, 120f, false);
+
+        GameObject actions = CreateUiObject("EducationActions", educationFormRoot.transform,
+            typeof(HorizontalLayoutGroup));
+        HorizontalLayoutGroup actionsLayout = actions.GetComponent<HorizontalLayoutGroup>();
+        actionsLayout.spacing = 12f;
+        actionsLayout.childAlignment = TextAnchor.MiddleRight;
+        actionsLayout.childControlWidth = true;
+        actionsLayout.childControlHeight = true;
+        actionsLayout.childForceExpandWidth = false;
+        actionsLayout.childForceExpandHeight = true;
+        actions.AddComponent<LayoutElement>().preferredHeight = 56f;
+        CreateLayoutButton(actions.transform, "Button_CancelEducation", "取消", font,
+            120f, ButtonTone.Secondary).onClick.AddListener(CloseEducationForm);
+        CreateLayoutButton(actions.transform, "Button_SaveEducation", "儲存這筆", font,
+            150f, ButtonTone.Primary).onClick.AddListener(() => ApplyEducationForm());
+        educationFormRoot.SetActive(false);
     }
 
     private void CreateLanguageEditorUi(Transform parent, TMP_FontAsset font)

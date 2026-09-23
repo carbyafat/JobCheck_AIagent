@@ -537,12 +537,14 @@ namespace JobCheck.Ui.Editor.Tests
                     Is.Not.Null);
                 Transform content = FindDescendant(editor, "Content");
                 Assert.That(content, Is.Not.Null);
-                Assert.That(content.childCount, Is.EqualTo(5));
+                Assert.That(content.childCount, Is.EqualTo(7));
                 Assert.That(content.GetChild(0).name, Is.EqualTo("Field_summary"));
                 Assert.That(content.GetChild(1).name, Is.EqualTo("Field_skills"));
                 Assert.That(content.GetChild(2).name, Is.EqualTo("Field_links"));
                 Assert.That(content.GetChild(3).name, Is.EqualTo("Field_experiences"));
-                Assert.That(content.GetChild(4).name, Is.EqualTo("Field_languages"));
+                Assert.That(content.GetChild(4).name, Is.EqualTo("Field_projects"));
+                Assert.That(content.GetChild(5).name, Is.EqualTo("Field_educations"));
+                Assert.That(content.GetChild(6).name, Is.EqualTo("Field_languages"));
                 Assert.That(FindDescendant(editor, "EditorColumns"), Is.Null);
                 Assert.That(FindDescendant(editor, "ExperienceList"), Is.Not.Null);
                 Assert.That(FindDescendant(editor, "Button_AddExperience"), Is.Not.Null);
@@ -567,6 +569,33 @@ namespace JobCheck.Ui.Editor.Tests
                     Is.Not.Null);
                 Assert.That(FindDescendant(experienceForm, "Button_SaveExperience"),
                     Is.Not.Null);
+                Assert.That(FindDescendant(editor, "ProjectList"), Is.Not.Null);
+                Assert.That(FindDescendant(editor, "Button_AddProject"), Is.Not.Null);
+                Transform projectForm = FindDescendant(editor, "ProjectForm");
+                Assert.That(projectForm, Is.Not.Null);
+                Assert.That(projectForm.gameObject.activeSelf, Is.False);
+                Assert.That(FindDescendant(projectForm, "Input_ProjectName"), Is.Not.Null);
+                Assert.That(FindDescendant(projectForm, "Input_ProjectDescription"),
+                    Is.Not.Null);
+                Assert.That(FindDescendant(projectForm, "ProjectSkillChoices"),
+                    Is.Not.Null);
+                Assert.That(FindDescendant(projectForm, "Input_ProjectUrl"), Is.Not.Null);
+                Assert.That(FindDescendant(projectForm, "Button_SaveProject"), Is.Not.Null);
+                Assert.That(FindDescendant(editor, "EducationList"), Is.Not.Null);
+                Assert.That(FindDescendant(editor, "Button_AddEducation"), Is.Not.Null);
+                Transform educationForm = FindDescendant(editor, "EducationForm");
+                Assert.That(educationForm, Is.Not.Null);
+                Assert.That(educationForm.gameObject.activeSelf, Is.False);
+                Assert.That(FindDescendant(educationForm, "Input_EducationInstitution"), Is.Not.Null);
+                Assert.That(FindDescendant(educationForm, "Input_EducationProgram"), Is.Not.Null);
+                Assert.That(FindDescendant(educationForm, "Dropdown_EducationDegree"), Is.Not.Null);
+                Assert.That(FindDescendant(educationForm, "Dropdown_EducationStatus"), Is.Not.Null);
+                Assert.That(FindDescendant(educationForm, "Input_EducationStartYear"), Is.Not.Null);
+                Assert.That(FindDescendant(educationForm, "Dropdown_EducationStartMonth"), Is.Not.Null);
+                Assert.That(FindDescendant(educationForm, "Input_EducationEndYear"), Is.Not.Null);
+                Assert.That(FindDescendant(educationForm, "Dropdown_EducationEndMonth"), Is.Not.Null);
+                Assert.That(FindDescendant(educationForm, "Input_EducationFieldTags"), Is.Not.Null);
+                Assert.That(FindDescendant(educationForm, "Button_SaveEducation"), Is.Not.Null);
                 Assert.That(FindDescendant(editor, "LanguageList"), Is.Not.Null);
                 Assert.That(FindDescendant(editor, "Button_AddLanguage"), Is.Not.Null);
                 Transform languageForm = FindDescendant(editor, "LanguageForm");
@@ -650,9 +679,13 @@ namespace JobCheck.Ui.Editor.Tests
                 Experiences = new System.Collections.Generic.List<JobCheck.Domain.CareerExperience>
                     { new JobCheck.Domain.CareerExperience { Id = "experience_1" } },
                 Projects = new System.Collections.Generic.List<JobCheck.Domain.CareerProject>
-                    { new JobCheck.Domain.CareerProject { Id = "project_1" } },
+                    { new JobCheck.Domain.CareerProject
+                        { Id = "project_1", Name = "原專案",
+                          Technologies = new System.Collections.Generic.List<string> { "Unity" } } },
                 Educations = new System.Collections.Generic.List<JobCheck.Domain.CareerEducation>
-                    { new JobCheck.Domain.CareerEducation { Id = "education_1" } },
+                    { new JobCheck.Domain.CareerEducation { Id = "education_1",
+                        Institution = "原學校",
+                        FieldTags = new System.Collections.Generic.List<string> { "資訊" } } },
                 Languages = new System.Collections.Generic.List<JobCheck.Domain.CareerLanguage>
                     { new JobCheck.Domain.CareerLanguage
                         { Id = "language_1", Name = "英文", LanguageId = "en",
@@ -688,11 +721,27 @@ namespace JobCheck.Ui.Editor.Tests
                 (System.Collections.Generic.List<JobCheck.Domain.CareerExperience>)
                     cloneExperiences.Invoke(null, new object[] { profile.Experiences });
             experienceDraft[0].Organization = "新公司";
+            MethodInfo cloneProjects = controllerType.GetMethod("CloneProjects",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(cloneProjects, Is.Not.Null);
+            var projectDraft =
+                (System.Collections.Generic.List<JobCheck.Domain.CareerProject>)
+                    cloneProjects.Invoke(null, new object[] { profile.Projects });
+            projectDraft[0].Name = "新專案";
+            projectDraft[0].Technologies.Add("C#");
+            MethodInfo cloneEducations = controllerType.GetMethod("CloneEducations",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(cloneEducations, Is.Not.Null);
+            var educationDraft =
+                (System.Collections.Generic.List<JobCheck.Domain.CareerEducation>)
+                    cloneEducations.Invoke(null, new object[] { profile.Educations });
+            educationDraft[0].Institution = "新學校";
+            educationDraft[0].FieldTags.Add("工程");
 
             var candidate = (JobCheck.Domain.CareerProfile)create.Invoke(
                 null, new object[]
                     { profile, "新的介紹", linkDraft, skillDraft, experienceDraft,
-                        languageDraft, now });
+                        projectDraft, educationDraft, languageDraft, now });
 
             Assert.That(candidate.Id, Is.EqualTo(profile.Id));
             Assert.That(candidate.Summary, Is.EqualTo("新的介紹"));
@@ -713,8 +762,19 @@ namespace JobCheck.Ui.Editor.Tests
             Assert.That(candidate.Experiences, Is.Not.SameAs(profile.Experiences));
             Assert.That(candidate.Experiences[0].Organization, Is.EqualTo("新公司"));
             Assert.That(candidate.Experiences[0].Id, Is.EqualTo("experience_1"));
-            Assert.That(candidate.Projects, Is.SameAs(profile.Projects));
-            Assert.That(candidate.Educations, Is.SameAs(profile.Educations));
+            Assert.That(profile.Projects[0].Name, Is.EqualTo("原專案"));
+            Assert.That(profile.Projects[0].Technologies, Is.EqualTo(new[] { "Unity" }));
+            Assert.That(candidate.Projects, Is.Not.SameAs(profile.Projects));
+            Assert.That(candidate.Projects[0].Name, Is.EqualTo("新專案"));
+            Assert.That(candidate.Projects[0].Id, Is.EqualTo("project_1"));
+            Assert.That(candidate.Projects[0].Technologies,
+                Is.EqualTo(new[] { "Unity", "C#" }));
+            Assert.That(profile.Educations[0].Institution, Is.EqualTo("原學校"));
+            Assert.That(profile.Educations[0].FieldTags, Is.EqualTo(new[] { "資訊" }));
+            Assert.That(candidate.Educations, Is.Not.SameAs(profile.Educations));
+            Assert.That(candidate.Educations[0].Institution, Is.EqualTo("新學校"));
+            Assert.That(candidate.Educations[0].Id, Is.EqualTo("education_1"));
+            Assert.That(candidate.Educations[0].FieldTags, Is.EqualTo(new[] { "資訊", "工程" }));
             Assert.That(profile.Languages[0].Name, Is.EqualTo("英文"));
             Assert.That(profile.Languages[0].Certifications, Is.EqualTo(new[] { "TOEIC" }));
             Assert.That(candidate.Languages, Is.Not.SameAs(profile.Languages));
