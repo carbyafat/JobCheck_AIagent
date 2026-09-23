@@ -40,6 +40,12 @@ public sealed class CareerProfilePage : MonoBehaviour
         new Dictionary<string, TMP_Text>(StringComparer.Ordinal);
     private readonly Dictionary<string, TMP_InputField> editorFields =
         new Dictionary<string, TMP_InputField>(StringComparer.Ordinal);
+    private List<CareerProfileLink> linkDraft;
+    private Transform linkListRoot;
+    private GameObject linkFormRoot;
+    private TMP_InputField linkLabelInput;
+    private TMP_InputField linkUrlInput;
+    private int editingLinkIndex = -1;
     private List<CareerSkill> skillDraft;
     private Transform skillListRoot;
     private GameObject skillFormRoot;
@@ -50,7 +56,7 @@ public sealed class CareerProfilePage : MonoBehaviour
     private int editingSkillIndex = -1;
 
     private const string ProfileUiCharacters =
-        "個人履歷最後更新自我介紹連結技能工作經歷專案學歷語言能力尚未填寫新增讀取失敗未知錯誤編輯儲存取消至今年月日時分公司職務開始結束內容名稱技術網址說明機構項目備註程度母語首頁職缺側欄寬度搬遷匯出匯入選擇檔案取代本機關閉預覽成功檔案尚未加密請妥善保管等級學位已畢業在學未完成科系標籤月數逗號分隔請輸入整數使用時間年自訂移除這筆重複請先填寫選填儲存技能暫不評級無技能";
+        "個人履歷最後更新自我介紹連結技能工作經歷專案學歷語言能力尚未填寫新增讀取失敗未知錯誤編輯儲存取消至今年月日時分公司職務開始結束內容名稱技術網址說明機構項目備註程度母語首頁職缺側欄寬度搬遷匯出匯入選擇檔案取代本機關閉預覽成功檔案尚未加密請妥善保管等級學位已畢業在學未完成科系標籤月數逗號分隔請輸入整數使用時間年自訂移除這筆重複請先填寫選填儲存技能暫不評級無技能個人網站作品集或其他參考網址功用有效的必填儲存連結貼上本機路徑";
 
     private Color AppBackground => theme != null
         ? theme.AppBackground
@@ -124,6 +130,9 @@ public sealed class CareerProfilePage : MonoBehaviour
         }
 
         editorFields["summary"].text = CurrentProfile.Summary ?? string.Empty;
+        linkDraft = CloneLinks(CurrentProfile.Links);
+        RenderLinkDraft();
+        CloseLinkForm();
         skillDraft = CloneSkills(CurrentProfile.Skills);
         RenderSkillDraft();
         CloseSkillForm();
@@ -141,6 +150,8 @@ public sealed class CareerProfilePage : MonoBehaviour
 
     public void CancelEditor()
     {
+        linkDraft = null;
+        CloseLinkForm();
         skillDraft = null;
         CloseSkillForm();
         if (editorRoot != null)
@@ -174,10 +185,12 @@ public sealed class CareerProfilePage : MonoBehaviour
 
         if (skillFormRoot != null && skillFormRoot.activeSelf && !ApplySkillForm())
             return;
+        if (linkFormRoot != null && linkFormRoot.activeSelf && !ApplyLinkForm())
+            return;
 
         DateTimeOffset now = DateTimeOffset.Now;
         CareerProfile candidate = CreateSummaryEditCandidate(
-            CurrentProfile, editorFields["summary"].text, skillDraft, now);
+            CurrentProfile, editorFields["summary"].text, linkDraft, skillDraft, now);
 
         PersistenceStorageResult<CareerProfile> result = CareerProfileRepository.Save(
             ResolveProjectRelativePath(personalDataRootPath),
@@ -195,7 +208,8 @@ public sealed class CareerProfilePage : MonoBehaviour
     }
 
     private static CareerProfile CreateSummaryEditCandidate(
-        CareerProfile current, string summary, IList<CareerSkill> skills, DateTimeOffset now)
+        CareerProfile current, string summary, IList<CareerProfileLink> links,
+        IList<CareerSkill> skills, DateTimeOffset now)
     {
         return new CareerProfile
         {
@@ -204,13 +218,141 @@ public sealed class CareerProfilePage : MonoBehaviour
             Summary = summary,
             CreatedAt = current.CreatedAt ?? now,
             UpdatedAt = now,
-            Links = current.Links,
+            Links = links == null ? current.Links : new List<CareerProfileLink>(links),
             Skills = skills == null ? current.Skills : new List<CareerSkill>(skills),
             Experiences = current.Experiences,
             Projects = current.Projects,
             Educations = current.Educations,
             Languages = current.Languages
         };
+    }
+
+    private static List<CareerProfileLink> CloneLinks(IEnumerable<CareerProfileLink> source)
+    {
+        return (source ?? Enumerable.Empty<CareerProfileLink>())
+            .Where(item => item != null)
+            .Select(item => new CareerProfileLink
+            {
+                Id = item.Id,
+                Label = item.Label,
+                Url = item.Url
+            })
+            .ToList();
+    }
+
+    private void RenderLinkDraft()
+    {
+        if (linkListRoot == null) return;
+        foreach (Transform child in linkListRoot.Cast<Transform>().ToArray())
+        {
+            child.SetParent(null, false);
+            Destroy(child.gameObject);
+        }
+
+        TMP_FontAsset font = ResolveFontAsset();
+        if (linkDraft == null || linkDraft.Count == 0)
+        {
+            TMP_Text empty = CreateText(linkListRoot, "Empty", "尚未新增連結", font, 20,
+                new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 36f),
+                TextAlignmentOptions.MidlineLeft);
+            empty.color = TextSecondary;
+            empty.gameObject.AddComponent<LayoutElement>().preferredHeight = 36f;
+            return;
+        }
+
+        for (int index = 0; index < linkDraft.Count; index++)
+        {
+            int linkIndex = index;
+            CareerProfileLink link = linkDraft[index];
+            GameObject row = CreateUiObject("Link_" + index, linkListRoot,
+                typeof(Image), typeof(HorizontalLayoutGroup));
+            Image image = row.GetComponent<Image>();
+            image.color = Surface;
+            ApplySlicedSprite(image);
+            HorizontalLayoutGroup layout = row.GetComponent<HorizontalLayoutGroup>();
+            layout.padding = new RectOffset(16, 12, 8, 8);
+            layout.spacing = 10f;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+            row.AddComponent<LayoutElement>().preferredHeight = 68f;
+
+            TMP_Text label = CreateText(row.transform, "Summary",
+                Join("｜", link.Label, link.Url), font, 21,
+                new Vector2(0f, 0.5f), Vector2.zero, new Vector2(0f, 52f),
+                TextAlignmentOptions.MidlineLeft);
+            label.enableWordWrapping = false;
+            label.overflowMode = TextOverflowModes.Ellipsis;
+            LayoutElement labelLayout = label.gameObject.AddComponent<LayoutElement>();
+            labelLayout.flexibleWidth = 1f;
+            labelLayout.minWidth = 120f;
+            CreateLayoutButton(row.transform, "Button_Edit", "編輯", font, 100f,
+                ButtonTone.Secondary).onClick.AddListener(() => OpenLinkForm(linkIndex));
+            CreateLayoutButton(row.transform, "Button_Remove", "移除", font, 100f,
+                ButtonTone.Secondary).onClick.AddListener(() => RemoveLink(linkIndex));
+        }
+    }
+
+    private void OpenLinkForm(int index)
+    {
+        editingLinkIndex = index;
+        CareerProfileLink item = index >= 0 && linkDraft != null && index < linkDraft.Count
+            ? linkDraft[index] : null;
+        linkLabelInput.text = item?.Label ?? string.Empty;
+        linkUrlInput.text = item?.Url ?? string.Empty;
+        linkFormRoot.SetActive(true);
+        SetEditorStatus("", false);
+    }
+
+    private void CloseLinkForm()
+    {
+        editingLinkIndex = -1;
+        if (linkFormRoot != null) linkFormRoot.SetActive(false);
+    }
+
+    private void RemoveLink(int index)
+    {
+        if (linkDraft == null || index < 0 || index >= linkDraft.Count) return;
+        linkDraft.RemoveAt(index);
+        CloseLinkForm();
+        RenderLinkDraft();
+        SetEditorStatus("連結已從本次編輯移除；按整頁儲存才會寫入。", false);
+    }
+
+    private static bool HasLinkValue(string value) => !string.IsNullOrWhiteSpace(value);
+
+    private bool ApplyLinkForm()
+    {
+        string label = linkLabelInput.text.Trim();
+        string url = linkUrlInput.text.Trim();
+        if (!HasLinkValue(label))
+        {
+            SetEditorStatus("請先填寫連結名稱。", true);
+            return false;
+        }
+
+        if (!HasLinkValue(url))
+        {
+            SetEditorStatus("請先填寫連結網址或路徑。", true);
+            return false;
+        }
+
+        CareerProfileLink existing = editingLinkIndex >= 0 && editingLinkIndex < linkDraft.Count
+            ? linkDraft[editingLinkIndex] : null;
+        CareerProfileLink saved = new CareerProfileLink
+        {
+            Id = existing?.Id ?? CareerProfileIdGenerator.CreateLinkId(),
+            Label = label,
+            Url = url
+        };
+        if (existing == null) linkDraft.Add(saved);
+        else linkDraft[editingLinkIndex] = saved;
+        CloseLinkForm();
+        RenderLinkDraft();
+        SetEditorStatus("連結已暫存；按整頁儲存才會寫入。", false);
+        return true;
     }
 
     private static List<CareerSkill> CloneSkills(IEnumerable<CareerSkill> source)
@@ -1213,6 +1355,7 @@ public sealed class CareerProfilePage : MonoBehaviour
         CreateEditorField("summary", "自我介紹", "可多行，說明背景、能力與職涯方向。",
             "介紹背景、能力與職涯方向", font, content, 480f);
         CreateSkillEditorUi(content, font);
+        CreateLinkEditorUi(content, font);
 
         GameObject footer = CreateUiObject("Footer", editorRoot.transform, typeof(Image));
         RectTransform footerRect = footer.GetComponent<RectTransform>();
@@ -1235,6 +1378,92 @@ public sealed class CareerProfilePage : MonoBehaviour
         cancel.onClick.AddListener(CancelEditor);
         save.onClick.AddListener(SaveEditor);
         editorRoot.SetActive(false);
+    }
+
+    private void CreateLinkEditorUi(Transform parent, TMP_FontAsset font)
+    {
+        GameObject cardObject = CreateUiObject("Field_links", parent,
+            typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(Outline));
+        Image cardImage = cardObject.GetComponent<Image>();
+        cardImage.color = SurfaceMuted;
+        ApplySlicedSprite(cardImage);
+        Outline outline = cardObject.GetComponent<Outline>();
+        outline.effectColor = Border;
+        outline.effectDistance = new Vector2(1f, -1f);
+        VerticalLayoutGroup cardLayout = cardObject.GetComponent<VerticalLayoutGroup>();
+        int padding = Mathf.RoundToInt(theme != null ? theme.SpaceMd : 16f);
+        cardLayout.padding = new RectOffset(padding, padding, padding, padding);
+        cardLayout.spacing = theme != null ? theme.SpaceSm : 12f;
+        cardLayout.childAlignment = TextAnchor.UpperLeft;
+        cardLayout.childControlWidth = true;
+        cardLayout.childControlHeight = true;
+        cardLayout.childForceExpandWidth = true;
+        cardLayout.childForceExpandHeight = false;
+        cardObject.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+
+        TMP_Text title = CreateText(cardObject.transform, "Label_links", "連結", font,
+            Mathf.RoundToInt(theme != null ? theme.SectionTitleSize : 28f),
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 38f),
+            TextAlignmentOptions.MidlineLeft);
+        title.fontStyle = FontStyles.Bold;
+        title.gameObject.AddComponent<LayoutElement>().preferredHeight = 38f;
+        TMP_Text help = CreateText(cardObject.transform, "Help_links",
+            "個人網站、作品集或其他參考網址。", font,
+            Mathf.RoundToInt(theme != null ? theme.SupportingTextSize : 20f),
+            new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, 32f),
+            TextAlignmentOptions.MidlineLeft);
+        help.color = TextSecondary;
+        help.gameObject.AddComponent<LayoutElement>().preferredHeight = 32f;
+
+        GameObject list = CreateUiObject("LinkList", cardObject.transform,
+            typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        linkListRoot = list.transform;
+        VerticalLayoutGroup listLayout = list.GetComponent<VerticalLayoutGroup>();
+        listLayout.spacing = 8f;
+        listLayout.childControlWidth = true;
+        listLayout.childControlHeight = true;
+        listLayout.childForceExpandWidth = true;
+        listLayout.childForceExpandHeight = false;
+        list.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+
+        CreateLayoutButton(cardObject.transform, "Button_AddLink", "新增連結", font,
+            170f, ButtonTone.Primary).onClick.AddListener(() => OpenLinkForm(-1));
+
+        linkFormRoot = CreateUiObject("LinkForm", cardObject.transform,
+            typeof(Image), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        linkFormRoot.GetComponent<Image>().color = Surface;
+        VerticalLayoutGroup formLayout = linkFormRoot.GetComponent<VerticalLayoutGroup>();
+        formLayout.padding = new RectOffset(16, 16, 16, 16);
+        formLayout.spacing = 8f;
+        formLayout.childControlWidth = true;
+        formLayout.childControlHeight = true;
+        formLayout.childForceExpandWidth = true;
+        formLayout.childForceExpandHeight = false;
+        linkFormRoot.GetComponent<ContentSizeFitter>().verticalFit =
+            ContentSizeFitter.FitMode.PreferredSize;
+
+        linkLabelInput = CreateLabeledSkillInput(linkFormRoot.transform, "LinkLabel",
+            "連結名稱（功用）", "例如：GitHub、作品集", font, 56f, true);
+        linkUrlInput = CreateLabeledSkillInput(linkFormRoot.transform, "LinkUrl",
+            "連結網址或路徑", "貼上網址或本機路徑", font, 56f, true);
+
+        GameObject actions = CreateUiObject("LinkActions", linkFormRoot.transform,
+            typeof(HorizontalLayoutGroup));
+        HorizontalLayoutGroup actionsLayout = actions.GetComponent<HorizontalLayoutGroup>();
+        actionsLayout.spacing = 12f;
+        actionsLayout.childAlignment = TextAnchor.MiddleRight;
+        actionsLayout.childControlWidth = true;
+        actionsLayout.childControlHeight = true;
+        actionsLayout.childForceExpandWidth = false;
+        actionsLayout.childForceExpandHeight = true;
+        actions.AddComponent<LayoutElement>().preferredHeight = 56f;
+        CreateLayoutButton(actions.transform, "Button_CancelLink", "取消", font,
+            120f, ButtonTone.Secondary).onClick.AddListener(CloseLinkForm);
+        CreateLayoutButton(actions.transform, "Button_SaveLink", "儲存這筆", font,
+            150f, ButtonTone.Primary).onClick.AddListener(() => ApplyLinkForm());
+        linkFormRoot.SetActive(false);
     }
 
     private void CreateSkillEditorUi(Transform parent, TMP_FontAsset font)

@@ -502,7 +502,7 @@ namespace JobCheck.Ui.Editor.Tests
         }
 
         [Test]
-        public void ResumeEditor_BuildsSummaryAndSkillFormInSingleColumn()
+        public void ResumeEditor_BuildsSummarySkillAndLinkFormsInSingleColumn()
         {
             Type controllerType = Type.GetType("CareerProfilePage, Assembly-CSharp");
             Assert.That(controllerType, Is.Not.Null);
@@ -537,10 +537,19 @@ namespace JobCheck.Ui.Editor.Tests
                     Is.Not.Null);
                 Transform content = FindDescendant(editor, "Content");
                 Assert.That(content, Is.Not.Null);
-                Assert.That(content.childCount, Is.EqualTo(2));
+                Assert.That(content.childCount, Is.EqualTo(3));
                 Assert.That(content.GetChild(0).name, Is.EqualTo("Field_summary"));
                 Assert.That(content.GetChild(1).name, Is.EqualTo("Field_skills"));
+                Assert.That(content.GetChild(2).name, Is.EqualTo("Field_links"));
                 Assert.That(FindDescendant(editor, "EditorColumns"), Is.Null);
+                Assert.That(FindDescendant(editor, "LinkList"), Is.Not.Null);
+                Assert.That(FindDescendant(editor, "Button_AddLink"), Is.Not.Null);
+                Transform linkForm = FindDescendant(editor, "LinkForm");
+                Assert.That(linkForm, Is.Not.Null);
+                Assert.That(linkForm.gameObject.activeSelf, Is.False);
+                Assert.That(FindDescendant(linkForm, "Input_LinkLabel"), Is.Not.Null);
+                Assert.That(FindDescendant(linkForm, "Input_LinkUrl"), Is.Not.Null);
+                Assert.That(FindDescendant(linkForm, "Button_SaveLink"), Is.Not.Null);
                 Assert.That(FindDescendant(editor, "SkillList"), Is.Not.Null);
                 Assert.That(FindDescendant(editor, "Button_AddSkill"), Is.Not.Null);
                 Transform skillForm = FindDescendant(editor, "SkillForm");
@@ -568,7 +577,7 @@ namespace JobCheck.Ui.Editor.Tests
         }
 
         [Test]
-        public void ResumeSkillDraft_PreservesOtherSectionsAndExistingSkillData()
+        public void ResumeSkillAndLinkDrafts_PreserveOtherSectionsAndExistingData()
         {
             Type controllerType = Type.GetType("CareerProfilePage, Assembly-CSharp");
             MethodInfo create = controllerType.GetMethod("CreateSummaryEditCandidate",
@@ -579,7 +588,8 @@ namespace JobCheck.Ui.Editor.Tests
                 Id = "profile_1",
                 Summary = "原本介紹",
                 Links = new System.Collections.Generic.List<JobCheck.Domain.CareerProfileLink>
-                    { new JobCheck.Domain.CareerProfileLink { Id = "link_1", Label = "GitHub" } },
+                    { new JobCheck.Domain.CareerProfileLink
+                        { Id = "link_1", Label = "GitHub", Url = "https://github.com" } },
                 Skills = new System.Collections.Generic.List<JobCheck.Domain.CareerSkill>
                     { new JobCheck.Domain.CareerSkill
                         { Id = "skill_1", Name = "Unity",
@@ -601,14 +611,24 @@ namespace JobCheck.Ui.Editor.Tests
             var skillDraft = (System.Collections.Generic.List<JobCheck.Domain.CareerSkill>)
                 clone.Invoke(null, new object[] { profile.Skills });
             skillDraft[0].Name = "C#";
+            MethodInfo cloneLinks = controllerType.GetMethod("CloneLinks",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(cloneLinks, Is.Not.Null);
+            var linkDraft = (System.Collections.Generic.List<JobCheck.Domain.CareerProfileLink>)
+                cloneLinks.Invoke(null, new object[] { profile.Links });
+            linkDraft[0].Label = "作品集";
 
             var candidate = (JobCheck.Domain.CareerProfile)create.Invoke(
-                null, new object[] { profile, "新的介紹", skillDraft, now });
+                null, new object[] { profile, "新的介紹", linkDraft, skillDraft, now });
 
             Assert.That(candidate.Id, Is.EqualTo(profile.Id));
             Assert.That(candidate.Summary, Is.EqualTo("新的介紹"));
             Assert.That(candidate.UpdatedAt, Is.EqualTo(now));
-            Assert.That(candidate.Links, Is.SameAs(profile.Links));
+            Assert.That(profile.Links[0].Label, Is.EqualTo("GitHub"));
+            Assert.That(candidate.Links, Is.Not.SameAs(profile.Links));
+            Assert.That(candidate.Links[0].Label, Is.EqualTo("作品集"));
+            Assert.That(candidate.Links[0].Id, Is.EqualTo("link_1"));
+            Assert.That(candidate.Links[0].Url, Is.EqualTo("https://github.com"));
             Assert.That(profile.Skills[0].Name, Is.EqualTo("Unity"));
             Assert.That(candidate.Skills, Is.Not.SameAs(profile.Skills));
             Assert.That(candidate.Skills[0].Name, Is.EqualTo("C#"));
@@ -620,6 +640,23 @@ namespace JobCheck.Ui.Editor.Tests
             Assert.That(candidate.Projects, Is.SameAs(profile.Projects));
             Assert.That(candidate.Educations, Is.SameAs(profile.Educations));
             Assert.That(candidate.Languages, Is.SameAs(profile.Languages));
+        }
+
+        [TestCase("https://example.com", true)]
+        [TestCase("http://example.com/project", true)]
+        [TestCase("", false)]
+        [TestCase("   ", false)]
+        [TestCase("example.com", true)]
+        [TestCase("file:///C:/private.txt", true)]
+        [TestCase(@"C:\portfolio\demo", true)]
+        public void ResumeLinkEditor_AcceptsAnyNonEmptyAddress(string url, bool expected)
+        {
+            Type controllerType = Type.GetType("CareerProfilePage, Assembly-CSharp");
+            Assert.That(controllerType, Is.Not.Null);
+            MethodInfo validate = controllerType.GetMethod("HasLinkValue",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(validate, Is.Not.Null);
+            Assert.That(validate.Invoke(null, new object[] { url }), Is.EqualTo(expected));
         }
 
         [Test]
