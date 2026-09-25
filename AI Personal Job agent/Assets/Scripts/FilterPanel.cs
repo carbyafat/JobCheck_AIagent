@@ -215,6 +215,8 @@ public class FilterPanel : MonoBehaviour
         statusValues.Add("interested");
         statusValues.Add("not_applying");
         statusValues.Add("applied");
+        statusValues.Add("viewed");
+        statusValues.Add("contacted");
         statusValues.Add("interview_scheduled");
         statusValues.Add("interviewing");
         statusValues.Add("waiting_reply");
@@ -236,6 +238,8 @@ public class FilterPanel : MonoBehaviour
             "有興趣",
             "確認不投",
             "已投遞",
+            "公司已讀",
+            "公司已聯絡",
             "已預約面試",
             "已面試",
             "等回覆",

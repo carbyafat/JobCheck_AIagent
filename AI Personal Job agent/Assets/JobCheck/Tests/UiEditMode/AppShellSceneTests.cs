@@ -180,6 +180,63 @@ namespace JobCheck.Ui.Editor.Tests
         }
 
         [Test]
+        public void JobPreferencesPage_HasCompleteSerializedUiReferences()
+        {
+            WithScene(scene =>
+            {
+                Transform appShell = RequireChild(FindRoot(scene, "Canvas").transform, "AppShell");
+                Transform preferencesPage = RequireChild(
+                    RequireChild(appShell, "ContentRoot"), "Page_JobPreferences");
+                MonoBehaviour controller = FindComponent(preferencesPage, "JobPreferencesPage");
+                var data = new SerializedObject(controller);
+
+                foreach (string propertyName in new[]
+                {
+                    "theme", "scroll", "statusText", "saveButton", "cancelButton",
+                    "minimumSalaryInput", "desiredSalaryInput", "notesInput",
+                    "salaryPeriodDropdown", "commuteDropdown", "overtimeDropdown",
+                    "travelDropdown", "relocationDropdown", "targetImportanceDropdown",
+                    "salaryImportanceDropdown", "arrangementImportanceDropdown",
+                    "scheduleImportanceDropdown"
+                })
+                {
+                    SerializedProperty property = data.FindProperty(propertyName);
+                    Assert.That(property, Is.Not.Null, propertyName);
+                    Assert.That(property.objectReferenceValue, Is.Not.Null, propertyName);
+                }
+
+                foreach (string propertyName in new[]
+                {
+                    "targetRoles", "industries", "regions",
+                    "employmentTypes", "workModes", "schedules"
+                })
+                {
+                    SerializedProperty editor = data.FindProperty(propertyName);
+                    Assert.That(editor, Is.Not.Null, propertyName);
+                    Assert.That(editor.FindPropertyRelative("Root").objectReferenceValue,
+                        Is.Not.Null, propertyName + ".Root");
+                    Assert.That(editor.FindPropertyRelative("Count").objectReferenceValue,
+                        Is.Not.Null, propertyName + ".Count");
+                    Assert.That(editor.FindPropertyRelative("Limit").intValue,
+                        Is.GreaterThan(0), propertyName + ".Limit");
+
+                    if (propertyName == "targetRoles")
+                    {
+                        Assert.That(editor.FindPropertyRelative("Input").objectReferenceValue,
+                            Is.Not.Null, propertyName + ".Input");
+                        Assert.That(editor.FindPropertyRelative("AddButton").objectReferenceValue,
+                            Is.Not.Null, propertyName + ".AddButton");
+                    }
+                    else
+                    {
+                        Assert.That(editor.FindPropertyRelative("Dropdown").objectReferenceValue,
+                            Is.Not.Null, propertyName + ".Dropdown");
+                    }
+                }
+            });
+        }
+
+        [Test]
         public void Scene_ReservesTwoHundredFortyPixelsForSidebar()
         {
             WithScene(scene =>
@@ -373,6 +430,47 @@ namespace JobCheck.Ui.Editor.Tests
                 float right = button.anchoredPosition.x + button.sizeDelta.x * (1f - button.pivot.x);
                 Assert.That(left, Is.GreaterThanOrEqualTo(-840f), name + " left");
                 Assert.That(right, Is.LessThanOrEqualTo(840f), name + " right");
+            }
+        }
+
+        [Test]
+        public void FilterPanel_ProvidesViewedAndContactedStatusOptions()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(FilterPanelPrefabPath);
+            Assert.That(prefab, Is.Not.Null);
+
+            GameObject instance = UnityEngine.Object.Instantiate(prefab);
+            try
+            {
+                MonoBehaviour controller = FindComponent(instance.transform, "FilterPanel");
+                MethodInfo setup = controller.GetType().GetMethod(
+                    "SetupStatusDropdown",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(setup, Is.Not.Null);
+                setup.Invoke(controller, null);
+
+                TMPro.TMP_Dropdown dropdown = FindDescendant(instance.transform, "Dropdown_Status")
+                    .GetComponent<TMPro.TMP_Dropdown>();
+                Assert.That(dropdown, Is.Not.Null);
+
+                FieldInfo valuesField = controller.GetType().GetField(
+                    "statusValues",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(valuesField, Is.Not.Null);
+                var values = valuesField.GetValue(controller) as System.Collections.Generic.List<string>;
+                Assert.That(values, Is.Not.Null);
+                Assert.That(values.Count, Is.EqualTo(dropdown.options.Count));
+
+                int viewedIndex = values.IndexOf("viewed");
+                int contactedIndex = values.IndexOf("contacted");
+                Assert.That(viewedIndex, Is.GreaterThanOrEqualTo(0));
+                Assert.That(contactedIndex, Is.GreaterThanOrEqualTo(0));
+                Assert.That(dropdown.options[viewedIndex].text, Is.EqualTo("公司已讀"));
+                Assert.That(dropdown.options[contactedIndex].text, Is.EqualTo("公司已聯絡"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
             }
         }
 
