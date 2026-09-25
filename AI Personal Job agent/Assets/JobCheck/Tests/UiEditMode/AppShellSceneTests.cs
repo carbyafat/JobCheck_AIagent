@@ -226,6 +226,19 @@ namespace JobCheck.Ui.Editor.Tests
             RectTransform scrollView = detail.transform.Find("Scroll View") as RectTransform;
             Assert.That(scrollView, Is.Not.Null);
             Assert.That(scrollView.sizeDelta.x, Is.LessThanOrEqualTo(1600f));
+
+            RectTransform expireDay = FindDescendant(detail.transform, "TMP_ExpireDay")
+                as RectTransform;
+            RectTransform setExpireDay = FindDescendant(detail.transform,
+                "Button_ManualSetExpireDay") as RectTransform;
+            Assert.That(expireDay, Is.Not.Null);
+            Assert.That(setExpireDay, Is.Not.Null);
+            Assert.That(expireDay.sizeDelta.x, Is.GreaterThanOrEqualTo(360f));
+            Assert.That(setExpireDay.sizeDelta.x, Is.GreaterThanOrEqualTo(200f));
+            float expireRight = expireDay.anchoredPosition.x + expireDay.sizeDelta.x * 0.5f;
+            float buttonLeft = setExpireDay.anchoredPosition.x - setExpireDay.sizeDelta.x * 0.5f;
+            Assert.That(expireRight, Is.LessThan(buttonLeft),
+                "下次追蹤日期與設定按鈕不得重疊。");
         }
 
         [Test]
@@ -247,6 +260,72 @@ namespace JobCheck.Ui.Editor.Tests
             Assert.That(card, Is.Not.Null);
             MonoBehaviour cardController = FindComponent(card.transform, "Panel_SingleJob");
             Assert.That(new SerializedObject(cardController).FindProperty("theme").objectReferenceValue, Is.Not.Null);
+
+            GameObject detailAsset = AssetDatabase.LoadAssetAtPath<GameObject>(JobDetailPrefabPath);
+            Assert.That(detailAsset, Is.Not.Null);
+            MonoBehaviour detailAssetController = FindComponent(detailAsset.transform,
+                "Panel_JobDetail");
+            var detailAssetData = new SerializedObject(detailAssetController);
+            var detailTheme = detailAssetData.FindProperty("theme").objectReferenceValue
+                as ScriptableObject;
+            Assert.That(detailTheme, Is.Not.Null);
+
+            GameObject detailInstance = UnityEngine.Object.Instantiate(detailAsset);
+            try
+            {
+                MonoBehaviour detailController = FindComponent(detailInstance.transform,
+                    "Panel_JobDetail");
+                Invoke(detailController, "ApplyTheme");
+                Color textPrimary = new SerializedObject(detailTheme)
+                    .FindProperty("textPrimary").colorValue;
+                foreach (string name in new[]
+                         {
+                             "TMP_Company_Title", "TMP_Salay", "TMP_WorkPosition",
+                             "TMP_WorkMode", "TMP_Experience", "TMP_EducationNeed",
+                             "TMP_WorkContent", "TMP_Skill_Head", "TMP_Skill_Tool",
+                             "TMP_Skill_Tech", "TMP_Welfare", "TMP_RecruitmentProcess",
+                             "TMP_Other"
+                         })
+                {
+                    TMPro.TMP_Text text = FindDescendant(detailInstance.transform, name)
+                        .GetComponent<TMPro.TMP_Text>();
+                    Assert.That(text.color, Is.EqualTo(textPrimary), name);
+                }
+
+                Transform matchButton = FindDescendant(detailInstance.transform,
+                    "Button_ShowRequirementMatch_V027");
+                Transform matchPanel = FindDescendant(detailInstance.transform,
+                    "Panel_RequirementMatch_V027");
+                Transform closeButton = FindDescendant(detailInstance.transform,
+                    "Button_CloseRequirementMatch_V027");
+                Assert.That(matchButton, Is.Not.Null);
+                Assert.That(matchPanel, Is.Not.Null);
+                Assert.That(closeButton, Is.Not.Null);
+                Assert.That(FindDescendant(matchPanel, "TMP_RequirementMatch_V027"), Is.Not.Null);
+                Assert.That(FindDescendant(matchPanel, "ScrollView")
+                    .GetComponent<ScrollRect>(), Is.Not.Null);
+                Image blocker = matchPanel.GetComponent<Image>();
+                Assert.That(blocker, Is.Not.Null);
+                Assert.That(blocker.raycastTarget, Is.True,
+                    "比對視窗遮罩必須攔截背景點擊。");
+                Color overlay = new SerializedObject(detailTheme)
+                    .FindProperty("overlay").colorValue;
+                Assert.That(blocker.color, Is.EqualTo(overlay));
+                Assert.That(matchPanel.gameObject.activeSelf, Is.False);
+
+                Invoke(detailController, "ShowRequirementMatch");
+                Assert.That(matchPanel.gameObject.activeSelf, Is.True);
+                Assert.That(matchPanel.GetSiblingIndex(),
+                    Is.EqualTo(matchPanel.parent.childCount - 1),
+                    "比對視窗必須位於最上層以阻擋其他按鍵。");
+                closeButton.GetComponent<Button>().onClick.Invoke();
+                Assert.That(matchPanel.gameObject.activeSelf, Is.False,
+                    "關閉按鍵應關閉比對視窗。");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(detailInstance);
+            }
         }
 
         [Test]

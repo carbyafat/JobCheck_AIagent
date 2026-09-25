@@ -13,6 +13,9 @@ using UnityEngine.UI;
 /// </summary>
 public class Panel_JobDetail : MonoBehaviour
 {
+    [Header("Theme")]
+    [SerializeField] private JobCheckUiTheme theme;
+
     [Header("Current UI")]
     [Tooltip("公司名稱 / 職缺名稱標題文字。")]
     [SerializeField] private TMP_Text textCompanyTitle;
@@ -59,6 +62,16 @@ public class Panel_JobDetail : MonoBehaviour
     [Tooltip("關閉事件歷程面板。")]
     [SerializeField] private Button buttonCloseEventHistory;
 
+    [Header("Resume Requirement Match")]
+    [Tooltip("開啟履歷條件比對視窗。")]
+    [SerializeField] private Button buttonShowRequirementMatch;
+    [Tooltip("阻擋背景操作的履歷條件比對視窗。")]
+    [SerializeField] private GameObject panelRequirementMatch;
+    [Tooltip("履歷條件比對結果。")]
+    [SerializeField] private TMP_Text textRequirementMatch;
+    [Tooltip("關閉履歷條件比對視窗。")]
+    [SerializeField] private Button buttonCloseRequirementMatch;
+
     [Header("Status Panel")]
     [Tooltip("開關狀態按鈕面板的按鈕。")]
     [SerializeField] private Button buttonShowStatusPanel;
@@ -69,7 +82,7 @@ public class Panel_JobDetail : MonoBehaviour
     [Tooltip("非目前狀態按鈕顏色。")]
     [SerializeField] private Color inactiveStatusButtonColor = Color.white;
     [Tooltip("正常狀態文字顏色。")]
-    [SerializeField] private Color normalStatusTextColor = Color.white;
+    [SerializeField] private Color normalStatusTextColor = new Color(0.18f, 0.18f, 0.18f, 1f);
     [Tooltip("逾期狀態文字顏色。")]
     [SerializeField] private Color expiredStatusTextColor = Color.red;
 
@@ -147,9 +160,12 @@ public class Panel_JobDetail : MonoBehaviour
     private void Awake()
     {
         AutoBindReferences();
+        EnsureRequirementMatchUi();
+        ApplyTheme();
         BindButtons();
         SetEventHistoryVisible(false);
         SetDeleteConfirmationVisible(false);
+        SetRequirementMatchVisible(false);
     }
 
     /// <summary>
@@ -168,6 +184,7 @@ public class Panel_JobDetail : MonoBehaviour
         }
         SetEventHistoryVisible(false);
         SetDeleteConfirmationVisible(false);
+        SetRequirementMatchVisible(false);
         // 詳情物件若原本 inactive，Awake 會在上一行才完成自動綁定；此時再套一次唯讀狀態。
         SetReadOnly(isReadOnly);
         ApplyV02Labels();
@@ -206,6 +223,8 @@ public class Panel_JobDetail : MonoBehaviour
         SetText(textWelfare, benefits);
         SetText(textRecruitmentProcess, BuildListSection("招募流程", data.recruitment_process));
         SetText(textOther, BuildOtherText(data));
+        ApplyTheme();
+        SetStatusTextColor(isExpired);
         RefreshEventHistoryText();
         RefreshExpireDayText();
 
@@ -238,6 +257,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetText(textEventHistory, string.Empty);
         SetEventHistoryVisible(false);
         SetDeleteConfirmationVisible(false);
+        SetRequirementMatchVisible(false);
         HideInputDialog();
         ForceBuildLayout();
     }
@@ -247,6 +267,7 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void Hide()
     {
+        SetRequirementMatchVisible(false);
         gameObject.SetActive(false);
 
         if (allJobPage == null)
@@ -318,6 +339,7 @@ public class Panel_JobDetail : MonoBehaviour
             + "\n公司資料會保留，之後仍可手動復原。");
         SetDeleteConfirmationVisible(true);
         SetEventHistoryVisible(false);
+        SetRequirementMatchVisible(false);
         if (panelStatusBtn != null)
         {
             panelStatusBtn.SetActive(false);
@@ -376,6 +398,11 @@ public class Panel_JobDetail : MonoBehaviour
         RefreshEventHistoryText();
         bool shouldShow = !panelEventHistory.activeSelf;
         SetEventHistoryVisible(shouldShow);
+        if (shouldShow)
+        {
+            SetRequirementMatchVisible(false);
+            SetDeleteConfirmationVisible(false);
+        }
         if (shouldShow && panelStatusBtn != null)
         {
             panelStatusBtn.SetActive(false);
@@ -388,6 +415,23 @@ public class Panel_JobDetail : MonoBehaviour
     public void CloseEventHistory()
     {
         SetEventHistoryVisible(false);
+    }
+
+    /// <summary>開啟阻擋背景操作的履歷條件比對視窗。</summary>
+    public void ShowRequirementMatch()
+    {
+        RefreshRequirementMatchText();
+        SetEventHistoryVisible(false);
+        SetDeleteConfirmationVisible(false);
+        if (panelStatusBtn != null) panelStatusBtn.SetActive(false);
+        HideInputDialog();
+        SetRequirementMatchVisible(true);
+    }
+
+    /// <summary>關閉履歷條件比對視窗。</summary>
+    public void CloseRequirementMatch()
+    {
+        SetRequirementMatchVisible(false);
     }
 
     private void ApplyV02Labels()
@@ -967,11 +1011,6 @@ public class Panel_JobDetail : MonoBehaviour
         AppendLine(builder, "是否逾期", IsCurrentTrackingExpired() ? "是" : "否");
         AppendLine(builder, "我的最愛", currentTracking != null && currentTracking.favorite ? "是" : "否");
         AppendLine(builder, "我的備註", currentTracking != null ? currentTracking.notes : string.Empty);
-        AppendLine(
-            builder,
-            "履歷條件比對",
-            JobRequirementMatchTextFormatter.Format(data.v027Match, data.v027Score));
-
         return builder.ToString().TrimEnd();
     }
 
@@ -1057,6 +1096,28 @@ public class Panel_JobDetail : MonoBehaviour
         }
     }
 
+    private void SetRequirementMatchVisible(bool value)
+    {
+        if (panelRequirementMatch == null)
+        {
+            return;
+        }
+
+        panelRequirementMatch.SetActive(value);
+        if (value)
+        {
+            panelRequirementMatch.transform.SetAsLastSibling();
+        }
+    }
+
+    private void RefreshRequirementMatchText()
+    {
+        SetText(textRequirementMatch, currentData == null
+            ? "目前沒有可比對的職缺資料。"
+            : JobRequirementMatchTextFormatter.Format(
+                currentData.v027Match, currentData.v027Score));
+    }
+
     /// <summary>
     /// 建立條列式區塊文字。
     /// </summary>
@@ -1108,6 +1169,202 @@ public class Panel_JobDetail : MonoBehaviour
         }
 
         return "原始職缺內容\n" + rawDescription.Trim();
+    }
+
+    /// <summary>
+    /// 舊版詳情 Prefab 沒有比對視窗，執行時建立一致的阻擋式 Modal，
+    /// 讓既有場景不需要重新手動綁定整組 UI。
+    /// </summary>
+    private void EnsureRequirementMatchUi()
+    {
+        if (buttonShowRequirementMatch != null && panelRequirementMatch != null
+            && textRequirementMatch != null && buttonCloseRequirementMatch != null)
+        {
+            return;
+        }
+
+        TMP_FontAsset font = theme != null ? theme.BodyFont : textCompanyTitle?.font;
+        Color primary = theme != null ? theme.Primary : new Color(0.49f, 0.27f, 0.31f, 1f);
+        Color primaryHover = theme != null ? theme.PrimaryHover : primary;
+        Color primaryPressed = theme != null ? theme.PrimaryPressed : primary;
+        Color surface = theme != null ? theme.Surface : Color.white;
+        Color surfaceMuted = theme != null
+            ? theme.SurfaceMuted : new Color(0.94f, 0.92f, 0.92f, 1f);
+        Color textPrimary = theme != null
+            ? theme.TextPrimary : new Color(0.18f, 0.18f, 0.18f, 1f);
+        Color textOnPrimary = theme != null ? theme.TextOnPrimary : Color.white;
+        Color overlayColor = theme != null ? theme.Overlay : new Color(0f, 0f, 0f, 0.68f);
+
+        if (buttonShowRequirementMatch == null)
+        {
+            GameObject buttonObject = CreateRuntimeUiObject(
+                "Button_ShowRequirementMatch_V027", transform, typeof(Image), typeof(Button));
+            RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
+            AnchorAtTopRight(buttonRect, new Vector2(-745f, -55f), new Vector2(110f, 40f));
+            Image buttonImage = buttonObject.GetComponent<Image>();
+            buttonImage.color = surface;
+            buttonShowRequirementMatch = buttonObject.GetComponent<Button>();
+            buttonShowRequirementMatch.targetGraphic = buttonImage;
+            SetButtonColors(buttonShowRequirementMatch, surface, surfaceMuted,
+                theme != null ? theme.Border : surfaceMuted);
+            TMP_Text label = CreateRuntimeText(buttonObject.transform, "Label", "履歷比對",
+                font, theme != null ? theme.SupportingTextSize : 20f,
+                textPrimary, TextAlignmentOptions.Center);
+            StretchRuntime(label.rectTransform, new Vector2(6f, 4f), new Vector2(-6f, -4f));
+        }
+
+        if (panelRequirementMatch == null)
+        {
+            Canvas rootCanvas = GetComponentInParent<Canvas>();
+            Transform modalParent = rootCanvas != null ? rootCanvas.transform : transform;
+            panelRequirementMatch = CreateRuntimeUiObject(
+                "Panel_RequirementMatch_V027", modalParent, typeof(Image));
+            RectTransform overlayRect = panelRequirementMatch.GetComponent<RectTransform>();
+            StretchRuntime(overlayRect, Vector2.zero, Vector2.zero);
+            Image overlay = panelRequirementMatch.GetComponent<Image>();
+            overlay.color = overlayColor;
+            overlay.raycastTarget = true;
+
+            GameObject card = CreateRuntimeUiObject(
+                "Card", panelRequirementMatch.transform, typeof(Image), typeof(Outline));
+            RectTransform cardRect = card.GetComponent<RectTransform>();
+            cardRect.anchorMin = new Vector2(0.5f, 0.5f);
+            cardRect.anchorMax = new Vector2(0.5f, 0.5f);
+            cardRect.pivot = new Vector2(0.5f, 0.5f);
+            cardRect.anchoredPosition = Vector2.zero;
+            cardRect.sizeDelta = new Vector2(1300f, 760f);
+            Image cardImage = card.GetComponent<Image>();
+            cardImage.color = surface;
+            cardImage.raycastTarget = true;
+            Outline cardOutline = card.GetComponent<Outline>();
+            cardOutline.effectColor = theme != null ? theme.Border : Color.gray;
+            cardOutline.effectDistance = new Vector2(1f, -1f);
+
+            TMP_Text title = CreateRuntimeText(card.transform, "Title", "履歷條件比對",
+                font, theme != null ? theme.ModalTitleSize : 36f,
+                textPrimary, TextAlignmentOptions.MidlineLeft);
+            title.fontStyle = FontStyles.Bold;
+            RectTransform titleRect = title.rectTransform;
+            titleRect.anchorMin = new Vector2(0f, 1f);
+            titleRect.anchorMax = new Vector2(1f, 1f);
+            titleRect.pivot = new Vector2(0.5f, 1f);
+            titleRect.anchoredPosition = new Vector2(0f, -18f);
+            titleRect.sizeDelta = new Vector2(-190f, 64f);
+
+            GameObject closeObject = CreateRuntimeUiObject(
+                "Button_CloseRequirementMatch_V027", card.transform,
+                typeof(Image), typeof(Button));
+            RectTransform closeRect = closeObject.GetComponent<RectTransform>();
+            AnchorAtTopRight(closeRect, new Vector2(-82f, -48f), new Vector2(120f, 52f));
+            Image closeImage = closeObject.GetComponent<Image>();
+            closeImage.color = primary;
+            buttonCloseRequirementMatch = closeObject.GetComponent<Button>();
+            buttonCloseRequirementMatch.targetGraphic = closeImage;
+            SetButtonColors(buttonCloseRequirementMatch, primary, primaryHover, primaryPressed);
+            TMP_Text closeLabel = CreateRuntimeText(closeObject.transform, "Label", "關閉",
+                font, theme != null ? theme.ButtonTextSize : 22f,
+                textOnPrimary, TextAlignmentOptions.Center);
+            StretchRuntime(closeLabel.rectTransform, new Vector2(8f, 4f), new Vector2(-8f, -4f));
+
+            GameObject viewportObject = CreateRuntimeUiObject(
+                "ScrollView", card.transform, typeof(Image), typeof(RectMask2D),
+                typeof(ScrollRect));
+            RectTransform viewport = viewportObject.GetComponent<RectTransform>();
+            StretchRuntime(viewport, new Vector2(30f, 30f), new Vector2(-30f, -100f));
+            viewportObject.GetComponent<Image>().color = surfaceMuted;
+
+            GameObject contentObject = CreateRuntimeUiObject(
+                "TMP_RequirementMatch_V027", viewportObject.transform,
+                typeof(TextMeshProUGUI), typeof(ContentSizeFitter));
+            RectTransform content = contentObject.GetComponent<RectTransform>();
+            content.anchorMin = new Vector2(0f, 1f);
+            content.anchorMax = new Vector2(1f, 1f);
+            content.pivot = new Vector2(0.5f, 1f);
+            content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = Vector2.zero;
+            textRequirementMatch = contentObject.GetComponent<TMP_Text>();
+            textRequirementMatch.text = "履歷比對目前無法使用。";
+            textRequirementMatch.font = font;
+            textRequirementMatch.fontSize = theme != null ? theme.BodySize : 22f;
+            textRequirementMatch.color = textPrimary;
+            textRequirementMatch.alignment = TextAlignmentOptions.TopLeft;
+            textRequirementMatch.enableWordWrapping = true;
+            textRequirementMatch.margin = new Vector4(22f, 18f, 22f, 18f);
+            ContentSizeFitter fitter = contentObject.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            ScrollRect scroll = viewportObject.GetComponent<ScrollRect>();
+            scroll.viewport = viewport;
+            scroll.content = content;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 40f;
+        }
+
+        panelRequirementMatch.transform.SetAsLastSibling();
+    }
+
+    private static GameObject CreateRuntimeUiObject(
+        string name, Transform parent, params Type[] componentTypes)
+    {
+        var gameObject = new GameObject(name, typeof(RectTransform));
+        gameObject.layer = parent.gameObject.layer;
+        gameObject.transform.SetParent(parent, false);
+        foreach (Type type in componentTypes)
+        {
+            if (gameObject.GetComponent(type) == null) gameObject.AddComponent(type);
+        }
+        return gameObject;
+    }
+
+    private static TMP_Text CreateRuntimeText(
+        Transform parent, string name, string value, TMP_FontAsset font,
+        float fontSize, Color color, TextAlignmentOptions alignment)
+    {
+        GameObject gameObject = CreateRuntimeUiObject(name, parent, typeof(TextMeshProUGUI));
+        TMP_Text text = gameObject.GetComponent<TMP_Text>();
+        text.text = value;
+        text.font = font;
+        text.fontSize = fontSize;
+        text.color = color;
+        text.alignment = alignment;
+        text.raycastTarget = false;
+        return text;
+    }
+
+    private static void AnchorAtTopRight(
+        RectTransform rect, Vector2 position, Vector2 size)
+    {
+        rect.anchorMin = Vector2.one;
+        rect.anchorMax = Vector2.one;
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = size;
+    }
+
+    private static void StretchRuntime(
+        RectTransform rect, Vector2 offsetMin, Vector2 offsetMax)
+    {
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.offsetMin = offsetMin;
+        rect.offsetMax = offsetMax;
+    }
+
+    private static void SetButtonColors(
+        Button button, Color normal, Color highlighted, Color pressed)
+    {
+        ColorBlock colors = button.colors;
+        colors.normalColor = normal;
+        colors.highlightedColor = highlighted;
+        colors.selectedColor = highlighted;
+        colors.pressedColor = pressed;
+        colors.colorMultiplier = 1f;
+        colors.fadeDuration = 0.12f;
+        button.colors = colors;
     }
 
     /// <summary>
@@ -1184,6 +1441,17 @@ public class Panel_JobDetail : MonoBehaviour
                 panelEventHistory = foundEventPanel.gameObject;
             }
         }
+        if (buttonShowRequirementMatch == null)
+            buttonShowRequirementMatch = FindChildButton("Button_ShowRequirementMatch_V027");
+        if (buttonCloseRequirementMatch == null)
+            buttonCloseRequirementMatch = FindChildButton("Button_CloseRequirementMatch_V027");
+        if (textRequirementMatch == null)
+            textRequirementMatch = FindChildText("TMP_RequirementMatch_V027");
+        if (panelRequirementMatch == null)
+        {
+            Transform foundMatchPanel = FindChildTransform("Panel_RequirementMatch_V027");
+            if (foundMatchPanel != null) panelRequirementMatch = foundMatchPanel.gameObject;
+        }
         if (layoutRoot == null) layoutRoot = transform as RectTransform;
         HideInputDialog();
     }
@@ -1219,6 +1487,8 @@ public class Panel_JobDetail : MonoBehaviour
         BindButton(buttonCancelDelete, CancelDeleteJobPosting);
         BindButton(buttonShowEventHistory, ToggleEventHistory);
         BindButton(buttonCloseEventHistory, CloseEventHistory);
+        BindButton(buttonShowRequirementMatch, ShowRequirementMatch);
+        BindButton(buttonCloseRequirementMatch, CloseRequirementMatch);
     }
 
     /// <summary>
@@ -1585,8 +1855,56 @@ public class Panel_JobDetail : MonoBehaviour
     {
         if (textStatus != null)
         {
-            textStatus.color = isExpired ? expiredStatusTextColor : normalStatusTextColor;
+            textStatus.color = isExpired
+                ? (theme != null ? theme.Danger : expiredStatusTextColor)
+                : (theme != null ? theme.Primary : normalStatusTextColor);
         }
+    }
+
+    /// <summary>
+    /// 將新版共用 Theme 套用到舊版職缺詳情文字，避免淺色內容面板仍使用白字。
+    /// </summary>
+    private void ApplyTheme()
+    {
+        if (theme == null)
+        {
+            return;
+        }
+
+        StyleDetailText(textCompanyTitle, theme.TextPrimary, FontStyles.Bold);
+        StyleDetailText(textStatus, theme.Primary, FontStyles.Bold);
+        StyleDetailText(textSalary, theme.TextPrimary, FontStyles.Normal);
+        StyleDetailText(textWorkPosition, theme.TextPrimary, FontStyles.Normal);
+        StyleDetailText(textWorkMode, theme.TextPrimary, FontStyles.Normal);
+        StyleDetailText(textExperience, theme.TextPrimary, FontStyles.Normal);
+        StyleDetailText(textEducationNeed, theme.TextPrimary, FontStyles.Normal);
+        StyleDetailText(textWorkContent, theme.TextPrimary, FontStyles.Normal);
+        StyleDetailText(textSkillHead, theme.TextPrimary, FontStyles.Bold);
+        StyleDetailText(textSkillTool, theme.TextPrimary, FontStyles.Normal);
+        StyleDetailText(textSkillTech, theme.TextPrimary, FontStyles.Normal);
+        StyleDetailText(textWelfare, theme.TextPrimary, FontStyles.Normal);
+        StyleDetailText(textRecruitmentProcess, theme.TextPrimary, FontStyles.Normal);
+        StyleDetailText(textOther, theme.TextPrimary, FontStyles.Normal);
+        StyleDetailText(textExpireDay, theme.TextSecondary, FontStyles.Normal);
+        StyleDetailText(textEventHistory, theme.TextPrimary, FontStyles.Normal);
+        StyleDetailText(textDeleteConfirmation, theme.TextPrimary, FontStyles.Normal);
+        StyleDetailText(textRequirementMatch, theme.TextPrimary, FontStyles.Normal);
+    }
+
+    private void StyleDetailText(TMP_Text text, Color color, FontStyles style)
+    {
+        if (text == null)
+        {
+            return;
+        }
+
+        if (theme.BodyFont != null)
+        {
+            text.font = theme.BodyFont;
+        }
+
+        text.color = color;
+        text.fontStyle = style;
     }
 
     /// <summary>
