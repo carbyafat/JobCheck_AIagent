@@ -20,6 +20,7 @@ namespace JobCheck.Domain
         public List<CareerProject> Projects { get; set; } = new List<CareerProject>();
         public List<CareerEducation> Educations { get; set; } = new List<CareerEducation>();
         public List<CareerLanguage> Languages { get; set; } = new List<CareerLanguage>();
+        public JobSearchPreferences JobPreferences { get; set; } = new JobSearchPreferences();
         public DateTimeOffset? CreatedAt { get; set; }
         public DateTimeOffset? UpdatedAt { get; set; }
     }
@@ -91,5 +92,48 @@ namespace JobCheck.Domain
         public string LanguageId { get; set; }
         public LanguageProficiency? Proficiency { get; set; }
         public List<string> Certifications { get; set; } = new List<string>();
+    }
+
+    public enum PreferenceImportance
+    {
+        Required,
+        Preferred,
+        Indifferent
+    }
+
+    public enum SalaryPeriod
+    {
+        Monthly,
+        Annual,
+        Hourly
+    }
+
+    /// <summary>使用者希望尋找的工作條件；與履歷能力及單筆職缺資料分開。</summary>
+    [Serializable]
+    public sealed class JobSearchPreferences
+    {
+        public List<string> TargetRoles { get; set; } = new List<string>();
+        public List<string> Industries { get; set; } = new List<string>();
+        public List<string> AcceptedRegions { get; set; } = new List<string>();
+        public List<string> EmploymentTypes { get; set; } = new List<string>();
+        public List<string> WorkModes { get; set; } = new List<string>();
+        public List<string> WorkSchedules { get; set; } = new List<string>();
+        public SalaryPeriod SalaryPeriod { get; set; } = SalaryPeriod.Monthly;
+        public int? MinimumSalary { get; set; }
+        public int? DesiredSalary { get; set; }
+        public int? MaximumCommuteMinutes { get; set; }
+        public string OvertimePreference { get; set; }
+        public string TravelPreference { get; set; }
+        public string RelocationPreference { get; set; }
+        public string Notes { get; set; }
+        public PreferenceImportance TargetImportance { get; set; }
+            = PreferenceImportance.Required;
+        public PreferenceImportance SalaryImportance { get; set; }
+            = PreferenceImportance.Required;
+        public PreferenceImportance ArrangementImportance { get; set; }
+            = PreferenceImportance.Preferred;
+        public PreferenceImportance ScheduleImportance { get; set; }
+            = PreferenceImportance.Preferred;
+        public DateTimeOffset? UpdatedAt { get; set; }
     }
 }

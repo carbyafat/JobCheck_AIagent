@@ -78,6 +78,7 @@ namespace JobCheck.Persistence
                     Proficiency = ParseOptionalEnum<LanguageProficiency>(item.proficiency),
                     Certifications = PersistenceListMapper.Copy(item.certifications)
                 }),
+                JobPreferences = ToPreferences(dto.job_preferences),
                 CreatedAt = context.ParseOptionalDateTime(dto.created_at, "created_at"),
                 UpdatedAt = context.ParseOptionalDateTime(dto.updated_at, "updated_at")
             };
@@ -156,11 +157,86 @@ namespace JobCheck.Persistence
                     proficiency = FormatOptionalEnum(item.Proficiency),
                     certifications = PersistenceListMapper.Copy(item.Certifications)
                 }),
+                job_preferences = ToPreferencesDto(profile.JobPreferences),
                 created_at = PersistenceDateTimeConverter.Format(profile.CreatedAt),
                 updated_at = PersistenceDateTimeConverter.Format(profile.UpdatedAt)
             };
 
             return context.CreateResult(dto);
+        }
+
+        private static JobSearchPreferences ToPreferences(JobSearchPreferencesDto dto)
+        {
+            if (dto == null) return new JobSearchPreferences();
+            return new JobSearchPreferences
+            {
+                TargetRoles = PersistenceListMapper.Copy(dto.target_roles),
+                Industries = PersistenceListMapper.Copy(dto.industries),
+                AcceptedRegions = PersistenceListMapper.Copy(dto.accepted_regions),
+                EmploymentTypes = PersistenceListMapper.Copy(dto.employment_types),
+                WorkModes = PersistenceListMapper.Copy(dto.work_modes),
+                WorkSchedules = PersistenceListMapper.Copy(dto.work_schedules),
+                SalaryPeriod = ParseEnumOrDefault(dto.salary_period, SalaryPeriod.Monthly),
+                MinimumSalary = dto.has_minimum_salary ? dto.minimum_salary : (int?)null,
+                DesiredSalary = dto.has_desired_salary ? dto.desired_salary : (int?)null,
+                MaximumCommuteMinutes = dto.has_maximum_commute_minutes
+                    ? dto.maximum_commute_minutes : (int?)null,
+                OvertimePreference = dto.overtime_preference,
+                TravelPreference = dto.travel_preference,
+                RelocationPreference = dto.relocation_preference,
+                Notes = dto.notes,
+                TargetImportance = ParseEnumOrDefault(
+                    dto.target_importance, PreferenceImportance.Required),
+                SalaryImportance = ParseEnumOrDefault(
+                    dto.salary_importance, PreferenceImportance.Required),
+                ArrangementImportance = ParseEnumOrDefault(
+                    dto.arrangement_importance, PreferenceImportance.Preferred),
+                ScheduleImportance = ParseEnumOrDefault(
+                    dto.schedule_importance, PreferenceImportance.Preferred),
+                UpdatedAt = ParseOptionalDateTime(dto.updated_at)
+            };
+        }
+
+        private static JobSearchPreferencesDto ToPreferencesDto(JobSearchPreferences value)
+        {
+            value = value ?? new JobSearchPreferences();
+            return new JobSearchPreferencesDto
+            {
+                target_roles = PersistenceListMapper.Copy(value.TargetRoles),
+                industries = PersistenceListMapper.Copy(value.Industries),
+                accepted_regions = PersistenceListMapper.Copy(value.AcceptedRegions),
+                employment_types = PersistenceListMapper.Copy(value.EmploymentTypes),
+                work_modes = PersistenceListMapper.Copy(value.WorkModes),
+                work_schedules = PersistenceListMapper.Copy(value.WorkSchedules),
+                salary_period = PersistenceEnumConverter.Format(value.SalaryPeriod),
+                has_minimum_salary = value.MinimumSalary.HasValue,
+                minimum_salary = value.MinimumSalary.GetValueOrDefault(),
+                has_desired_salary = value.DesiredSalary.HasValue,
+                desired_salary = value.DesiredSalary.GetValueOrDefault(),
+                has_maximum_commute_minutes = value.MaximumCommuteMinutes.HasValue,
+                maximum_commute_minutes = value.MaximumCommuteMinutes.GetValueOrDefault(),
+                overtime_preference = value.OvertimePreference,
+                travel_preference = value.TravelPreference,
+                relocation_preference = value.RelocationPreference,
+                notes = value.Notes,
+                target_importance = PersistenceEnumConverter.Format(value.TargetImportance),
+                salary_importance = PersistenceEnumConverter.Format(value.SalaryImportance),
+                arrangement_importance = PersistenceEnumConverter.Format(
+                    value.ArrangementImportance),
+                schedule_importance = PersistenceEnumConverter.Format(value.ScheduleImportance),
+                updated_at = PersistenceDateTimeConverter.Format(value.UpdatedAt)
+            };
+        }
+
+        private static System.DateTimeOffset? ParseOptionalDateTime(string value)
+        {
+            return System.DateTimeOffset.TryParse(
+                value,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind,
+                out System.DateTimeOffset parsed)
+                ? parsed
+                : (System.DateTimeOffset?)null;
         }
 
         private static List<TTarget> Map<TSource, TTarget>(

@@ -84,9 +84,11 @@ namespace JobCheck.Ui.Editor.Tests
             var home = new GameObject("Page_Home");
             var jobs = new GameObject("Page_Jobs");
             var resume = new GameObject("Page_Resume");
+            var preferences = new GameObject("Page_JobPreferences");
             home.transform.SetParent(host.transform);
             jobs.transform.SetParent(host.transform);
             resume.transform.SetParent(host.transform);
+            preferences.transform.SetParent(host.transform);
 
             try
             {
@@ -101,6 +103,7 @@ namespace JobCheck.Ui.Editor.Tests
                 data.FindProperty("pageHome").objectReferenceValue = home;
                 data.FindProperty("pageJobs").objectReferenceValue = jobs;
                 data.FindProperty("pageResume").objectReferenceValue = resume;
+                data.FindProperty("pageJobPreferences").objectReferenceValue = preferences;
                 data.ApplyModifiedPropertiesWithoutUndo();
 
                 Invoke(navigator, "ShowResume");
@@ -112,6 +115,12 @@ namespace JobCheck.Ui.Editor.Tests
                 Assert.That(home.activeSelf, Is.False);
                 Assert.That(jobs.activeSelf, Is.True);
                 Assert.That(resume.activeSelf, Is.False);
+
+                Invoke(navigator, "ShowJobPreferences");
+                Assert.That(home.activeSelf, Is.False);
+                Assert.That(jobs.activeSelf, Is.False);
+                Assert.That(resume.activeSelf, Is.False);
+                Assert.That(preferences.activeSelf, Is.True);
             }
             finally
             {
@@ -127,6 +136,8 @@ namespace JobCheck.Ui.Editor.Tests
                 Transform appShell = RequireChild(FindRoot(scene, "Canvas").transform, "AppShell");
                 MonoBehaviour presenter = FindComponent(appShell, "AppShellThemePresenter");
                 var data = new SerializedObject(presenter);
+                MonoBehaviour navigator = FindComponent(appShell, "AppPageNavigator");
+                var navigatorData = new SerializedObject(navigator);
 
                 Assert.That(data.FindProperty("theme").objectReferenceValue, Is.Not.Null);
                 Assert.That(data.FindProperty("appBackground").objectReferenceValue, Is.Not.Null);
@@ -136,12 +147,15 @@ namespace JobCheck.Ui.Editor.Tests
                 Assert.That(data.FindProperty("buttonHome").objectReferenceValue, Is.Not.Null);
                 Assert.That(data.FindProperty("buttonJobs").objectReferenceValue, Is.Not.Null);
                 Assert.That(data.FindProperty("buttonResume").objectReferenceValue, Is.Not.Null);
+                Assert.That(data.FindProperty("buttonJobPreferences").objectReferenceValue, Is.Not.Null);
+                Assert.That(navigatorData.FindProperty("pageJobPreferences").objectReferenceValue, Is.Not.Null);
+                Assert.That(navigatorData.FindProperty("buttonJobPreferences").objectReferenceValue, Is.Not.Null);
 
                 Transform sidebar = RequireChild(appShell, "Sidebar");
                 Assert.That(sidebar.Find("Text_PrototypeNote"), Is.Null);
                 Text version = RequireChild(sidebar, "Text_Version").GetComponent<Text>();
                 Assert.That(version, Is.Not.Null);
-                Assert.That(version.text, Is.EqualTo("v0.2.7"));
+                Assert.That(version.text, Is.EqualTo("v0.2.8"));
                 Assert.That(version.gameObject.activeSelf, Is.True);
                 Assert.That(RequireChild(sidebar, "Navigation_ActiveIndicator").GetComponent<Image>(),
                     Is.Not.Null);
@@ -152,6 +166,16 @@ namespace JobCheck.Ui.Editor.Tests
                     Does.StartWith("▤"));
                 Assert.That(RequireChild(RequireChild(sidebar, "Button_Resume"), "Text").GetComponent<Text>().text,
                     Does.StartWith("▣"));
+                Assert.That(RequireChild(RequireChild(sidebar, "Button_JobPreferences"), "Text").GetComponent<Text>().text,
+                    Does.StartWith("▣"));
+
+                Transform contentRoot = RequireChild(appShell, "ContentRoot");
+                Transform preferencesPage = RequireChild(contentRoot, "Page_JobPreferences");
+                Assert.That(preferencesPage.gameObject.activeSelf, Is.False);
+                Assert.That(FindDescendant(preferencesPage, "ScrollView"), Is.Not.Null);
+                Assert.That(FindDescendant(preferencesPage, "Section_Target"), Is.Not.Null);
+                Assert.That(FindDescendant(preferencesPage, "Tags_TargetRoles"), Is.Not.Null);
+                Assert.That(FindDescendant(preferencesPage, "Dropdown_Schedules"), Is.Not.Null);
             });
         }
 

@@ -127,5 +127,49 @@ namespace JobCheck.Persistence.Tests
             Assert.That(profile.Skills[0].ClaimedMonths, Is.Null);
             Assert.That(profile.Skills[0].SkillId, Is.Null);
         }
+
+        [Test]
+        public void JobSearchPreferences_RoundTripAndLegacyDefaults()
+        {
+            var profile = new CareerProfile
+            {
+                Id = "profile_preferences",
+                JobPreferences = new JobSearchPreferences
+                {
+                    TargetRoles = new List<string> { "後端工程師", "Unity 工程師" },
+                    Industries = new List<string> { "資訊軟體業" },
+                    AcceptedRegions = new List<string> { "台北市", "新北市" },
+                    WorkSchedules = new List<string> { "一般日班", "彈性工時" },
+                    MinimumSalary = 45000,
+                    DesiredSalary = 60000,
+                    MaximumCommuteMinutes = 45,
+                    TargetImportance = PreferenceImportance.Required,
+                    ScheduleImportance = PreferenceImportance.Preferred
+                }
+            };
+
+            CareerProfileDto dto = CareerProfileDtoMapper.ToDto(profile).Value;
+            CareerProfile mapped = CareerProfileDtoMapper.ToDomain(dto).Value;
+
+            CollectionAssert.AreEqual(
+                new[] { "後端工程師", "Unity 工程師" }, mapped.JobPreferences.TargetRoles);
+            CollectionAssert.AreEqual(
+                new[] { "台北市", "新北市" }, mapped.JobPreferences.AcceptedRegions);
+            CollectionAssert.AreEqual(
+                new[] { "一般日班", "彈性工時" }, mapped.JobPreferences.WorkSchedules);
+            Assert.That(mapped.JobPreferences.MinimumSalary, Is.EqualTo(45000));
+            Assert.That(mapped.JobPreferences.DesiredSalary, Is.EqualTo(60000));
+            Assert.That(mapped.JobPreferences.MaximumCommuteMinutes, Is.EqualTo(45));
+            Assert.That(mapped.JobPreferences.TargetImportance,
+                Is.EqualTo(PreferenceImportance.Required));
+
+            CareerProfile legacy = CareerProfileDtoMapper.ToDomain(new CareerProfileDto
+            {
+                id = "legacy_profile",
+                schema_version = CareerProfile.CurrentSchemaVersion
+            }).Value;
+            Assert.That(legacy.JobPreferences, Is.Not.Null);
+            Assert.That(legacy.JobPreferences.TargetRoles, Is.Empty);
+        }
     }
 }

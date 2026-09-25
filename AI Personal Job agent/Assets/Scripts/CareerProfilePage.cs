@@ -315,7 +315,8 @@ public sealed class CareerProfilePage : MonoBehaviour
                 ? current.Experiences : new List<CareerExperience>(experiences),
             Projects = projects == null ? current.Projects : new List<CareerProject>(projects),
             Educations = educations == null ? current.Educations : new List<CareerEducation>(educations),
-            Languages = languages == null ? current.Languages : new List<CareerLanguage>(languages)
+            Languages = languages == null ? current.Languages : new List<CareerLanguage>(languages),
+            JobPreferences = current.JobPreferences
         };
     }
 

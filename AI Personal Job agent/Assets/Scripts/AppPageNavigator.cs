@@ -10,18 +10,21 @@ public sealed class AppPageNavigator : MonoBehaviour
     {
         Home,
         Jobs,
-        Resume
+        Resume,
+        JobPreferences
     }
 
     [Header("Pages")]
     [SerializeField] private GameObject pageHome;
     [SerializeField] private GameObject pageJobs;
     [SerializeField] private GameObject pageResume;
+    [SerializeField] private GameObject pageJobPreferences;
 
     [Header("Navigation")]
     [SerializeField] private Button buttonHome;
     [SerializeField] private Button buttonJobs;
     [SerializeField] private Button buttonResume;
+    [SerializeField] private Button buttonJobPreferences;
 
     [Header("Startup")]
     [SerializeField] private AppPage initialPage = AppPage.Jobs;
@@ -36,6 +39,7 @@ public sealed class AppPageNavigator : MonoBehaviour
         BindButton(buttonHome, ShowHome);
         BindButton(buttonJobs, ShowJobs);
         BindButton(buttonResume, ShowResume);
+        BindButton(buttonJobPreferences, ShowJobPreferences);
         Show(initialPage);
     }
 
@@ -54,12 +58,18 @@ public sealed class AppPageNavigator : MonoBehaviour
         Show(AppPage.Resume);
     }
 
+    public void ShowJobPreferences()
+    {
+        Show(AppPage.JobPreferences);
+    }
+
     public void Show(AppPage page)
     {
         CurrentPage = page;
         SetPageActive(pageHome, page == AppPage.Home);
         SetPageActive(pageJobs, page == AppPage.Jobs);
         SetPageActive(pageResume, page == AppPage.Resume);
+        SetPageActive(pageJobPreferences, page == AppPage.JobPreferences);
 
         if (themePresenter == null)
         {
@@ -99,8 +109,11 @@ public sealed class AppPageNavigator : MonoBehaviour
                 return buttonHome;
             case AppPage.Resume:
                 return buttonResume;
+            case AppPage.JobPreferences:
+                return buttonJobPreferences;
             default:
                 return buttonJobs;
         }
     }
+
 }

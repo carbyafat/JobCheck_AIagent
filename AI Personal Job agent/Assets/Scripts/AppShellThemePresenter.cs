@@ -17,6 +17,7 @@ public sealed class AppShellThemePresenter : MonoBehaviour
     [SerializeField] private Button buttonHome;
     [SerializeField] private Button buttonJobs;
     [SerializeField] private Button buttonResume;
+    [SerializeField] private Button buttonJobPreferences;
 
     public JobCheckUiTheme Theme => theme;
 
@@ -42,6 +43,7 @@ public sealed class AppShellThemePresenter : MonoBehaviour
         StyleNavigationButton(buttonHome, buttonHome == activeButton, 0);
         StyleNavigationButton(buttonJobs, buttonJobs == activeButton, 1);
         StyleNavigationButton(buttonResume, buttonResume == activeButton, 2);
+        StyleNavigationButton(buttonJobPreferences, buttonJobPreferences == activeButton, 3);
         PositionActiveIndicator(activeButton);
     }
 
@@ -91,6 +93,8 @@ public sealed class AppShellThemePresenter : MonoBehaviour
                 return buttonJobs;
             case AppPageNavigator.AppPage.Resume:
                 return buttonResume;
+            case AppPageNavigator.AppPage.JobPreferences:
+                return buttonJobPreferences;
             default:
                 return buttonHome;
         }
@@ -149,7 +153,9 @@ public sealed class AppShellThemePresenter : MonoBehaviour
             return;
         }
 
-        int activeIndex = activeButton == buttonJobs ? 1 : activeButton == buttonResume ? 2 : 0;
+        int activeIndex = activeButton == buttonJobs ? 1
+            : activeButton == buttonResume ? 2
+            : activeButton == buttonJobPreferences ? 3 : 0;
         RectTransform rect = activeNavigationIndicator.rectTransform;
         rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, theme.ButtonHeight);
         Vector2 position = rect.anchoredPosition;
