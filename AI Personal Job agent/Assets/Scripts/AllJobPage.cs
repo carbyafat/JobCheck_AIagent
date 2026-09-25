@@ -73,6 +73,7 @@ public class AllJobPage : MonoBehaviour
     private JobFilterCondition currentFilter = new JobFilterCondition();
     private int currentPage;
     private JobCheckDataProfile currentDataProfile;
+    private Transform editFormOriginalParent;
 
     public JobCheckDataProfile CurrentDataProfile => currentDataProfile;
     public string CurrentDataProfileLabel =>
@@ -226,7 +227,7 @@ public class AllJobPage : MonoBehaviour
     }
 
     /// <summary>
-    /// 從詳細頁開啟既有職缺編輯表單。編輯完成或取消後回到重新載入的總覽頁。
+    /// 從詳細頁開啟既有職缺編輯表單。表單會覆蓋在原詳細頁上，完成或取消後回到同一職缺。
     /// </summary>
     public void ShowEditJobPosting(JobDetailData data)
     {
@@ -247,8 +248,53 @@ public class AllJobPage : MonoBehaviour
             return;
         }
 
-        gameObject.SetActive(true);
-        jobPostingCreatePanel.ShowForEdit(this, data);
+        PresentEditFormOverDetail();
+        string jobId = data.id;
+        jobPostingCreatePanel.ShowForEdit(
+            this,
+            data,
+            () => ReturnToEditedJobDetail(jobId));
+    }
+
+    private void PresentEditFormOverDetail()
+    {
+        if (jobPostingCreatePanel == null || editFormOriginalParent != null)
+        {
+            return;
+        }
+
+        Canvas canvas = jobDetailPanel != null
+            ? jobDetailPanel.GetComponentInParent<Canvas>()
+            : GetComponentInParent<Canvas>();
+        if (canvas == null)
+        {
+            return;
+        }
+
+        editFormOriginalParent = jobPostingCreatePanel.transform.parent;
+        jobPostingCreatePanel.transform.SetParent(canvas.transform, false);
+        jobPostingCreatePanel.transform.SetAsLastSibling();
+    }
+
+    private void ReturnToEditedJobDetail(string jobId)
+    {
+        if (jobPostingCreatePanel != null && editFormOriginalParent != null)
+        {
+            jobPostingCreatePanel.transform.SetParent(editFormOriginalParent, false);
+        }
+
+        editFormOriginalParent = null;
+        JobSummaryData job = loadedJobs.Find(item => item != null && item.id == jobId);
+        if (job == null || job.v02Detail == null || jobDetailPanel == null)
+        {
+            ShowAllJobPage();
+            return;
+        }
+
+        jobDetailPanel.SetAllJobPage(this);
+        jobDetailPanel.SetReadOnly(false);
+        jobDetailPanel.Show(job.v02Detail, job.v02Tracking);
+        gameObject.SetActive(false);
     }
 
     /// <summary>

@@ -303,7 +303,6 @@ public class Panel_JobDetail : MonoBehaviour
         }
 
         allJobPage.ShowEditJobPosting(currentData);
-        gameObject.SetActive(false);
     }
 
     /// <summary>
@@ -455,11 +454,12 @@ public class Panel_JobDetail : MonoBehaviour
             bool canDelete = allJobPage != null && allJobPage.CanDeleteJobPostings;
             SetButtonLabel(
                 buttonDeleteJobPosting,
-                canDelete ? "刪除職缺" : "Demo 不可刪除");
+                canDelete ? "刪除職缺" : "Demo不可刪除");
             SetButtonInteractable(buttonDeleteJobPosting, canDelete && !isReadOnly);
         }
 
         RefreshNoResponseButton();
+        RefreshAppliedButton();
     }
 
     /// <summary>
@@ -475,7 +475,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetButtonInteractable(buttonNotViewed, !value);
         SetButtonInteractable(buttonInterested, !value);
         SetButtonInteractable(buttonNotApplying, !value);
-        SetButtonInteractable(buttonApplied, !value);
+        RefreshAppliedButton();
         SetButtonInteractable(buttonWaitInterview, !value);
         SetButtonInteractable(buttonWithInterview, !value);
         SetButtonInteractable(buttonWaitingReply, !value);
@@ -538,6 +538,13 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     public void SetStatusApplied()
     {
+        if (!CanRecordApplied())
+        {
+            Debug.LogWarning("目前應徵尚未結案，不能再次投遞。請先記錄公司拒絕或本人放棄。", this);
+            CloseStatusPanel();
+            return;
+        }
+
         ChangeStatus("applied");
     }
 
@@ -875,6 +882,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetStatusButtonColor(buttonArchived, currentTracking != null && currentTracking.favorite);
         SetStatusButtonColor(buttonArchivedWaitOtherJobResult, currentStatus == "contacted");
         RefreshNoResponseButton();
+        RefreshAppliedButton();
     }
 
     private bool HasCurrentApplication()
@@ -892,6 +900,35 @@ public class Panel_JobDetail : MonoBehaviour
             hasApplication
                 ? "標記長期無回覆"
                 : "無回覆（先標記有興趣或已投遞）");
+    }
+
+    private void RefreshAppliedButton()
+    {
+        bool isReapplication = IsCurrentApplicationClosed();
+        SetButtonLabel(buttonApplied, isReapplication ? "再次投遞" : "已投遞");
+        SetButtonInteractable(buttonApplied, !isReadOnly && CanRecordApplied());
+    }
+
+    private bool CanRecordApplied()
+    {
+        if (isReadOnly)
+        {
+            return false;
+        }
+
+        if (!HasCurrentApplication())
+        {
+            return true;
+        }
+
+        string status = GetCurrentStatus();
+        return status == "interested" || IsCurrentApplicationClosed();
+    }
+
+    private bool IsCurrentApplicationClosed()
+    {
+        string status = GetCurrentStatus();
+        return status == "rejected" || status == "not_applying";
     }
 
     /// <summary>
@@ -1071,7 +1108,6 @@ public class Panel_JobDetail : MonoBehaviour
                 builder.AppendLine();
             }
 
-            builder.Append("• ");
             builder.Append(history.Trim());
         }
 
@@ -1194,24 +1230,6 @@ public class Panel_JobDetail : MonoBehaviour
             ? theme.TextPrimary : new Color(0.18f, 0.18f, 0.18f, 1f);
         Color textOnPrimary = theme != null ? theme.TextOnPrimary : Color.white;
         Color overlayColor = theme != null ? theme.Overlay : new Color(0f, 0f, 0f, 0.68f);
-
-        if (buttonShowRequirementMatch == null)
-        {
-            GameObject buttonObject = CreateRuntimeUiObject(
-                "Button_ShowRequirementMatch_V027", transform, typeof(Image), typeof(Button));
-            RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
-            AnchorAtTopRight(buttonRect, new Vector2(-745f, -55f), new Vector2(110f, 40f));
-            Image buttonImage = buttonObject.GetComponent<Image>();
-            buttonImage.color = surface;
-            buttonShowRequirementMatch = buttonObject.GetComponent<Button>();
-            buttonShowRequirementMatch.targetGraphic = buttonImage;
-            SetButtonColors(buttonShowRequirementMatch, surface, surfaceMuted,
-                theme != null ? theme.Border : surfaceMuted);
-            TMP_Text label = CreateRuntimeText(buttonObject.transform, "Label", "履歷比對",
-                font, theme != null ? theme.SupportingTextSize : 20f,
-                textPrimary, TextAlignmentOptions.Center);
-            StretchRuntime(label.rectTransform, new Vector2(6f, 4f), new Vector2(-6f, -4f));
-        }
 
         if (panelRequirementMatch == null)
         {
@@ -1866,6 +1884,7 @@ public class Panel_JobDetail : MonoBehaviour
     /// </summary>
     private void ApplyTheme()
     {
+        StyleStatusPanelBackground();
         if (theme == null)
         {
             return;
@@ -1889,6 +1908,24 @@ public class Panel_JobDetail : MonoBehaviour
         StyleDetailText(textEventHistory, theme.TextPrimary, FontStyles.Normal);
         StyleDetailText(textDeleteConfirmation, theme.TextPrimary, FontStyles.Normal);
         StyleDetailText(textRequirementMatch, theme.TextPrimary, FontStyles.Normal);
+    }
+
+    private void StyleStatusPanelBackground()
+    {
+        if (panelStatusBtn == null)
+        {
+            return;
+        }
+
+        Image background = panelStatusBtn.GetComponent<Image>();
+        if (background == null)
+        {
+            return;
+        }
+
+        Color color = theme != null ? theme.Surface : background.color;
+        color.a = 1f;
+        background.color = color;
     }
 
     private void StyleDetailText(TMP_Text text, Color color, FontStyles style)

@@ -18,7 +18,13 @@ namespace JobCheck.Persistence
             JobPosting jobPosting,
             Application currentApplication,
             DateTimeOffset? lastActivityAt)
-            : this(company, jobPosting, currentApplication, lastActivityAt, null)
+            : this(
+                company,
+                jobPosting,
+                currentApplication,
+                lastActivityAt,
+                currentApplication == null ? null : new[] { currentApplication },
+                null)
         {
         }
 
@@ -28,11 +34,32 @@ namespace JobCheck.Persistence
             Application currentApplication,
             DateTimeOffset? lastActivityAt,
             IEnumerable<ApplicationEvent> applicationEvents)
+            : this(
+                company,
+                jobPosting,
+                currentApplication,
+                lastActivityAt,
+                currentApplication == null ? null : new[] { currentApplication },
+                applicationEvents)
+        {
+        }
+
+        public JobPostingReadOnlyItem(
+            Company company,
+            JobPosting jobPosting,
+            Application currentApplication,
+            DateTimeOffset? lastActivityAt,
+            IEnumerable<Application> applications,
+            IEnumerable<ApplicationEvent> applicationEvents)
         {
             Company = company;
             JobPosting = jobPosting;
             CurrentApplication = currentApplication;
             LastActivityAt = lastActivityAt;
+            Applications = new ReadOnlyCollection<Application>(
+                applications == null
+                    ? Array.Empty<Application>()
+                    : applications.ToArray());
             ApplicationEvents = new ReadOnlyCollection<ApplicationEvent>(
                 applicationEvents == null
                     ? Array.Empty<ApplicationEvent>()
@@ -46,6 +73,7 @@ namespace JobCheck.Persistence
         public JobPosting JobPosting { get; }
         public Application CurrentApplication { get; }
         public DateTimeOffset? LastActivityAt { get; }
+        public IReadOnlyList<Application> Applications { get; }
         public IReadOnlyList<ApplicationEvent> ApplicationEvents { get; }
 
         /// <summary>
@@ -124,12 +152,12 @@ namespace JobCheck.Persistence
                 item => item,
                 StringComparer.Ordinal);
 
-            Dictionary<string, Application> currentApplications = load.Value.Applications
+            Dictionary<string, Application[]> applicationsByJob = load.Value.Applications
                 .Where(item => item.SourceType == SourceType.MyApplication)
                 .GroupBy(item => item.JobPostingId, StringComparer.Ordinal)
                 .ToDictionary(
                     group => group.Key,
-                    SelectLatestApplication,
+                    group => group.ToArray(),
                     StringComparer.Ordinal);
 
             var items = new List<JobPostingReadOnlyItem>();
@@ -138,18 +166,27 @@ namespace JobCheck.Persistence
                 StringComparer.Ordinal))
             {
                 companies.TryGetValue(jobPosting.CompanyId, out Company company);
-                currentApplications.TryGetValue(jobPosting.Id, out Application application);
-                ApplicationEvent[] events = application == null
+                applicationsByJob.TryGetValue(jobPosting.Id, out Application[] applications);
+                Application application = applications == null
+                    ? null
+                    : SelectLatestApplication(applications);
+                Application[] applicationHistory = OrderApplicationHistory(
+                    applications,
+                    application);
+                HashSet<string> applicationIds = new HashSet<string>(
+                    applicationHistory.Select(item => item.Id),
+                    StringComparer.Ordinal);
+                ApplicationEvent[] events = applicationIds.Count == 0
                     ? Array.Empty<ApplicationEvent>()
-                    : load.Value.ApplicationEvents.Where(item => string.Equals(
-                        item.ApplicationId,
-                        application.Id,
-                        StringComparison.Ordinal)).ToArray();
+                    : load.Value.ApplicationEvents
+                        .Where(item => applicationIds.Contains(item.ApplicationId))
+                        .ToArray();
                 items.Add(new JobPostingReadOnlyItem(
                     company,
                     jobPosting,
                     application,
                     FindLastActivityAt(load.Value, application),
+                    applicationHistory,
                     events));
             }
 
@@ -167,6 +204,47 @@ namespace JobCheck.Persistence
                 .OrderByDescending(item => item.UpdatedAt ?? item.CreatedAt ?? DateTimeOffset.MinValue)
                 .ThenByDescending(item => item.Id, StringComparer.Ordinal)
                 .First();
+        }
+
+        /// <summary>
+        /// 優先依 PreviousApplicationId 還原應徵輪次，讓事後補登日期不會顛倒第幾次應徵。
+        /// 無法連回目前應徵的孤立資料則以建立時間排在連結鏈之前，仍完整呈現供人工確認。
+        /// </summary>
+        private static Application[] OrderApplicationHistory(
+            IEnumerable<Application> applications,
+            Application currentApplication)
+        {
+            Application[] source = applications == null
+                ? Array.Empty<Application>()
+                : applications.Where(item => item != null).ToArray();
+            if (source.Length == 0 || currentApplication == null)
+            {
+                return source;
+            }
+
+            Dictionary<string, Application> byId = source
+                .Where(item => !string.IsNullOrWhiteSpace(item.Id))
+                .GroupBy(item => item.Id, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var linked = new List<Application>();
+            Application cursor = currentApplication;
+            while (cursor != null && seen.Add(cursor.Id))
+            {
+                linked.Add(cursor);
+                cursor = string.IsNullOrWhiteSpace(cursor.PreviousApplicationId)
+                    || !byId.TryGetValue(cursor.PreviousApplicationId, out Application previous)
+                        ? null
+                        : previous;
+            }
+
+            linked.Reverse();
+            Application[] unlinked = source
+                .Where(item => !seen.Contains(item.Id))
+                .OrderBy(item => item.CreatedAt ?? item.UpdatedAt ?? DateTimeOffset.MinValue)
+                .ThenBy(item => item.Id, StringComparer.Ordinal)
+                .ToArray();
+            return unlinked.Concat(linked).ToArray();
         }
 
         /// <summary>

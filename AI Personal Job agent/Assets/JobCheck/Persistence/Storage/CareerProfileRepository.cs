@@ -65,7 +65,7 @@ namespace JobCheck.Persistence
                         PersistenceStorageError.ConversionFailed,
                         path,
                         item.FieldPath,
-                        item.Error.ToString()));
+                        FormatConversionMessage(item)));
                 }
 
                 AddValidationIssues(conversion.Value, path, issues);
@@ -101,7 +101,7 @@ namespace JobCheck.Persistence
                     PersistenceStorageError.ConversionFailed,
                     path,
                     item.FieldPath,
-                    item.Error.ToString()));
+                    FormatConversionMessage(item)));
             }
 
             if (issues.Count > 0 || conversion.Value == null)
@@ -152,6 +152,13 @@ namespace JobCheck.Persistence
             string message)
         {
             return new PersistenceStorageIssue(error, path, field, message);
+        }
+
+        private static string FormatConversionMessage(PersistenceConversionIssue item)
+        {
+            return string.IsNullOrWhiteSpace(item.RawValue)
+                ? item.Error.ToString()
+                : item.Error + ": " + item.RawValue;
         }
 
         private static void WriteOrReplaceAtomically(string path, string json)

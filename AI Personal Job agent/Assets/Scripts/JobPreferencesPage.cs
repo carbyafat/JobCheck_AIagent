@@ -57,9 +57,12 @@ public sealed class JobPreferencesPage : MonoBehaviour
 
     private void OnEnable()
     {
-        if (!HasSerializedUi())
+        if (!HasSerializedUi(out string missingReferences))
         {
-            Debug.LogError("求職條件頁缺少場景 UI 引用；請確認 SampleScene 內的 Page_JobPreferences 已完整序列化。", this);
+            Debug.LogError(
+                "求職條件頁缺少場景 UI 引用；請確認 SampleScene 內的 Page_JobPreferences 已完整序列化：\n"
+                + missingReferences,
+                this);
             return;
         }
 
@@ -72,18 +75,62 @@ public sealed class JobPreferencesPage : MonoBehaviour
         if (UnityEngine.Application.isPlaying) LoadPreferences();
     }
 
-    private bool HasSerializedUi()
+    private bool HasSerializedUi(out string missingReferences)
     {
-        return scroll != null &&
-               statusText != null &&
-               saveButton != null &&
-               cancelButton != null &&
-               targetRoles != null &&
-               targetRoles.Root != null;
+        var missing = new List<string>();
+        RequireReference(scroll, nameof(scroll), missing);
+        RequireReference(statusText, nameof(statusText), missing);
+        RequireReference(saveButton, nameof(saveButton), missing);
+        RequireReference(cancelButton, nameof(cancelButton), missing);
+        RequireReference(minimumSalaryInput, nameof(minimumSalaryInput), missing);
+        RequireReference(desiredSalaryInput, nameof(desiredSalaryInput), missing);
+        RequireReference(notesInput, nameof(notesInput), missing);
+        RequireReference(salaryPeriodDropdown, nameof(salaryPeriodDropdown), missing);
+        RequireReference(commuteDropdown, nameof(commuteDropdown), missing);
+        RequireReference(overtimeDropdown, nameof(overtimeDropdown), missing);
+        RequireReference(travelDropdown, nameof(travelDropdown), missing);
+        RequireReference(relocationDropdown, nameof(relocationDropdown), missing);
+        RequireReference(targetImportanceDropdown, nameof(targetImportanceDropdown), missing);
+        RequireReference(salaryImportanceDropdown, nameof(salaryImportanceDropdown), missing);
+        RequireReference(arrangementImportanceDropdown, nameof(arrangementImportanceDropdown), missing);
+        RequireReference(scheduleImportanceDropdown, nameof(scheduleImportanceDropdown), missing);
+        ValidateTagEditor(targetRoles, nameof(targetRoles), missing);
+        ValidateTagEditor(industries, nameof(industries), missing);
+        ValidateTagEditor(regions, nameof(regions), missing);
+        ValidateTagEditor(employmentTypes, nameof(employmentTypes), missing);
+        ValidateTagEditor(workModes, nameof(workModes), missing);
+        ValidateTagEditor(schedules, nameof(schedules), missing);
+        missingReferences = string.Join("、", missing);
+        return missing.Count == 0;
+    }
+
+    private static void RequireReference(UnityEngine.Object value, string name, List<string> missing)
+    {
+        if (value == null) missing.Add(name);
+    }
+
+    private static void ValidateTagEditor(TagEditor editor, string name, List<string> missing)
+    {
+        if (editor == null)
+        {
+            missing.Add(name);
+            return;
+        }
+
+        if (editor.Root == null) missing.Add(name + ".Root");
+        if (editor.Count == null) missing.Add(name + ".Count");
+        if (editor.Limit <= 0) missing.Add(name + ".Limit");
+
+        bool hasManualInput = editor.Input != null || editor.AddButton != null;
+        if (editor.Input == null != (editor.AddButton == null))
+            missing.Add(name + ".Input 與 " + name + ".AddButton 必須成對設定");
+        if (!hasManualInput && editor.Dropdown == null)
+            missing.Add(name + " 至少需要 Input/AddButton 或 Dropdown");
     }
 
     private void AddInputTag(TagEditor editor)
     {
+        if (editor == null || editor.Input == null) return;
         string value = editor.Input.text.Trim();
         if (AddTag(editor, value)) editor.Input.text = string.Empty;
     }
@@ -161,6 +208,7 @@ public sealed class JobPreferencesPage : MonoBehaviour
 
     private void RenderTags(TagEditor editor)
     {
+        if (editor == null || editor.Root == null || editor.Count == null) return;
         foreach (Transform child in editor.Root.Cast<Transform>().ToArray())
             Destroy(child.gameObject);
         for (int index = 0; index < editor.Values.Count; index++)
@@ -329,7 +377,7 @@ public sealed class JobPreferencesPage : MonoBehaviour
             : TextSecondary;
     }
 
-    private static void SetTags(TagEditor editor, IEnumerable<string> values)
+    private void SetTags(TagEditor editor, IEnumerable<string> values)
     {
         editor.Values.Clear();
         editor.Values.AddRange((values ?? Enumerable.Empty<string>())
@@ -337,8 +385,7 @@ public sealed class JobPreferencesPage : MonoBehaviour
             .Select(value => value.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(editor.Limit));
-        JobPreferencesPage page = editor.Root.GetComponentInParent<JobPreferencesPage>();
-        page.RenderTags(editor);
+        RenderTags(editor);
     }
 
     private static string FormatNumber(int? value) => value.HasValue ? value.Value.ToString() : string.Empty;
@@ -420,66 +467,5 @@ public sealed class JobPreferencesPage : MonoBehaviour
         public int Limit;
         public string ExclusiveValue;
         public readonly List<string> Values = new List<string>();
-    }
-}
-
-/// <summary>依可用寬度自動換行的標籤布局，並將所需高度回報給外層 ScrollView。</summary>
-public sealed class PreferenceTagFlowLayout : LayoutGroup
-{
-    public RectOffset Padding { get => padding; set => padding = value; }
-    public float HorizontalSpacing { get; set; } = 8f;
-    public float VerticalSpacing { get; set; } = 8f;
-    public float RowHeight { get; set; } = 44f;
-
-    public override void CalculateLayoutInputHorizontal()
-    {
-        base.CalculateLayoutInputHorizontal();
-        SetLayoutInputForAxis(padding.horizontal, padding.horizontal, -1f, 0);
-    }
-
-    public override void CalculateLayoutInputVertical()
-    {
-        SetLayoutInputForAxis(CalculateRequiredHeight(), CalculateRequiredHeight(), -1f, 1);
-    }
-
-    public override void SetLayoutHorizontal() => Arrange();
-    public override void SetLayoutVertical() => Arrange();
-
-    private float CalculateRequiredHeight()
-    {
-        if (rectChildren.Count == 0) return 4f;
-        float available = Mathf.Max(1f, rectTransform.rect.width - padding.horizontal);
-        float used = 0f;
-        int rows = 1;
-        foreach (RectTransform child in rectChildren)
-        {
-            float width = Mathf.Min(available, LayoutUtility.GetPreferredWidth(child));
-            if (used > 0f && used + HorizontalSpacing + width > available)
-            {
-                rows++;
-                used = 0f;
-            }
-            used += (used > 0f ? HorizontalSpacing : 0f) + width;
-        }
-        return padding.vertical + rows * RowHeight + (rows - 1) * VerticalSpacing;
-    }
-
-    private void Arrange()
-    {
-        float available = Mathf.Max(1f, rectTransform.rect.width - padding.horizontal);
-        float x = padding.left;
-        float y = padding.top;
-        foreach (RectTransform child in rectChildren)
-        {
-            float width = Mathf.Min(available, LayoutUtility.GetPreferredWidth(child));
-            if (x > padding.left && x + width > padding.left + available)
-            {
-                x = padding.left;
-                y += RowHeight + VerticalSpacing;
-            }
-            SetChildAlongAxis(child, 0, x, width);
-            SetChildAlongAxis(child, 1, y, RowHeight);
-            x += width + HorizontalSpacing;
-        }
     }
 }

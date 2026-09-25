@@ -26,13 +26,14 @@ namespace JobCheck.Persistence
                     Label = item.label,
                     Url = item.url
                 }),
-                Skills = Map(dto.skills, item => new CareerSkill
+                Skills = Map(dto.skills, (item, index) => new CareerSkill
                 {
                     Id = item.id,
                     Name = item.name,
                     Notes = item.notes,
                     SkillId = item.skill_id,
-                    Level = ParseOptionalEnum<SkillLevel>(item.level),
+                    Level = context.ParseOptionalEnum<SkillLevel>(
+                        item.level, "skills[" + index + "].level"),
                     ClaimedMonths = item.has_claimed_months ? item.claimed_months : (int?)null
                 }),
                 Experiences = Map(dto.experiences, item => new CareerExperience
@@ -54,7 +55,7 @@ namespace JobCheck.Persistence
                     Technologies = PersistenceListMapper.Copy(item.technologies),
                     Url = item.url
                 }),
-                Educations = Map(dto.educations, item => new CareerEducation
+                Educations = Map(dto.educations, (item, index) => new CareerEducation
                 {
                     Id = item.id,
                     Institution = item.institution,
@@ -62,23 +63,27 @@ namespace JobCheck.Persistence
                     StartDate = item.start_date,
                     EndDate = item.end_date,
                     Notes = item.notes,
-                    DegreeLevel = ParseOptionalEnum<DegreeLevel>(item.degree_level),
+                    DegreeLevel = context.ParseOptionalEnum<DegreeLevel>(
+                        item.degree_level, "educations[" + index + "].degree_level"),
                     CompletionStatus = ParseEnumOrDefault(
+                        context,
                         item.completion_status,
+                        "educations[" + index + "].completion_status",
                         EducationCompletionStatus.Unknown),
                     FieldTags = PersistenceListMapper.Copy(item.field_tags)
                 }),
-                Languages = Map(dto.languages, item => new CareerLanguage
+                Languages = Map(dto.languages, (item, index) => new CareerLanguage
                 {
                     Id = item.id,
                     Name = item.name,
                     Level = item.level,
                     Notes = item.notes,
                     LanguageId = item.language_id,
-                    Proficiency = ParseOptionalEnum<LanguageProficiency>(item.proficiency),
+                    Proficiency = context.ParseOptionalEnum<LanguageProficiency>(
+                        item.proficiency, "languages[" + index + "].proficiency"),
                     Certifications = PersistenceListMapper.Copy(item.certifications)
                 }),
-                JobPreferences = ToPreferences(dto.job_preferences),
+                JobPreferences = ToPreferences(dto.job_preferences, context),
                 CreatedAt = context.ParseOptionalDateTime(dto.created_at, "created_at"),
                 UpdatedAt = context.ParseOptionalDateTime(dto.updated_at, "updated_at")
             };
@@ -165,7 +170,9 @@ namespace JobCheck.Persistence
             return context.CreateResult(dto);
         }
 
-        private static JobSearchPreferences ToPreferences(JobSearchPreferencesDto dto)
+        private static JobSearchPreferences ToPreferences(
+            JobSearchPreferencesDto dto,
+            PersistenceMappingContext context)
         {
             if (dto == null) return new JobSearchPreferences();
             return new JobSearchPreferences
@@ -176,7 +183,8 @@ namespace JobCheck.Persistence
                 EmploymentTypes = PersistenceListMapper.Copy(dto.employment_types),
                 WorkModes = PersistenceListMapper.Copy(dto.work_modes),
                 WorkSchedules = PersistenceListMapper.Copy(dto.work_schedules),
-                SalaryPeriod = ParseEnumOrDefault(dto.salary_period, SalaryPeriod.Monthly),
+                SalaryPeriod = ParseEnumOrDefault(
+                    context, dto.salary_period, "job_preferences.salary_period", SalaryPeriod.Monthly),
                 MinimumSalary = dto.has_minimum_salary ? dto.minimum_salary : (int?)null,
                 DesiredSalary = dto.has_desired_salary ? dto.desired_salary : (int?)null,
                 MaximumCommuteMinutes = dto.has_maximum_commute_minutes
@@ -186,14 +194,19 @@ namespace JobCheck.Persistence
                 RelocationPreference = dto.relocation_preference,
                 Notes = dto.notes,
                 TargetImportance = ParseEnumOrDefault(
-                    dto.target_importance, PreferenceImportance.Required),
+                    context, dto.target_importance, "job_preferences.target_importance",
+                    PreferenceImportance.Required),
                 SalaryImportance = ParseEnumOrDefault(
-                    dto.salary_importance, PreferenceImportance.Required),
+                    context, dto.salary_importance, "job_preferences.salary_importance",
+                    PreferenceImportance.Required),
                 ArrangementImportance = ParseEnumOrDefault(
-                    dto.arrangement_importance, PreferenceImportance.Preferred),
+                    context, dto.arrangement_importance, "job_preferences.arrangement_importance",
+                    PreferenceImportance.Preferred),
                 ScheduleImportance = ParseEnumOrDefault(
-                    dto.schedule_importance, PreferenceImportance.Preferred),
-                UpdatedAt = ParseOptionalDateTime(dto.updated_at)
+                    context, dto.schedule_importance, "job_preferences.schedule_importance",
+                    PreferenceImportance.Preferred),
+                UpdatedAt = context.ParseOptionalDateTime(
+                    dto.updated_at, "job_preferences.updated_at")
             };
         }
 
@@ -249,20 +262,31 @@ namespace JobCheck.Persistence
                 : source.Where(item => item != null).Select(map).ToList();
         }
 
-        private static TEnum? ParseOptionalEnum<TEnum>(string value)
-            where TEnum : struct
+        private static List<TTarget> Map<TSource, TTarget>(
+            IEnumerable<TSource> source,
+            System.Func<TSource, int, TTarget> map)
+            where TSource : class
         {
-            return PersistenceEnumConverter.TryParse(value, out TEnum parsed)
-                ? parsed
-                : (TEnum?)null;
+            return source == null
+                ? new List<TTarget>()
+                : source.Select((item, index) => new { item, index })
+                    .Where(entry => entry.item != null)
+                    .Select(entry => map(entry.item, entry.index))
+                    .ToList();
         }
 
-        private static TEnum ParseEnumOrDefault<TEnum>(string value, TEnum fallback)
+        private static TEnum ParseEnumOrDefault<TEnum>(
+            PersistenceMappingContext context,
+            string value,
+            string fieldPath,
+            TEnum fallback)
             where TEnum : struct
         {
-            return PersistenceEnumConverter.TryParse(value, out TEnum parsed)
-                ? parsed
-                : fallback;
+            // Older files may omit newly introduced fields.  Missing values retain the
+            // established fallback, but a present unrecognised value must fail the load.
+            return string.IsNullOrWhiteSpace(value)
+                ? fallback
+                : context.ParseRequiredEnum<TEnum>(value, fieldPath);
         }
 
         private static string FormatOptionalEnum<TEnum>(TEnum? value)

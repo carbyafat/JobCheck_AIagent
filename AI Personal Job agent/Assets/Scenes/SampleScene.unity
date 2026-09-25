@@ -2946,7 +2946,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 374818217}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 1903694064}
+  m_Script: {fileID: 11500000, guid: b4e2c51e9a75409d8f3a6b0c1d2e7f84, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Padding:
@@ -7585,7 +7585,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 818170637}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 1903694064}
+  m_Script: {fileID: 11500000, guid: b4e2c51e9a75409d8f3a6b0c1d2e7f84, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Padding:
@@ -10891,7 +10891,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 980870077}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 1903694064}
+  m_Script: {fileID: 11500000, guid: b4e2c51e9a75409d8f3a6b0c1d2e7f84, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Padding:
@@ -21862,7 +21862,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1881208124}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 1903694064}
+  m_Script: {fileID: 11500000, guid: b4e2c51e9a75409d8f3a6b0c1d2e7f84, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Padding:
@@ -22330,21 +22330,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1899432321}
   m_CullTransparentMesh: 1
---- !u!115 &1903694064
-MonoScript:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: 
-  serializedVersion: 7
-  m_DefaultReferences: {}
-  m_Icon: {fileID: 0}
-  m_Type: 0
-  m_ExecutionOrder: 0
-  m_ClassName: PreferenceTagFlowLayout
-  m_Namespace: 
-  m_AssemblyName: Assembly-CSharp
 --- !u!1 &1905230341
 GameObject:
   m_ObjectHideFlags: 0
@@ -24252,7 +24237,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 2073042894}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 1903694064}
+  m_Script: {fileID: 11500000, guid: b4e2c51e9a75409d8f3a6b0c1d2e7f84, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Padding:
@@ -24695,7 +24680,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 2085669326}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 1903694064}
+  m_Script: {fileID: 11500000, guid: b4e2c51e9a75409d8f3a6b0c1d2e7f84, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Padding:

@@ -61,6 +61,7 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
 
     private AllJobPage owner;
     private string editingJobPostingId;
+    private Action closeCallback;
     private readonly HashSet<string> existingUnknownTags =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> existingUnknownRiskFlags =
@@ -85,6 +86,7 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
     {
         owner = page;
         editingJobPostingId = null;
+        closeCallback = null;
         AutoBindReferences();
         SetupStructuredFields();
         BindButtons();
@@ -106,10 +108,11 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
     /// <summary>
     /// 以既有資料開啟編輯模式，並回填目前表單可維護的職缺欄位。
     /// </summary>
-    public void ShowForEdit(AllJobPage page, JobDetailData data)
+    public void ShowForEdit(AllJobPage page, JobDetailData data, Action onClosed = null)
     {
         owner = page;
         editingJobPostingId = data != null ? data.id : null;
+        closeCallback = onClosed;
         AutoBindReferences();
         SetupStructuredFields();
         BindButtons();
@@ -310,7 +313,7 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
             });
         if (result.IsSuccess)
         {
-            gameObject.SetActive(false);
+            CloseAndComplete();
             return;
         }
 
@@ -327,7 +330,15 @@ public sealed class Panel_JobPostingCreate : MonoBehaviour
     {
         ClearFields();
         SetMessage(string.Empty, false);
+        CloseAndComplete();
+    }
+
+    private void CloseAndComplete()
+    {
+        Action callback = closeCallback;
+        closeCallback = null;
         gameObject.SetActive(false);
+        callback?.Invoke();
     }
 
     private void AutoBindReferences()

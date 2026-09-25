@@ -303,40 +303,84 @@ public static class JobCheckV02DisplayAdapter
             fit_score = -1,
             notes = application?.Notes,
             is_archived = application != null && application.IsArchived,
-            event_history = BuildEventHistory(item.ApplicationEvents, application)
+            event_history = BuildEventHistory(
+                item.Applications,
+                item.ApplicationEvents,
+                application)
         };
     }
 
     private static List<string> BuildEventHistory(
+        IEnumerable<Domain.Application> applications,
         IEnumerable<Domain.ApplicationEvent> applicationEvents,
-        Domain.Application application)
+        Domain.Application currentApplication)
     {
         var result = new List<string>();
-        if (applicationEvents == null)
+        if (applications == null)
         {
             return result;
         }
 
-        foreach (Domain.ApplicationEvent item in applicationEvents
-            .OrderByDescending(value => value.OccurredAt ?? value.RecordedAt)
-            .ThenByDescending(value => value.Id, System.StringComparer.Ordinal))
+        Domain.Application[] applicationHistory = applications
+            .Where(item => item != null)
+            .ToArray();
+        Domain.ApplicationEvent[] events = applicationEvents == null
+            ? new Domain.ApplicationEvent[0]
+            : applicationEvents.Where(item => item != null).ToArray();
+        for (int index = applicationHistory.Length - 1; index >= 0; index--)
         {
-            string time = item.OccurredAt?.ToString("yyyy/MM/dd HH:mm") ?? "時間未知";
-            string scheduled = item.ScheduledFor.HasValue
-                ? "\n    面試時間：" + item.ScheduledFor.Value.ToString("yyyy/MM/dd HH:mm")
-                : string.Empty;
-            string notes = string.IsNullOrWhiteSpace(item.Notes)
-                ? string.Empty
-                : "\n    備註：" + item.Notes.Trim();
-            string closeReason = item.EventType == Domain.ApplicationEventType.ClosedByCandidate
-                ? FormatCloseReason(application)
-                : string.Empty;
-            result.Add(
-                time + "｜" + FormatEventType(item.EventType)
-                + "｜" + FormatActor(item.Actor)
-                + scheduled
-                + closeReason
-                + notes);
+            Domain.Application application = applicationHistory[index];
+            bool isCurrent = currentApplication != null
+                && string.Equals(
+                    application.Id,
+                    currentApplication.Id,
+                    System.StringComparison.Ordinal);
+            var group = new System.Text.StringBuilder();
+            group.Append("第 ");
+            group.Append(index + 1);
+            group.Append(" 次應徵");
+            if (isCurrent)
+            {
+                group.Append("（目前）");
+            }
+
+            Domain.ApplicationEvent[] ownedEvents = events
+                .Where(item => string.Equals(
+                    item.ApplicationId,
+                    application.Id,
+                    System.StringComparison.Ordinal))
+                .OrderByDescending(value => value.OccurredAt ?? value.RecordedAt)
+                .ThenByDescending(value => value.Id, System.StringComparer.Ordinal)
+                .ToArray();
+            if (ownedEvents.Length == 0)
+            {
+                group.Append("\n• 尚無事件紀錄");
+            }
+
+            foreach (Domain.ApplicationEvent item in ownedEvents)
+            {
+                string time = item.OccurredAt?.ToString("yyyy/MM/dd HH:mm") ?? "時間未知";
+                string scheduled = item.ScheduledFor.HasValue
+                    ? "\n    面試時間：" + item.ScheduledFor.Value.ToString("yyyy/MM/dd HH:mm")
+                    : string.Empty;
+                string notes = string.IsNullOrWhiteSpace(item.Notes)
+                    ? string.Empty
+                    : "\n    備註：" + item.Notes.Trim();
+                string closeReason = item.EventType == Domain.ApplicationEventType.ClosedByCandidate
+                    ? FormatCloseReason(application)
+                    : string.Empty;
+                group.Append("\n• ");
+                group.Append(time);
+                group.Append("｜");
+                group.Append(FormatEventType(item.EventType));
+                group.Append("｜");
+                group.Append(FormatActor(item.Actor));
+                group.Append(scheduled);
+                group.Append(closeReason);
+                group.Append(notes);
+            }
+
+            result.Add(group.ToString());
         }
 
         return result;

@@ -133,19 +133,63 @@ namespace JobCheck.Tests
         }
 
         [Test]
-        public void RecordApplied_AfterAlreadyApplied_CreatesLinkedReapplication()
+        public void RecordApplied_AfterAlreadyApplied_IsRejectedWithoutCreatingApplication()
         {
             Record(ApplicationEventType.Applied, EventActor.Candidate, FirstTime);
+
+            PersistenceStorageResult<ApplicationWriteSummary> result = Record(
+                ApplicationEventType.Applied,
+                EventActor.Candidate,
+                FirstTime.AddDays(1));
+
+            JobCheckDataSet data = Load();
+            Assert.IsFalse(result.IsSuccess);
+            Assert.AreEqual(1, data.Applications.Count);
+            Assert.AreEqual(1, data.ApplicationEvents.Count);
+        }
+
+        [Test]
+        public void RecordApplied_AfterRejected_CreatesLinkedReapplication()
+        {
+            Record(ApplicationEventType.Applied, EventActor.Candidate, FirstTime);
+            Record(
+                ApplicationEventType.RejectedByCompany,
+                EventActor.Company,
+                FirstTime.AddHours(1));
             string firstId = Load().Applications.Single().Id;
 
-            Record(ApplicationEventType.Applied, EventActor.Candidate, FirstTime.AddDays(1));
+            PersistenceStorageResult<ApplicationWriteSummary> result = Record(
+                ApplicationEventType.Applied,
+                EventActor.Candidate,
+                FirstTime.AddDays(1));
 
+            Assert.IsTrue(result.IsSuccess, FormatIssues(result));
             JobCheckDataSet data = Load();
             Assert.AreEqual(2, data.Applications.Count);
             Application newest = data.Applications.Single(item => item.Id != firstId);
             Assert.AreEqual(firstId, newest.PreviousApplicationId);
             Assert.AreEqual(ApplicationStage.Applied, newest.CurrentStage);
             Assert.AreEqual(FirstTime.AddDays(1), newest.CreatedAt);
+        }
+
+        [Test]
+        public void RecordApplied_ReapplicationBeforePreviousLastEvent_IsRejected()
+        {
+            Record(ApplicationEventType.Applied, EventActor.Candidate, FirstTime);
+            Record(
+                ApplicationEventType.RejectedByCompany,
+                EventActor.Company,
+                FirstTime.AddDays(1));
+
+            PersistenceStorageResult<ApplicationWriteSummary> result = Record(
+                ApplicationEventType.Applied,
+                EventActor.Candidate,
+                FirstTime.AddDays(-1));
+
+            Assert.IsFalse(result.IsSuccess);
+            JobCheckDataSet data = Load();
+            Assert.AreEqual(1, data.Applications.Count);
+            Assert.AreEqual(2, data.ApplicationEvents.Count);
         }
 
         [Test]
@@ -340,6 +384,30 @@ namespace JobCheck.Tests
 
             Assert.IsTrue(result.IsSuccess, FormatIssues(result));
             Assert.AreEqual(2, result.Value.Items.Single().ApplicationEvents.Count);
+        }
+
+        [Test]
+        public void ReadOnlyQuery_ReturnsAllLinkedApplicationRoundsWithoutDuplicatingJob()
+        {
+            Record(ApplicationEventType.Applied, EventActor.Candidate, FirstTime);
+            Record(
+                ApplicationEventType.RejectedByCompany,
+                EventActor.Company,
+                FirstTime.AddHours(1));
+            Record(ApplicationEventType.Applied, EventActor.Candidate, FirstTime.AddDays(1));
+
+            PersistenceStorageResult<JobPostingReadOnlyList> result =
+                JobPostingReadOnlyQuery.Load(root);
+
+            Assert.IsTrue(result.IsSuccess, FormatIssues(result));
+            JobPostingReadOnlyItem item = result.Value.Items.Single();
+            Assert.AreEqual(1, result.Value.Items.Count);
+            Assert.AreEqual(2, item.Applications.Count);
+            Assert.AreEqual(3, item.ApplicationEvents.Count);
+            Assert.AreEqual(
+                item.Applications[0].Id,
+                item.Applications[1].PreviousApplicationId);
+            Assert.AreEqual(item.Applications[1].Id, item.CurrentApplication.Id);
         }
 
         [Test]

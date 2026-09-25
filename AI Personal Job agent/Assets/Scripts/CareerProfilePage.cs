@@ -1627,7 +1627,68 @@ public sealed class CareerProfilePage : MonoBehaviour
     {
         return issues == null || issues.Count == 0
             ? "未知錯誤"
-            : string.Join("\n", issues.Select(item => item.Message));
+            : string.Join("\n", issues.Select(FormatIssue));
+    }
+
+    private static string FormatIssue(PersistenceStorageIssue issue)
+    {
+        if (issue != null && issue.Error == PersistenceStorageError.ConversionFailed)
+        {
+            string field = DisplayFieldName(issue.FieldPath);
+            string rawValue = ExtractRawValue(issue.Message);
+            return string.IsNullOrWhiteSpace(rawValue)
+                ? "欄位「" + field + "」含有不支援的資料；原始檔未變更。"
+                : "欄位「" + field + "」的值「" + rawValue
+                    + "」無法辨識；原始檔未變更。";
+        }
+
+        return issue == null ? "未知錯誤" : issue.Message;
+    }
+
+    private static string ExtractRawValue(string message)
+    {
+        const string separator = ": ";
+        int index = message == null ? -1 : message.IndexOf(separator, StringComparison.Ordinal);
+        return index < 0 ? null : message.Substring(index + separator.Length);
+    }
+
+    private static string DisplayFieldName(string fieldPath)
+    {
+        if (!string.IsNullOrWhiteSpace(fieldPath))
+        {
+            if (fieldPath.StartsWith("skills[", StringComparison.Ordinal)
+                && fieldPath.EndsWith(".level", StringComparison.Ordinal))
+            {
+                return "技能／熟練度";
+            }
+
+            if (fieldPath.StartsWith("educations[", StringComparison.Ordinal))
+            {
+                return fieldPath.EndsWith(".degree_level", StringComparison.Ordinal)
+                    ? "學歷／學位"
+                    : "學歷／就學狀態";
+            }
+
+            if (fieldPath.StartsWith("languages[", StringComparison.Ordinal)
+                && fieldPath.EndsWith(".proficiency", StringComparison.Ordinal))
+            {
+                return "語言能力／熟練度";
+            }
+        }
+
+        switch (fieldPath)
+        {
+            case "job_preferences.salary_period": return "求職條件／薪資週期";
+            case "job_preferences.target_importance": return "求職條件／目標職務重要性";
+            case "job_preferences.salary_importance": return "求職條件／薪資重要性";
+            case "job_preferences.arrangement_importance": return "求職條件／工作安排重要性";
+            case "job_preferences.schedule_importance": return "求職條件／工時重要性";
+            case "job_preferences.updated_at": return "求職條件／更新時間";
+            case "created_at": return "履歷／建立時間";
+            case "updated_at": return "履歷／更新時間";
+            default:
+                return string.IsNullOrWhiteSpace(fieldPath) ? "履歷資料" : fieldPath;
+        }
     }
 
     private void RenderProfile(CareerProfile profile)
@@ -1710,6 +1771,13 @@ public sealed class CareerProfilePage : MonoBehaviour
 
     private void PrepareGlyphs(CareerProfile profile)
     {
+        // Avoid persisting Play Mode glyph-atlas changes back into the shared TMP
+        // font asset. A standalone player can safely populate them in memory.
+        if (UnityEngine.Application.isEditor)
+        {
+            return;
+        }
+
         TMP_FontAsset font = ResolveFontAsset();
         if (font == null)
         {

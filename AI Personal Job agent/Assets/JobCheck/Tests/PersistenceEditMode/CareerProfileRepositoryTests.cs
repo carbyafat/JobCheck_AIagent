@@ -75,6 +75,38 @@ namespace JobCheck.Persistence.Tests
         }
 
         [Test]
+        public void Load_UnknownPreferenceEnum_FailsWithoutChangingContent()
+        {
+            string root = NewRoot();
+            string path = CareerProfileRepository.GetProfilePath(root);
+            try
+            {
+                Assert.That(CareerProfileRepository.Save(root, CompleteProfile()).IsSuccess, Is.True);
+                string original = File.ReadAllText(path);
+                string corrupted = original.Replace(
+                    "\"salary_period\": \"monthly\"",
+                    "\"salary_period\": \"every-fortnight\"");
+                Assert.That(corrupted, Is.Not.EqualTo(original), "測試資料未找到薪資週期欄位。");
+                File.WriteAllText(path, corrupted);
+
+                PersistenceStorageResult<CareerProfile> result =
+                    CareerProfileRepository.Load(root);
+
+                Assert.That(result.IsSuccess, Is.False);
+                Assert.That(result.Value, Is.Null);
+                Assert.That(result.Issues.Any(item =>
+                    item.Error == PersistenceStorageError.ConversionFailed
+                    && item.FieldPath == "job_preferences.salary_period"
+                    && item.Message.Contains("every-fortnight")), Is.True, Issues(result));
+                Assert.That(File.ReadAllText(path), Is.EqualTo(corrupted));
+            }
+            finally
+            {
+                Delete(root);
+            }
+        }
+
+        [Test]
         public void Save_InvalidProfile_DoesNotCreateFile()
         {
             string root = NewRoot();

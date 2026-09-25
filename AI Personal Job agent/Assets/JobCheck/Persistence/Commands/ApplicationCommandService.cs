@@ -12,8 +12,8 @@ namespace JobCheck.Persistence
     public static class ApplicationCommandService
     {
         /// <summary>
-        /// 記錄一筆流程事件。同一職缺在既有應徵已投遞後再次記錄 Applied，會建立新 Application，
-        /// 並以 PreviousApplicationId 只連結最近一次應徵。
+        /// 記錄一筆流程事件。同一職缺只有在既有應徵已結案後再次記錄 Applied，才會建立新 Application，
+        /// 並以 PreviousApplicationId 只連結最近一次應徵；進行中的應徵不可重複投遞。
         /// </summary>
         public static PersistenceStorageResult<ApplicationWriteSummary> RecordEvent(
             string dataRoot,
@@ -49,9 +49,32 @@ namespace JobCheck.Persistence
             DateTimeOffset recordedAt = DateTimeOffset.Now;
             DateTimeOffset eventOccurredAt = occurredAt ?? recordedAt;
             Application latest = FindLatestApplication(load.Value, jobPostingId);
-            bool startsReapplication = eventType == ApplicationEventType.Applied
-                && latest != null
-                && latest.CurrentStage != ApplicationStage.Saved;
+            bool recordsAppliedForExisting = eventType == ApplicationEventType.Applied
+                && latest != null;
+            bool startsReapplication = recordsAppliedForExisting
+                && IsTerminal(latest.CurrentStage);
+            if (recordsAppliedForExisting
+                && latest.CurrentStage != ApplicationStage.Saved
+                && !startsReapplication)
+            {
+                return Failure(
+                    latest.Id,
+                    "current_stage",
+                    "目前應徵尚未結案，不能再次投遞。請先記錄公司拒絕或本人放棄。");
+            }
+
+            DateTimeOffset? previousLastActivityAt = startsReapplication
+                ? FindLastActivityAt(load.Value, latest)
+                : null;
+            if (previousLastActivityAt.HasValue
+                && eventOccurredAt.Date < previousLastActivityAt.Value.Date)
+            {
+                return Failure(
+                    latest.Id,
+                    "occurred_at",
+                    "再次投遞日期不可早於上一輪應徵的最後事件日期。");
+            }
+
             Application application = latest;
             var events = new List<ApplicationEvent>();
 
@@ -266,6 +289,30 @@ namespace JobCheck.Persistence
                 .OrderByDescending(item => item.UpdatedAt ?? item.CreatedAt ?? DateTimeOffset.MinValue)
                 .ThenByDescending(item => item.Id, StringComparer.Ordinal)
                 .FirstOrDefault();
+        }
+
+        private static DateTimeOffset? FindLastActivityAt(
+            JobCheckDataSet dataSet,
+            Application application)
+        {
+            if (application == null)
+            {
+                return null;
+            }
+
+            ApplicationEvent latestEvent = dataSet.ApplicationEvents
+                .Where(item => string.Equals(
+                    item.ApplicationId,
+                    application.Id,
+                    StringComparison.Ordinal))
+                .OrderByDescending(item => item.OccurredAt ?? item.RecordedAt)
+                .ThenByDescending(item => item.Id, StringComparer.Ordinal)
+                .FirstOrDefault();
+
+            return latestEvent?.OccurredAt
+                ?? latestEvent?.RecordedAt
+                ?? application.UpdatedAt
+                ?? application.CreatedAt;
         }
 
         private static bool IsTerminal(ApplicationStage stage)

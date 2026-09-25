@@ -520,6 +520,14 @@ public sealed class HomeDashboardPage : MonoBehaviour
 
     private void PrepareGlyphs(TMP_FontAsset font)
     {
+        // Dynamic TMP font assets are serialized by the Editor after their atlas changes.
+        // Do not let Play Mode mutate the project asset; standalone builds may still
+        // populate missing glyphs in memory for the current run.
+        if (UnityEngine.Application.isEditor)
+        {
+            return;
+        }
+
         const string characters =
             "求職總覽資料區個人更新於職缺總數進行中應徵待檢視長期未回覆目前狀態需要留意履歷快速操作新增查看分析編輯尚未建立完成區塊最後讀取失敗未知錯誤筆輪開始整理進度已收錄納入統計其中仍在沒有特別處理標記顯示項目已標記年月日時分";
         if (!font.TryAddCharacters(characters, out string missing)
