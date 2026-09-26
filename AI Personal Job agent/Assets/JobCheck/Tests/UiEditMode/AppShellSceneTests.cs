@@ -323,6 +323,118 @@ namespace JobCheck.Ui.Editor.Tests
         }
 
         [Test]
+        public void JobDetailPrefab_SerializesBidirectionalMatchUiBeforePlayMode()
+        {
+            GameObject detailAsset = AssetDatabase.LoadAssetAtPath<GameObject>(JobDetailPrefabPath);
+            Assert.That(detailAsset, Is.Not.Null);
+
+            MonoBehaviour controller = FindComponent(detailAsset.transform, "Panel_JobDetail");
+            Transform matchButton = FindDescendant(detailAsset.transform,
+                "Button_ShowRequirementMatch_V027");
+            Transform matchPanel = FindDescendant(detailAsset.transform,
+                "Panel_RequirementMatch_V027");
+            Transform resultText = FindDescendant(detailAsset.transform,
+                "TMP_RequirementMatch_V027");
+            Transform closeButton = FindDescendant(detailAsset.transform,
+                "Button_CloseRequirementMatch_V027");
+            Transform calculationButton = FindDescendant(detailAsset.transform,
+                "Button_ShowMatchCalculation_V028");
+            Transform calculationPanel = FindDescendant(detailAsset.transform,
+                "Panel_MatchCalculation_V028");
+            Transform calculationText = FindDescendant(detailAsset.transform,
+                "TMP_MatchCalculation_V028");
+            Transform calculationCloseButton = FindDescendant(detailAsset.transform,
+                "Button_CloseMatchCalculation_V028");
+
+            Assert.That(matchButton, Is.Not.Null,
+                "比對按鈕必須在 Play Mode 前就序列化於 Prefab。");
+            Assert.That(matchPanel, Is.Not.Null,
+                "比對視窗必須在 Play Mode 前就序列化於 Prefab。");
+            Assert.That(resultText, Is.Not.Null);
+            Assert.That(closeButton, Is.Not.Null);
+            Assert.That(calculationButton, Is.Not.Null,
+                "計算過程按鈕必須在 Play Mode 前就序列化於 Prefab。");
+            Assert.That(calculationPanel, Is.Not.Null,
+                "計算過程面板必須在 Play Mode 前就序列化於 Prefab。");
+            Assert.That(calculationText, Is.Not.Null);
+            Assert.That(calculationCloseButton, Is.Not.Null);
+
+            var references = new SerializedObject(controller);
+            Assert.That(references.FindProperty("buttonShowRequirementMatch")
+                .objectReferenceValue, Is.Not.Null);
+            Assert.That(references.FindProperty("panelRequirementMatch")
+                .objectReferenceValue, Is.Not.Null);
+            Assert.That(references.FindProperty("textRequirementMatch")
+                .objectReferenceValue, Is.Not.Null);
+            Assert.That(references.FindProperty("buttonCloseRequirementMatch")
+                .objectReferenceValue, Is.Not.Null);
+            Assert.That(references.FindProperty("buttonShowMatchCalculation")
+                .objectReferenceValue, Is.Not.Null);
+            Assert.That(references.FindProperty("panelMatchCalculation")
+                .objectReferenceValue, Is.Not.Null);
+            Assert.That(references.FindProperty("textMatchCalculation")
+                .objectReferenceValue, Is.Not.Null);
+            Assert.That(references.FindProperty("buttonCloseMatchCalculation")
+                .objectReferenceValue, Is.Not.Null);
+
+            Image blocker = matchPanel.GetComponent<Image>();
+            Assert.That(blocker, Is.Not.Null);
+            Assert.That(blocker.raycastTarget, Is.True,
+                "比對視窗遮罩必須攔截背景點擊。");
+            Assert.That(FindDescendant(matchPanel, "ScrollView")
+                .GetComponent<ScrollRect>(), Is.Not.Null);
+            Assert.That(matchPanel.gameObject.activeSelf, Is.False);
+            Assert.That(calculationPanel.gameObject.activeSelf, Is.False);
+            Assert.That(calculationPanel.GetComponent<Image>().raycastTarget, Is.True,
+                "計算過程遮罩必須攔截雙向比對視窗的點擊。");
+            Assert.That(matchPanel.GetSiblingIndex(),
+                Is.EqualTo(matchPanel.parent.childCount - 1),
+                "比對視窗必須序列化於最上層。");
+
+            GameObject instance = UnityEngine.Object.Instantiate(detailAsset);
+            try
+            {
+                MonoBehaviour instanceController = FindComponent(instance.transform,
+                    "Panel_JobDetail");
+                Invoke(instanceController, "AutoBindReferences");
+                Invoke(instanceController, "BindButtons");
+
+                Transform instancePanel = FindDescendant(instance.transform,
+                    "Panel_RequirementMatch_V027");
+                FindDescendant(instance.transform, "Button_ShowRequirementMatch_V027")
+                    .GetComponent<Button>().onClick.Invoke();
+                Assert.That(instancePanel.gameObject.activeSelf, Is.True);
+                Assert.That(instancePanel.GetSiblingIndex(),
+                    Is.EqualTo(instancePanel.parent.childCount - 1));
+
+                Transform instanceCalculationPanel = FindDescendant(instance.transform,
+                    "Panel_MatchCalculation_V028");
+                FindDescendant(instance.transform, "Button_ShowMatchCalculation_V028")
+                    .GetComponent<Button>().onClick.Invoke();
+                Assert.That(instanceCalculationPanel.gameObject.activeSelf, Is.True);
+                Assert.That(instanceCalculationPanel.GetSiblingIndex(),
+                    Is.EqualTo(instanceCalculationPanel.parent.childCount - 1),
+                    "計算過程面板開啟後必須位於雙向比對視窗上方。");
+
+                FindDescendant(instance.transform, "Button_CloseMatchCalculation_V028")
+                    .GetComponent<Button>().onClick.Invoke();
+                Assert.That(instanceCalculationPanel.gameObject.activeSelf, Is.False,
+                    "計算過程的關閉按鈕應只關閉第二層面板。");
+                Assert.That(instancePanel.gameObject.activeSelf, Is.True,
+                    "關閉計算過程後應回到雙向比對視窗。");
+
+                FindDescendant(instance.transform, "Button_CloseRequirementMatch_V027")
+                    .GetComponent<Button>().onClick.Invoke();
+                Assert.That(instancePanel.gameObject.activeSelf, Is.False,
+                    "關閉按鈕應關閉比對視窗。");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
+        [Test]
         public void JobsPageAndCards_HaveBoundThemeAssets()
         {
             GameObject page = AssetDatabase.LoadAssetAtPath<GameObject>(AllJobsPrefabPath);
@@ -356,6 +468,29 @@ namespace JobCheck.Ui.Editor.Tests
             {
                 MonoBehaviour detailController = FindComponent(detailInstance.transform,
                     "Panel_JobDetail");
+                Transform matchButton = FindDescendant(detailInstance.transform,
+                    "Button_ShowRequirementMatch_V027");
+                Transform matchPanel = FindDescendant(detailInstance.transform,
+                    "Panel_RequirementMatch_V027");
+                Transform closeButton = FindDescendant(detailInstance.transform,
+                    "Button_CloseRequirementMatch_V027");
+                Assert.That(matchButton, Is.Not.Null,
+                    "比對按鈕必須在 Play Mode 前就序列化於 Prefab。");
+                Assert.That(matchPanel, Is.Not.Null,
+                    "比對視窗必須在 Play Mode 前就序列化於 Prefab。");
+                Assert.That(closeButton, Is.Not.Null,
+                    "關閉按鈕必須在 Play Mode 前就序列化於 Prefab。");
+
+                var detailReferences = new SerializedObject(detailController);
+                Assert.That(detailReferences.FindProperty("buttonShowRequirementMatch")
+                    .objectReferenceValue, Is.Not.Null);
+                Assert.That(detailReferences.FindProperty("panelRequirementMatch")
+                    .objectReferenceValue, Is.Not.Null);
+                Assert.That(detailReferences.FindProperty("textRequirementMatch")
+                    .objectReferenceValue, Is.Not.Null);
+                Assert.That(detailReferences.FindProperty("buttonCloseRequirementMatch")
+                    .objectReferenceValue, Is.Not.Null);
+
                 Invoke(detailController, "ApplyTheme");
                 Color textPrimary = new SerializedObject(detailTheme)
                     .FindProperty("textPrimary").colorValue;
@@ -373,15 +508,6 @@ namespace JobCheck.Ui.Editor.Tests
                     Assert.That(text.color, Is.EqualTo(textPrimary), name);
                 }
 
-                Transform matchButton = FindDescendant(detailInstance.transform,
-                    "Button_ShowRequirementMatch_V027");
-                Transform matchPanel = FindDescendant(detailInstance.transform,
-                    "Panel_RequirementMatch_V027");
-                Transform closeButton = FindDescendant(detailInstance.transform,
-                    "Button_CloseRequirementMatch_V027");
-                Assert.That(matchButton, Is.Not.Null);
-                Assert.That(matchPanel, Is.Not.Null);
-                Assert.That(closeButton, Is.Not.Null);
                 Assert.That(FindDescendant(matchPanel, "TMP_RequirementMatch_V027"), Is.Not.Null);
                 Assert.That(FindDescendant(matchPanel, "ScrollView")
                     .GetComponent<ScrollRect>(), Is.Not.Null);
@@ -1160,7 +1286,9 @@ namespace JobCheck.Ui.Editor.Tests
 
         private static void Invoke(MonoBehaviour target, string methodName, params object[] arguments)
         {
-            MethodInfo method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.Public);
+            MethodInfo method = target.GetType().GetMethod(
+                methodName,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null, "Missing method: " + methodName);
             method.Invoke(target, arguments);
         }

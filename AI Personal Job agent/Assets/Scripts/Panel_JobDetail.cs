@@ -62,15 +62,23 @@ public class Panel_JobDetail : MonoBehaviour
     [Tooltip("關閉事件歷程面板。")]
     [SerializeField] private Button buttonCloseEventHistory;
 
-    [Header("Resume Requirement Match")]
-    [Tooltip("開啟履歷條件比對視窗。")]
+    [Header("Bidirectional Match")]
+    [Tooltip("開啟履歷與求職條件雙向比對視窗。")]
     [SerializeField] private Button buttonShowRequirementMatch;
-    [Tooltip("阻擋背景操作的履歷條件比對視窗。")]
+    [Tooltip("阻擋背景操作的雙向比對視窗。")]
     [SerializeField] private GameObject panelRequirementMatch;
-    [Tooltip("履歷條件比對結果。")]
+    [Tooltip("履歷與求職條件雙向比對結果。")]
     [SerializeField] private TMP_Text textRequirementMatch;
     [Tooltip("關閉履歷條件比對視窗。")]
     [SerializeField] private Button buttonCloseRequirementMatch;
+    [Tooltip("開啟雙向比對的公式與實際計算過程。")]
+    [SerializeField] private Button buttonShowMatchCalculation;
+    [Tooltip("阻擋雙向比對視窗的計算過程面板。")]
+    [SerializeField] private GameObject panelMatchCalculation;
+    [Tooltip("雙向比對的權重、項目得分與總分算式。")]
+    [SerializeField] private TMP_Text textMatchCalculation;
+    [Tooltip("關閉計算過程面板。")]
+    [SerializeField] private Button buttonCloseMatchCalculation;
 
     [Header("Status Panel")]
     [Tooltip("開關狀態按鈕面板的按鈕。")]
@@ -416,10 +424,11 @@ public class Panel_JobDetail : MonoBehaviour
         SetEventHistoryVisible(false);
     }
 
-    /// <summary>開啟阻擋背景操作的履歷條件比對視窗。</summary>
+    /// <summary>開啟阻擋背景操作的雙向比對視窗。</summary>
     public void ShowRequirementMatch()
     {
         RefreshRequirementMatchText();
+        SetMatchCalculationVisible(false);
         SetEventHistoryVisible(false);
         SetDeleteConfirmationVisible(false);
         if (panelStatusBtn != null) panelStatusBtn.SetActive(false);
@@ -427,10 +436,23 @@ public class Panel_JobDetail : MonoBehaviour
         SetRequirementMatchVisible(true);
     }
 
-    /// <summary>關閉履歷條件比對視窗。</summary>
+    /// <summary>關閉雙向比對視窗。</summary>
     public void CloseRequirementMatch()
     {
         SetRequirementMatchVisible(false);
+    }
+
+    /// <summary>開啟阻擋雙向比對視窗的計算過程面板。</summary>
+    public void ShowMatchCalculation()
+    {
+        RefreshMatchCalculationText();
+        SetMatchCalculationVisible(true);
+    }
+
+    /// <summary>關閉計算過程面板，回到雙向比對視窗。</summary>
+    public void CloseMatchCalculation()
+    {
+        SetMatchCalculationVisible(false);
     }
 
     private void ApplyV02Labels()
@@ -1134,6 +1156,11 @@ public class Panel_JobDetail : MonoBehaviour
 
     private void SetRequirementMatchVisible(bool value)
     {
+        if (!value)
+        {
+            SetMatchCalculationVisible(false);
+        }
+
         if (panelRequirementMatch == null)
         {
             return;
@@ -1146,12 +1173,40 @@ public class Panel_JobDetail : MonoBehaviour
         }
     }
 
+    private void SetMatchCalculationVisible(bool value)
+    {
+        if (panelMatchCalculation == null)
+        {
+            return;
+        }
+
+        panelMatchCalculation.SetActive(value);
+        if (value)
+        {
+            panelMatchCalculation.transform.SetAsLastSibling();
+        }
+    }
+
     private void RefreshRequirementMatchText()
     {
         SetText(textRequirementMatch, currentData == null
             ? "目前沒有可比對的職缺資料。"
             : JobRequirementMatchTextFormatter.Format(
-                currentData.v027Match, currentData.v027Score));
+                currentData.v027Match,
+                currentData.v027Score,
+                currentData.v028PreferenceMatch,
+                currentData.v028PreferenceScore));
+    }
+
+    private void RefreshMatchCalculationText()
+    {
+        SetText(textMatchCalculation, currentData == null
+            ? "目前沒有可計算的職缺資料。"
+            : JobRequirementMatchTextFormatter.FormatCalculation(
+                currentData.v027Match,
+                currentData.v027Score,
+                currentData.v028PreferenceMatch,
+                currentData.v028PreferenceScore));
     }
 
     /// <summary>
@@ -1208,181 +1263,24 @@ public class Panel_JobDetail : MonoBehaviour
     }
 
     /// <summary>
-    /// 舊版詳情 Prefab 沒有比對視窗，執行時建立一致的阻擋式 Modal，
-    /// 讓既有場景不需要重新手動綁定整組 UI。
+    /// 確認雙向比對 UI 已序列化在 Prefab。
+    /// 固定介面不在執行時生成，避免編輯器與 Play Mode 看到不同的階層。
     /// </summary>
     private void EnsureRequirementMatchUi()
     {
         if (buttonShowRequirementMatch != null && panelRequirementMatch != null
-            && textRequirementMatch != null && buttonCloseRequirementMatch != null)
+            && textRequirementMatch != null && buttonCloseRequirementMatch != null
+            && buttonShowMatchCalculation != null && panelMatchCalculation != null
+            && textMatchCalculation != null && buttonCloseMatchCalculation != null)
         {
+            panelRequirementMatch.transform.SetAsLastSibling();
             return;
         }
 
-        TMP_FontAsset font = theme != null ? theme.BodyFont : textCompanyTitle?.font;
-        Color primary = theme != null ? theme.Primary : new Color(0.49f, 0.27f, 0.31f, 1f);
-        Color primaryHover = theme != null ? theme.PrimaryHover : primary;
-        Color primaryPressed = theme != null ? theme.PrimaryPressed : primary;
-        Color surface = theme != null ? theme.Surface : Color.white;
-        Color surfaceMuted = theme != null
-            ? theme.SurfaceMuted : new Color(0.94f, 0.92f, 0.92f, 1f);
-        Color textPrimary = theme != null
-            ? theme.TextPrimary : new Color(0.18f, 0.18f, 0.18f, 1f);
-        Color textOnPrimary = theme != null ? theme.TextOnPrimary : Color.white;
-        Color overlayColor = theme != null ? theme.Overlay : new Color(0f, 0f, 0f, 0.68f);
-
-        if (panelRequirementMatch == null)
-        {
-            Canvas rootCanvas = GetComponentInParent<Canvas>();
-            Transform modalParent = rootCanvas != null ? rootCanvas.transform : transform;
-            panelRequirementMatch = CreateRuntimeUiObject(
-                "Panel_RequirementMatch_V027", modalParent, typeof(Image));
-            RectTransform overlayRect = panelRequirementMatch.GetComponent<RectTransform>();
-            StretchRuntime(overlayRect, Vector2.zero, Vector2.zero);
-            Image overlay = panelRequirementMatch.GetComponent<Image>();
-            overlay.color = overlayColor;
-            overlay.raycastTarget = true;
-
-            GameObject card = CreateRuntimeUiObject(
-                "Card", panelRequirementMatch.transform, typeof(Image), typeof(Outline));
-            RectTransform cardRect = card.GetComponent<RectTransform>();
-            cardRect.anchorMin = new Vector2(0.5f, 0.5f);
-            cardRect.anchorMax = new Vector2(0.5f, 0.5f);
-            cardRect.pivot = new Vector2(0.5f, 0.5f);
-            cardRect.anchoredPosition = Vector2.zero;
-            cardRect.sizeDelta = new Vector2(1300f, 760f);
-            Image cardImage = card.GetComponent<Image>();
-            cardImage.color = surface;
-            cardImage.raycastTarget = true;
-            Outline cardOutline = card.GetComponent<Outline>();
-            cardOutline.effectColor = theme != null ? theme.Border : Color.gray;
-            cardOutline.effectDistance = new Vector2(1f, -1f);
-
-            TMP_Text title = CreateRuntimeText(card.transform, "Title", "履歷條件比對",
-                font, theme != null ? theme.ModalTitleSize : 36f,
-                textPrimary, TextAlignmentOptions.MidlineLeft);
-            title.fontStyle = FontStyles.Bold;
-            RectTransform titleRect = title.rectTransform;
-            titleRect.anchorMin = new Vector2(0f, 1f);
-            titleRect.anchorMax = new Vector2(1f, 1f);
-            titleRect.pivot = new Vector2(0.5f, 1f);
-            titleRect.anchoredPosition = new Vector2(0f, -18f);
-            titleRect.sizeDelta = new Vector2(-190f, 64f);
-
-            GameObject closeObject = CreateRuntimeUiObject(
-                "Button_CloseRequirementMatch_V027", card.transform,
-                typeof(Image), typeof(Button));
-            RectTransform closeRect = closeObject.GetComponent<RectTransform>();
-            AnchorAtTopRight(closeRect, new Vector2(-82f, -48f), new Vector2(120f, 52f));
-            Image closeImage = closeObject.GetComponent<Image>();
-            closeImage.color = primary;
-            buttonCloseRequirementMatch = closeObject.GetComponent<Button>();
-            buttonCloseRequirementMatch.targetGraphic = closeImage;
-            SetButtonColors(buttonCloseRequirementMatch, primary, primaryHover, primaryPressed);
-            TMP_Text closeLabel = CreateRuntimeText(closeObject.transform, "Label", "關閉",
-                font, theme != null ? theme.ButtonTextSize : 22f,
-                textOnPrimary, TextAlignmentOptions.Center);
-            StretchRuntime(closeLabel.rectTransform, new Vector2(8f, 4f), new Vector2(-8f, -4f));
-
-            GameObject viewportObject = CreateRuntimeUiObject(
-                "ScrollView", card.transform, typeof(Image), typeof(RectMask2D),
-                typeof(ScrollRect));
-            RectTransform viewport = viewportObject.GetComponent<RectTransform>();
-            StretchRuntime(viewport, new Vector2(30f, 30f), new Vector2(-30f, -100f));
-            viewportObject.GetComponent<Image>().color = surfaceMuted;
-
-            GameObject contentObject = CreateRuntimeUiObject(
-                "TMP_RequirementMatch_V027", viewportObject.transform,
-                typeof(TextMeshProUGUI), typeof(ContentSizeFitter));
-            RectTransform content = contentObject.GetComponent<RectTransform>();
-            content.anchorMin = new Vector2(0f, 1f);
-            content.anchorMax = new Vector2(1f, 1f);
-            content.pivot = new Vector2(0.5f, 1f);
-            content.anchoredPosition = Vector2.zero;
-            content.sizeDelta = Vector2.zero;
-            textRequirementMatch = contentObject.GetComponent<TMP_Text>();
-            textRequirementMatch.text = "履歷比對目前無法使用。";
-            textRequirementMatch.font = font;
-            textRequirementMatch.fontSize = theme != null ? theme.BodySize : 22f;
-            textRequirementMatch.color = textPrimary;
-            textRequirementMatch.alignment = TextAlignmentOptions.TopLeft;
-            textRequirementMatch.enableWordWrapping = true;
-            textRequirementMatch.margin = new Vector4(22f, 18f, 22f, 18f);
-            ContentSizeFitter fitter = contentObject.GetComponent<ContentSizeFitter>();
-            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            ScrollRect scroll = viewportObject.GetComponent<ScrollRect>();
-            scroll.viewport = viewport;
-            scroll.content = content;
-            scroll.horizontal = false;
-            scroll.vertical = true;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-            scroll.scrollSensitivity = 40f;
-        }
-
-        panelRequirementMatch.transform.SetAsLastSibling();
-    }
-
-    private static GameObject CreateRuntimeUiObject(
-        string name, Transform parent, params Type[] componentTypes)
-    {
-        var gameObject = new GameObject(name, typeof(RectTransform));
-        gameObject.layer = parent.gameObject.layer;
-        gameObject.transform.SetParent(parent, false);
-        foreach (Type type in componentTypes)
-        {
-            if (gameObject.GetComponent(type) == null) gameObject.AddComponent(type);
-        }
-        return gameObject;
-    }
-
-    private static TMP_Text CreateRuntimeText(
-        Transform parent, string name, string value, TMP_FontAsset font,
-        float fontSize, Color color, TextAlignmentOptions alignment)
-    {
-        GameObject gameObject = CreateRuntimeUiObject(name, parent, typeof(TextMeshProUGUI));
-        TMP_Text text = gameObject.GetComponent<TMP_Text>();
-        text.text = value;
-        text.font = font;
-        text.fontSize = fontSize;
-        text.color = color;
-        text.alignment = alignment;
-        text.raycastTarget = false;
-        return text;
-    }
-
-    private static void AnchorAtTopRight(
-        RectTransform rect, Vector2 position, Vector2 size)
-    {
-        rect.anchorMin = Vector2.one;
-        rect.anchorMax = Vector2.one;
-        rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = position;
-        rect.sizeDelta = size;
-    }
-
-    private static void StretchRuntime(
-        RectTransform rect, Vector2 offsetMin, Vector2 offsetMax)
-    {
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.one;
-        rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.offsetMin = offsetMin;
-        rect.offsetMax = offsetMax;
-    }
-
-    private static void SetButtonColors(
-        Button button, Color normal, Color highlighted, Color pressed)
-    {
-        ColorBlock colors = button.colors;
-        colors.normalColor = normal;
-        colors.highlightedColor = highlighted;
-        colors.selectedColor = highlighted;
-        colors.pressedColor = pressed;
-        colors.colorMultiplier = 1f;
-        colors.fadeDuration = 0.12f;
-        button.colors = colors;
+        Debug.LogError(
+            "SinglePanel_Detail.prefab 缺少雙向比對 UI 或序列化參考；" +
+            "請修復 Prefab，不要改為執行時生成。",
+            this);
     }
 
     /// <summary>
@@ -1470,6 +1368,18 @@ public class Panel_JobDetail : MonoBehaviour
             Transform foundMatchPanel = FindChildTransform("Panel_RequirementMatch_V027");
             if (foundMatchPanel != null) panelRequirementMatch = foundMatchPanel.gameObject;
         }
+        if (buttonShowMatchCalculation == null)
+            buttonShowMatchCalculation = FindChildButton("Button_ShowMatchCalculation_V028");
+        if (buttonCloseMatchCalculation == null)
+            buttonCloseMatchCalculation = FindChildButton("Button_CloseMatchCalculation_V028");
+        if (textMatchCalculation == null)
+            textMatchCalculation = FindChildText("TMP_MatchCalculation_V028");
+        if (panelMatchCalculation == null)
+        {
+            Transform foundCalculationPanel = FindChildTransform("Panel_MatchCalculation_V028");
+            if (foundCalculationPanel != null)
+                panelMatchCalculation = foundCalculationPanel.gameObject;
+        }
         if (layoutRoot == null) layoutRoot = transform as RectTransform;
         HideInputDialog();
     }
@@ -1507,6 +1417,8 @@ public class Panel_JobDetail : MonoBehaviour
         BindButton(buttonCloseEventHistory, CloseEventHistory);
         BindButton(buttonShowRequirementMatch, ShowRequirementMatch);
         BindButton(buttonCloseRequirementMatch, CloseRequirementMatch);
+        BindButton(buttonShowMatchCalculation, ShowMatchCalculation);
+        BindButton(buttonCloseMatchCalculation, CloseMatchCalculation);
     }
 
     /// <summary>
@@ -1908,6 +1820,7 @@ public class Panel_JobDetail : MonoBehaviour
         StyleDetailText(textEventHistory, theme.TextPrimary, FontStyles.Normal);
         StyleDetailText(textDeleteConfirmation, theme.TextPrimary, FontStyles.Normal);
         StyleDetailText(textRequirementMatch, theme.TextPrimary, FontStyles.Normal);
+        StyleDetailText(textMatchCalculation, theme.TextPrimary, FontStyles.Normal);
     }
 
     private void StyleStatusPanelBackground()

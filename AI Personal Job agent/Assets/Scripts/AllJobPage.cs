@@ -15,6 +15,10 @@ using RequirementMatchEngine = JobCheck.Domain.RequirementMatchEngine;
 using RequirementMatchResult = JobCheck.Domain.RequirementMatchResult;
 using RequirementScore = JobCheck.Domain.RequirementScore;
 using RequirementScoreCalculator = JobCheck.Domain.RequirementScoreCalculator;
+using JobPreferenceMatchEngine = JobCheck.Domain.JobPreferenceMatchEngine;
+using JobPreferenceMatchResult = JobCheck.Domain.JobPreferenceMatchResult;
+using JobPreferenceScore = JobCheck.Domain.JobPreferenceScore;
+using JobPreferenceScoreCalculator = JobCheck.Domain.JobPreferenceScoreCalculator;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -659,6 +663,14 @@ public class AllJobPage : MonoBehaviour
                 summary.fit_score = score.Score ?? -1;
                 summary.v02Detail.v027Match = match;
                 summary.v02Detail.v027Score = score;
+                JobPreferenceMatchResult preferenceMatch =
+                    JobPreferenceMatchEngine.Compare(
+                        profile.JobPreferences,
+                        item.Company,
+                        item.JobPosting);
+                summary.v02Detail.v028PreferenceMatch = preferenceMatch;
+                summary.v02Detail.v028PreferenceScore =
+                    JobPreferenceScoreCalculator.Calculate(preferenceMatch);
                 if (summary.v02Tracking != null)
                 {
                     summary.v02Tracking.fit_score = summary.fit_score;
@@ -1229,6 +1241,8 @@ public class JobDetailData
 
     [NonSerialized] public RequirementMatchResult v027Match;
     [NonSerialized] public RequirementScore v027Score;
+    [NonSerialized] public JobPreferenceMatchResult v028PreferenceMatch;
+    [NonSerialized] public JobPreferenceScore v028PreferenceScore;
 }
 
 [Serializable]
