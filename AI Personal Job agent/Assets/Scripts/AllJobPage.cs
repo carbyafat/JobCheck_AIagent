@@ -30,12 +30,6 @@ public class AllJobPage : MonoBehaviour
 {
     private const string DataProfilePreferenceKey = "JobCheck.DataProfile";
 
-    [Header("Data")]
-    [Tooltip("版本控制內的正式 Demo 資料根目錄；不可寫入個人真實資料。")]
-    [SerializeField] private string demoDataRootPath = "../data";
-    [Tooltip("只保存在本機、不納入 Git 的個人資料根目錄。")]
-    [SerializeField] private string personalDataRootPath = "../personal_data";
-
     [Header("UI")]
     [Tooltip("載入全部職缺資料的按鈕。")]
     [SerializeField] private Button buttonLoad;
@@ -82,16 +76,16 @@ public class AllJobPage : MonoBehaviour
     public JobCheckDataProfile CurrentDataProfile => currentDataProfile;
     public string CurrentDataProfileLabel =>
         currentDataProfile == JobCheckDataProfile.Personal ? "個人" : "Demo";
-    public string CurrentDataRoot => ResolveProjectRelativePath(ActiveDataRootPath);
-    public string PersonalDataRoot => ResolveProjectRelativePath(personalDataRootPath);
+    public string CurrentDataRoot => ActiveDataRoot;
+    public string PersonalDataRoot => JobCheckRuntimeDataPaths.PersonalRoot;
 
-    private string ActiveDataRootPath
+    private string ActiveDataRoot
     {
         get
         {
             return currentDataProfile == JobCheckDataProfile.Personal
-                ? personalDataRootPath
-                : demoDataRootPath;
+                ? JobCheckRuntimeDataPaths.PersonalRoot
+                : JobCheckRuntimeDataPaths.DemoRoot;
         }
     }
 
@@ -116,6 +110,10 @@ public class AllJobPage : MonoBehaviour
     private void Awake()
     {
         LoadSelectedDataProfile();
+        if (currentDataProfile == JobCheckDataProfile.Personal)
+        {
+            EnsurePersonalDataRoot();
+        }
         AutoBindReferences();
         BindButtons();
         RefreshDataProfileUi();
@@ -130,7 +128,7 @@ public class AllJobPage : MonoBehaviour
         loadedJobs.Clear();
         currentPage = 0;
 
-        LoadFromV02Data(ResolveProjectRelativePath(ActiveDataRootPath));
+        LoadFromV02Data(CurrentDataRoot);
 
         ApplyFilter(currentFilter);
     }
@@ -211,7 +209,7 @@ public class AllJobPage : MonoBehaviour
     {
         PersistenceStorageResult<JobPostingWriteSummary> result =
             JobPostingCommandService.Create(
-                ResolveProjectRelativePath(ActiveDataRootPath),
+                CurrentDataRoot,
                 request);
         if (result.IsSuccess)
         {
@@ -309,7 +307,7 @@ public class AllJobPage : MonoBehaviour
     {
         PersistenceStorageResult<JobPostingWriteSummary> result =
             JobPostingCommandService.Update(
-                ResolveProjectRelativePath(ActiveDataRootPath),
+                CurrentDataRoot,
                 request);
         if (result.IsSuccess)
         {
@@ -356,7 +354,7 @@ public class AllJobPage : MonoBehaviour
 
         PersistenceStorageResult<JobPostingTrashSummary> result =
             JobPostingTrashService.MoveToTrash(
-                ResolveProjectRelativePath(ActiveDataRootPath),
+                CurrentDataRoot,
                 jobPostingId);
         if (result.IsSuccess)
         {
@@ -477,7 +475,7 @@ public class AllJobPage : MonoBehaviour
 
         PersistenceStorageResult<ApplicationWriteSummary> result =
             ApplicationCommandService.SetManualFollowUp(
-                ResolveProjectRelativePath(ActiveDataRootPath),
+                CurrentDataRoot,
                 jobId,
                 followUpAt);
         return FinishV02Write(jobId, result);
@@ -716,7 +714,7 @@ public class AllJobPage : MonoBehaviour
 
         PersistenceStorageResult<ApplicationWriteSummary> result =
             ApplicationCommandService.RecordEvent(
-                ResolveProjectRelativePath(ActiveDataRootPath),
+                CurrentDataRoot,
                 jobId,
                 eventType,
                 actor,
@@ -734,7 +732,7 @@ public class AllJobPage : MonoBehaviour
     {
         PersistenceStorageResult<ApplicationWriteSummary> result =
             ApplicationCommandService.SetFavorite(
-                ResolveProjectRelativePath(ActiveDataRootPath),
+                CurrentDataRoot,
                 jobId,
                 favorite);
         return FinishV02Write(jobId, result);
@@ -747,7 +745,7 @@ public class AllJobPage : MonoBehaviour
     {
         PersistenceStorageResult<ApplicationWriteSummary> result =
             ApplicationCommandService.SetNotes(
-                ResolveProjectRelativePath(ActiveDataRootPath),
+                CurrentDataRoot,
                 jobId,
                 notes);
         return FinishV02Write(jobId, result);
@@ -930,7 +928,7 @@ public class AllJobPage : MonoBehaviour
     {
         if (analyticsPanel == null) return;
         analyticsPanel.Open(
-            ResolveProjectRelativePath(ActiveDataRootPath),
+            CurrentDataRoot,
             currentDataProfile == JobCheckDataProfile.Personal ? "個人" : "Demo");
     }
 
@@ -938,7 +936,7 @@ public class AllJobPage : MonoBehaviour
     {
         if (portableTransferPanel == null) return;
         portableTransferPanel.OpenExport(
-            ResolveProjectRelativePath(personalDataRootPath),
+            PersonalDataRoot,
             currentDataProfile == JobCheckDataProfile.Personal,
             Load);
     }
@@ -947,7 +945,7 @@ public class AllJobPage : MonoBehaviour
     {
         if (trashManagementPanel == null) return;
         trashManagementPanel.Open(
-            ResolveProjectRelativePath(personalDataRootPath),
+            PersonalDataRoot,
             currentDataProfile == JobCheckDataProfile.Personal,
             Load);
     }
@@ -965,7 +963,7 @@ public class AllJobPage : MonoBehaviour
     /// </summary>
     private bool EnsurePersonalDataRoot()
     {
-        string root = ResolveProjectRelativePath(personalDataRootPath);
+        string root = PersonalDataRoot;
         if (Directory.Exists(root))
         {
             return true;
@@ -1165,22 +1163,6 @@ public class AllJobPage : MonoBehaviour
     {
         Transform child = transform.Find(childName);
         return child != null ? child.GetComponent<Button>() : null;
-    }
-
-    /// <summary>
-    /// 將專案相對路徑轉成完整路徑。
-    /// </summary>
-    /// <param name="path">絕對路徑或相對於 Unity 專案根目錄的路徑。</param>
-    /// <returns>完整路徑。</returns>
-    private string ResolveProjectRelativePath(string path)
-    {
-        if (Path.IsPathRooted(path))
-        {
-            return path;
-        }
-
-        string projectRoot = Directory.GetParent(Application.dataPath).FullName;
-        return Path.GetFullPath(Path.Combine(projectRoot, path));
     }
 
 }

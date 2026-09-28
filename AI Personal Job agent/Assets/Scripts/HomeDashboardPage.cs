@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using JobCheck.Persistence;
 using TMPro;
 using UnityEngine;
@@ -9,10 +8,6 @@ using UnityEngine.UI;
 /// <summary>JobCheck 首頁儀表板；只讀取既有摘要與履歷狀態，不寫回資料。</summary>
 public sealed class HomeDashboardPage : MonoBehaviour
 {
-    [Header("Data")]
-    [SerializeField] private string demoDataRootPath = "../data";
-    [SerializeField] private string personalDataRootPath = "../personal_data";
-
     [Header("Theme")]
     [SerializeField] private JobCheckUiTheme theme;
     [SerializeField] private TMP_FontAsset fontAsset;
@@ -122,10 +117,10 @@ public sealed class HomeDashboardPage : MonoBehaviour
 
         string dataRoot = allJobPage != null
             ? allJobPage.CurrentDataRoot
-            : ResolveProjectRelativePath(SelectedProfile() == JobCheckDataProfile.Personal
-                ? personalDataRootPath
-                : demoDataRootPath);
-        string personalRoot = ResolveProjectRelativePath(personalDataRootPath);
+            : SelectedProfile() == JobCheckDataProfile.Personal
+                ? JobCheckRuntimeDataPaths.PersonalRoot
+                : JobCheckRuntimeDataPaths.DemoRoot;
+        string personalRoot = JobCheckRuntimeDataPaths.PersonalRoot;
         PersistenceStorageResult<HomeDashboardSnapshot> result = HomeDashboardQuery.Load(
             dataRoot,
             personalRoot,
@@ -550,17 +545,6 @@ public sealed class HomeDashboardPage : MonoBehaviour
             == (int)JobCheckDataProfile.Personal
             ? JobCheckDataProfile.Personal
             : JobCheckDataProfile.Demo;
-    }
-
-    private static string ResolveProjectRelativePath(string path)
-    {
-        if (Path.IsPathRooted(path))
-        {
-            return path;
-        }
-
-        string projectRoot = Directory.GetParent(Application.dataPath).FullName;
-        return Path.GetFullPath(Path.Combine(projectRoot, path));
     }
 
     private void ApplySprite(Image image)

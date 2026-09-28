@@ -74,6 +74,13 @@ V0.2 資料結構
 - `data/`：納入版本控制的虛構 Demo 資料。
 - `personal_data/`：本機個人資料，整個目錄由 `.gitignore` 排除。
 
+Unity Editor 會直接使用上述兩個儲存庫目錄。Windows Standalone Build 則不依賴 Unity 專案，改用執行檔旁的可攜式資料目錄：
+
+- `JobCheckData/demo/`：每次 Build 完成後，由 Editor 自動從儲存庫的 `data/` 複製；重新 Build 只替換這一區。
+- `JobCheckData/personal/`：執行檔切換到個人資料時建立空資料結構，之後保存使用者建立的職缺、應徵、履歷與求職條件。
+
+因此交付 Demo 時需要一起攜帶 `.exe`、Unity 產生的相依檔案與整個 `JobCheckData/`。建置流程不會把開發機的 `personal_data/` 帶入 Build，也不會在重新 Build 時覆蓋 Build 內既有的 `JobCheckData/personal/`。
+
 兩套資料區的主要資料使用相同 V0.2 結構：
 
 - `companies/`：公司主資料。
@@ -90,6 +97,8 @@ V0.2 資料結構
 
 - `Assets/JobCheck/Runtime/`：Domain 模型、enum、ID、驗證與事件狀態推導。
 - `Assets/JobCheck/Persistence/`：DTO、Mapper、Repository、migration、唯讀分析 query 與寫入服務。
+- `Assets/JobCheck/Persistence/Storage/JobCheckDataPathResolver.cs`：集中解析 Editor 與 Standalone Build 的 Demo／個人資料位置。
+- `Assets/Editor/CopyJobCheckDemoDataToBuild.cs`：Build 後只發佈虛構 Demo 到執行檔旁的 `JobCheckData/demo/`。
 - `Assets/JobCheck/Tests/`：Domain 與 Persistence EditMode tests。
 - `Assets/Scripts/`：Unity UI 與 V0.2 顯示／操作接軌。
 - `Assets/JobCheckUiTheme.asset`：UI 共用色票、字體角色、間距與元件尺寸規格。

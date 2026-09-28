@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using JobCheck.Domain;
 using JobCheck.Persistence;
@@ -11,7 +10,6 @@ using UnityEngine.UI;
 /// <summary>V0.2.8 求職條件單欄編輯頁。</summary>
 public sealed class JobPreferencesPage : MonoBehaviour
 {
-    [SerializeField] private string personalDataRootPath = "../personal_data";
     [SerializeField] private JobCheckUiTheme theme;
 
     private bool built;
@@ -233,7 +231,7 @@ public sealed class JobPreferencesPage : MonoBehaviour
     {
         if (!built) return;
         PersistenceStorageResult<CareerProfile> result = CareerProfileRepository.Load(
-            ResolveProjectRelativePath(personalDataRootPath));
+            JobCheckRuntimeDataPaths.PersonalRoot);
         if (!result.IsSuccess || result.Value == null)
         {
             currentProfile = null;
@@ -309,7 +307,7 @@ public sealed class JobPreferencesPage : MonoBehaviour
         };
         currentProfile.UpdatedAt = now;
         PersistenceStorageResult<CareerProfile> result = CareerProfileRepository.Save(
-            ResolveProjectRelativePath(personalDataRootPath), currentProfile);
+            JobCheckRuntimeDataPaths.PersonalRoot, currentProfile);
         if (!result.IsSuccess)
         {
             SetStatus("儲存求職條件失敗。", true);
@@ -429,13 +427,6 @@ public sealed class JobPreferencesPage : MonoBehaviour
                 option.text, value, StringComparison.Ordinal));
         dropdown.SetValueWithoutNotify(Mathf.Max(0, index));
         dropdown.RefreshShownValue();
-    }
-
-    private static string ResolveProjectRelativePath(string path)
-    {
-        if (Path.IsPathRooted(path)) return path;
-        string projectRoot = Directory.GetParent(UnityEngine.Application.dataPath).FullName;
-        return Path.GetFullPath(Path.Combine(projectRoot, path));
     }
 
     private static GameObject CreateUiObject(string name, Transform parent, params Type[] components)

@@ -14,9 +14,6 @@ using UnityEngine.UI;
 /// <summary>個人履歷母資料頁；負責載入資料並呈現，不介入職缺頁流程。</summary>
 public sealed class CareerProfilePage : MonoBehaviour
 {
-    [Header("Data")]
-    [SerializeField] private string personalDataRootPath = "../personal_data";
-
     [Header("Display")]
     [SerializeField] private TMP_FontAsset fontAsset;
     [SerializeField] private TMP_Text displayText;
@@ -162,7 +159,7 @@ public sealed class CareerProfilePage : MonoBehaviour
     public void Refresh()
     {
         PersistenceStorageResult<CareerProfile> result =
-            CareerProfileRepository.Load(ResolveProjectRelativePath(personalDataRootPath));
+            CareerProfileRepository.Load(JobCheckRuntimeDataPaths.PersonalRoot);
         if (!result.IsSuccess)
         {
             CurrentProfile = null;
@@ -282,7 +279,7 @@ public sealed class CareerProfilePage : MonoBehaviour
             experienceDraft, projectDraft, educationDraft, languageDraft, now);
 
         PersistenceStorageResult<CareerProfile> result = CareerProfileRepository.Save(
-            ResolveProjectRelativePath(personalDataRootPath),
+            JobCheckRuntimeDataPaths.PersonalRoot,
             candidate);
         if (!result.IsSuccess)
         {
@@ -2191,7 +2188,7 @@ public sealed class CareerProfilePage : MonoBehaviour
     {
         PersistenceStorageResult<CareerProfilePortableExportSummary> result =
             CareerProfilePortableExportService.Export(
-                ResolveProjectRelativePath(personalDataRootPath), destinationPath);
+                JobCheckRuntimeDataPaths.PersonalRoot, destinationPath);
         if (!result.IsSuccess)
         {
             SetTransferMessage("履歷匯出失敗，原始資料未變更。\n"
@@ -2210,7 +2207,7 @@ public sealed class CareerProfilePage : MonoBehaviour
         InvalidateTransferPreview();
         PersistenceStorageResult<CareerProfilePortableImportPreview> result =
             CareerProfilePortableImportService.Preview(
-                packagePath, ResolveProjectRelativePath(personalDataRootPath));
+                packagePath, JobCheckRuntimeDataPaths.PersonalRoot);
         if (!result.IsSuccess)
         {
             SetTransferMessage("無法預覽這份履歷搬運檔。\n"
@@ -2254,7 +2251,7 @@ public sealed class CareerProfilePage : MonoBehaviour
         PersistenceStorageResult<CareerProfilePortableImportSummary> result =
             CareerProfilePortableImportService.Import(
                 previewedPackagePath,
-                ResolveProjectRelativePath(personalDataRootPath),
+                JobCheckRuntimeDataPaths.PersonalRoot,
                 replaceExisting);
         InvalidateTransferPreview();
         if (!result.IsSuccess)
@@ -3442,14 +3439,4 @@ public sealed class CareerProfilePage : MonoBehaviour
             : TextPrimary;
     }
 
-    private static string ResolveProjectRelativePath(string path)
-    {
-        if (Path.IsPathRooted(path))
-        {
-            return path;
-        }
-
-        string projectRoot = Directory.GetParent(UnityEngine.Application.dataPath).FullName;
-        return Path.GetFullPath(Path.Combine(projectRoot, path));
-    }
 }

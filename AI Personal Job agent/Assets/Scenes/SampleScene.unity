@@ -8477,8 +8477,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 977a24539aa447f58a35f2720b48565d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  demoDataRootPath: ../data
-  personalDataRootPath: ../personal_data
   theme: {fileID: 11400000, guid: d4a2718cc0bf44c3ba8e2f70ca19ad52, type: 2}
   fontAsset: {fileID: 11400000, guid: c7fa66a4d8d347945a87bc0d8d8c63f4, type: 2}
   placeholderRoot: {fileID: 900002001}
@@ -8568,7 +8566,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4121b12e81354cb6ac253ba1f83daf7a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  personalDataRootPath: ../personal_data
   fontAsset: {fileID: 11400000, guid: c7fa66a4d8d347945a87bc0d8d8c63f4, type: 2}
   displayText: {fileID: 900003005}
   theme: {fileID: 11400000, guid: d4a2718cc0bf44c3ba8e2f70ca19ad52, type: 2}
@@ -13604,7 +13601,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76dfb8b383834b42acfd7cbfa5cc14e1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  personalDataRootPath: ../personal_data
   theme: {fileID: 11400000, guid: d4a2718cc0bf44c3ba8e2f70ca19ad52, type: 2}
   scroll: {fileID: 360801965}
   statusText: {fileID: 2125936313}

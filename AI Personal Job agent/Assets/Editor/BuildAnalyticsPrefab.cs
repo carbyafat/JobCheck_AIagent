@@ -177,9 +177,10 @@ public static class BuildAnalyticsPrefab
         if (!formatted.Contains("&lt;測試&gt;") || !formatted.Contains("樣本少於 5"))
             throw new InvalidOperationException("Long-platform/small-sample rendering is invalid.");
 
-        string projectRoot = Directory.GetParent(Application.dataPath).FullName;
-        string demoRoot = Path.GetFullPath(Path.Combine(projectRoot, "../data"));
-        string personalRoot = Path.GetFullPath(Path.Combine(projectRoot, "../personal_data"));
+        JobCheckDataPathSet paths =
+            JobCheckDataPathResolver.ResolveForEditor(Application.dataPath);
+        string demoRoot = paths.DemoRoot;
+        string personalRoot = paths.PersonalRoot;
         CheckProfile("Demo", demoRoot);
         if (Directory.Exists(personalRoot)) CheckProfile("Personal", personalRoot);
         Debug.Log("JobCheck V0.2.2 analytics prefab validation passed.");

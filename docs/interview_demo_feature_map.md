@@ -15,7 +15,8 @@ Domain + Validator + Reducer（Assets/JobCheck/Runtime）
     ↓ 商業規則與狀態推導
 Mapper + DTO + Repository（Assets/JobCheck/Persistence）
     ↓ JSON 轉換、驗證、原子寫入
-data/ 或 personal_data/
+Editor：data/ 或 personal_data/
+Build：JobCheckData/demo/ 或 JobCheckData/personal/
 ```
 
 面試時可用一句話說明：**UI 不直接決定資料規則；Command／Query 協調流程，Domain 負責規則，Repository 負責檔案邊界。**
@@ -43,7 +44,8 @@ data/ 或 personal_data/
 |---|---|---|---|
 | 載入、分頁、排序、列表顯示 | `Assets/Scripts/AllJobPage.cs` | `Panel_SingleJob.cs`、`JobCheckV02DisplayAdapter.cs`、`Persistence/Queries/JobPostingReadOnlyQuery.cs` | `AllJobPage` 是目前 UI 協調中心；Adapter 把 Domain 查詢結果轉成舊 UI 顯示模型。 |
 | 條件篩選 | `Assets/Scripts/FilterPanel.cs` | `AllJobPage.cs` | FilterPanel 只收集條件，實際套用由 AllJobPage 執行。 |
-| Demo／個人資料切換 | `AllJobPage.cs` | `JobCheckDataRepository.cs` | `data/` 是版控內虛構資料；`personal_data/` 被 `.gitignore` 排除。個人資料區不存在時才建立空結構。 |
+| Demo／個人資料切換 | `AllJobPage.cs` | `JobCheckRuntimeDataPaths.cs`、`JobCheckDataPathResolver.cs`、`JobCheckDataRepository.cs` | Editor 使用版控內 `data/` 與被忽略的 `personal_data/`；Standalone Build 使用執行檔旁的 `JobCheckData/demo/` 與 `JobCheckData/personal/`。個人資料區不存在時才建立空結構。 |
+| Build 攜帶 Demo | `Assets/Editor/CopyJobCheckDemoDataToBuild.cs` | `JobCheckDemoDataPublisher.cs` | Build 完成後只更新 `JobCheckData/demo/`；不複製開發機個資，也不覆蓋 Build 既有的 `JobCheckData/personal/`。 |
 
 ### 4. 新增與編輯職缺
 
@@ -83,7 +85,7 @@ data/ 或 personal_data/
 |---|---|---|---|
 | 顯示／編輯自介、連結、技能、經歷、專案、學歷、語言 | `Assets/Scripts/CareerProfilePage.cs` | `CareerProfileColumnsLayout.cs` | 這是個人職涯「母資料」，不等同於某次投遞用的履歷文件。 |
 | 履歷模型與驗證 | `Runtime/CareerProfiles/CareerProfile.cs` | `CareerProfileValidator.cs`、`CareerProfileIdGenerator.cs` | 各區塊可暫時留白，但已有內容必須符合格式與關聯規則。 |
-| 履歷儲存 | `Persistence/Storage/CareerProfileRepository.cs` | `CareerProfileDto.cs`、`CareerProfileDtoMapper.cs` | 與職缺／應徵資料分開存於 `personal_data/profile/profile.json`。 |
+| 履歷儲存 | `Persistence/Storage/CareerProfileRepository.cs` | `CareerProfileDto.cs`、`CareerProfileDtoMapper.cs` | 與職缺／應徵資料分開；Editor 存於 `personal_data/profile/profile.json`，Build 存於 `JobCheckData/personal/profile/profile.json`。 |
 
 ### 9. 求職條件（目前分支開發中）
 
