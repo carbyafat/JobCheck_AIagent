@@ -87,12 +87,14 @@ Build：JobCheckData/demo/ 或 JobCheckData/personal/
 | 履歷模型與驗證 | `Runtime/CareerProfiles/CareerProfile.cs` | `CareerProfileValidator.cs`、`CareerProfileIdGenerator.cs` | 各區塊可暫時留白，但已有內容必須符合格式與關聯規則。 |
 | 履歷儲存 | `Persistence/Storage/CareerProfileRepository.cs` | `CareerProfileDto.cs`、`CareerProfileDtoMapper.cs` | 與職缺／應徵資料分開；Editor 存於 `personal_data/profile/profile.json`，Build 存於 `JobCheckData/personal/profile/profile.json`。 |
 
-### 9. 求職條件（目前分支開發中）
+### 9. 求職條件與雙向比對
 
 | 功能 | 入口／主要腳本 | 相關腳本 | 要記得的設計 |
 |---|---|---|---|
-| 目標職務、產業、薪資、地點、工作型態、工時等 | `Assets/Scripts/JobPreferencesPage.cs` | `AppPageNavigator.cs`、`CareerProfile.cs` 內的 `JobSearchPreferences` | 求職偏好和「我具備什麼能力」分開；目前是 V0.2.8 的輸入與保存基礎。 |
-| 條件 DTO 與存取 | `Persistence/Dtos/CareerProfileDto.cs` | `CareerProfileDtoMapper.cs`、`CareerProfileRepository.cs` | 暫時隨個人履歷檔保存；雙向比對規則尚未完成前，不要在 demo 宣稱已有推薦決策。 |
+| 目標職務、產業、薪資、地點、工作型態、工時等 | `Assets/Scripts/JobPreferencesPage.cs` | `AppPageNavigator.cs`、`CareerProfile.cs` 內的 `JobSearchPreferences` | 求職偏好和「我具備什麼能力」分開，並隨個人履歷檔保存。 |
+| 職缺是否符合求職條件 | `Runtime/Matching/JobPreferenceMatchEngine.cs` | `JobPreferenceScore.cs`、`JobPreferenceMatchResult.cs` | 必要條件不符、部分符合與職缺資料不足分開；只對結構化且可重現的欄位計分。 |
+| 雙向結果呈現 | `JobRequirementMatchTextFormatter.cs` | `AllJobPage.cs`、`Panel_JobDetail.cs` | 同一視窗分別回答「履歷是否符合職缺」與「職缺是否符合求職條件」，結果只在載入時衍生，不寫回職缺。 |
+| AI 偏好上下文 | `CareerProfile.cs` 內的 `JobSearchPreferences` | 通勤、加班、外派、搬遷欄位 | 目前只保存並標示為待 AI 判斷，不進入 V0.2.8 規則分數。 |
 
 ### 10. 匯入、匯出與垃圾桶
 
@@ -180,7 +182,7 @@ Build：JobCheckData/demo/ 或 JobCheckData/personal/
 6. **履歷**：說明它是可重用的母資料，與單次投遞文件分開。
 7. **資料搬運／垃圾桶**：用預覽、雜湊、備份與原子寫入收尾，突顯資料安全意識。
 
-若「求職條件」尚未完成雙向比對，只展示資料輸入與下一步設計，不把 roadmap 說成現成功能。
+展示雙向比對時，應明確說明通勤、加班、外派與搬遷仍是後續 AI 的上下文，不宣稱目前規則引擎能理解職缺原文或估算交通時間。
 
 ## 面試時值得主動說的設計取捨
 

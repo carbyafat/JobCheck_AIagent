@@ -155,7 +155,7 @@ namespace JobCheck.Ui.Editor.Tests
                 Assert.That(sidebar.Find("Text_PrototypeNote"), Is.Null);
                 Text version = RequireChild(sidebar, "Text_Version").GetComponent<Text>();
                 Assert.That(version, Is.Not.Null);
-                Assert.That(version.text, Is.EqualTo("v0.2.8"));
+                Assert.That(version.text, Is.EqualTo("v0.2.9"));
                 Assert.That(version.gameObject.activeSelf, Is.True);
                 Assert.That(RequireChild(sidebar, "Navigation_ActiveIndicator").GetComponent<Image>(),
                     Is.Not.Null);
@@ -387,9 +387,8 @@ namespace JobCheck.Ui.Editor.Tests
             Assert.That(calculationPanel.gameObject.activeSelf, Is.False);
             Assert.That(calculationPanel.GetComponent<Image>().raycastTarget, Is.True,
                 "計算過程遮罩必須攔截雙向比對視窗的點擊。");
-            Assert.That(matchPanel.GetSiblingIndex(),
-                Is.EqualTo(matchPanel.parent.childCount - 1),
-                "比對視窗必須序列化於最上層。");
+            Assert.That(matchPanel.parent, Is.EqualTo(detailAsset.transform),
+                "比對視窗必須直接序列化於職缺詳情 Prefab；執行時開啟後再移至最上層。");
 
             GameObject instance = UnityEngine.Object.Instantiate(detailAsset);
             try

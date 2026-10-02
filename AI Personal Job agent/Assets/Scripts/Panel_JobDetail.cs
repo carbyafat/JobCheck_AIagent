@@ -80,6 +80,12 @@ public class Panel_JobDetail : MonoBehaviour
     [Tooltip("關閉計算過程面板。")]
     [SerializeField] private Button buttonCloseMatchCalculation;
 
+    [Header("AI Job Fit Assist")]
+    [Tooltip("開啟目前職缺的離線 AI 輔助交換面板。")]
+    [SerializeField] private Button buttonShowAiAssist;
+    [Tooltip("匯出 AI request、驗證 result 並預覽保存的阻擋式面板。")]
+    [SerializeField] private Panel_AiJobFitAssist aiAssistPanel;
+
     [Header("Status Panel")]
     [Tooltip("開關狀態按鈕面板的按鈕。")]
     [SerializeField] private Button buttonShowStatusPanel;
@@ -174,6 +180,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetEventHistoryVisible(false);
         SetDeleteConfirmationVisible(false);
         SetRequirementMatchVisible(false);
+        CloseAiAssist();
     }
 
     /// <summary>
@@ -193,6 +200,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetEventHistoryVisible(false);
         SetDeleteConfirmationVisible(false);
         SetRequirementMatchVisible(false);
+        CloseAiAssist();
         // 詳情物件若原本 inactive，Awake 會在上一行才完成自動綁定；此時再套一次唯讀狀態。
         SetReadOnly(isReadOnly);
         ApplyV02Labels();
@@ -266,6 +274,7 @@ public class Panel_JobDetail : MonoBehaviour
         SetEventHistoryVisible(false);
         SetDeleteConfirmationVisible(false);
         SetRequirementMatchVisible(false);
+        CloseAiAssist();
         HideInputDialog();
         ForceBuildLayout();
     }
@@ -276,6 +285,7 @@ public class Panel_JobDetail : MonoBehaviour
     public void Hide()
     {
         SetRequirementMatchVisible(false);
+        CloseAiAssist();
         gameObject.SetActive(false);
 
         if (allJobPage == null)
@@ -453,6 +463,45 @@ public class Panel_JobDetail : MonoBehaviour
     public void CloseMatchCalculation()
     {
         SetMatchCalculationVisible(false);
+    }
+
+    /// <summary>在目前職缺情境中開啟離線 AI 輔助；不會自動上傳任何資料。</summary>
+    public void ShowAiAssist()
+    {
+        if (currentData == null || aiAssistPanel == null)
+        {
+            Debug.LogWarning("AI 輔助面板或目前職缺資料不存在。", this);
+            return;
+        }
+
+        if (allJobPage == null)
+            allJobPage = FindObjectOfType<AllJobPage>(true);
+        if (allJobPage == null)
+        {
+            Debug.LogWarning("AllJobPage not found; cannot open AI assist.", this);
+            return;
+        }
+
+        SetRequirementMatchVisible(false);
+        SetEventHistoryVisible(false);
+        SetDeleteConfirmationVisible(false);
+        if (panelStatusBtn != null) panelStatusBtn.SetActive(false);
+        HideInputDialog();
+        aiAssistPanel.Open(
+            allJobPage.CurrentDataRoot,
+            allJobPage.PersonalDataRoot,
+            allJobPage.CurrentDataProfile == JobCheckDataProfile.Personal,
+            currentData.id,
+            currentData.v027Match,
+            currentData.v027Score,
+            currentData.v028PreferenceMatch,
+            currentData.v028PreferenceScore);
+    }
+
+    private void CloseAiAssist()
+    {
+        if (aiAssistPanel != null && aiAssistPanel.gameObject.activeSelf)
+            aiAssistPanel.Close();
     }
 
     private void ApplyV02Labels()
@@ -1380,6 +1429,14 @@ public class Panel_JobDetail : MonoBehaviour
             if (foundCalculationPanel != null)
                 panelMatchCalculation = foundCalculationPanel.gameObject;
         }
+        if (buttonShowAiAssist == null)
+            buttonShowAiAssist = FindChildButton("Button_ShowAiAssist_V029");
+        if (aiAssistPanel == null)
+        {
+            Transform foundAiPanel = FindChildTransform("Panel_AiJobFitAssist_V029");
+            if (foundAiPanel != null)
+                aiAssistPanel = foundAiPanel.GetComponent<Panel_AiJobFitAssist>();
+        }
         if (layoutRoot == null) layoutRoot = transform as RectTransform;
         HideInputDialog();
     }
@@ -1419,6 +1476,7 @@ public class Panel_JobDetail : MonoBehaviour
         BindButton(buttonCloseRequirementMatch, CloseRequirementMatch);
         BindButton(buttonShowMatchCalculation, ShowMatchCalculation);
         BindButton(buttonCloseMatchCalculation, CloseMatchCalculation);
+        BindButton(buttonShowAiAssist, ShowAiAssist);
     }
 
     /// <summary>
